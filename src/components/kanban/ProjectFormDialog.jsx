@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { localClient } from "@/api/localClient";
+import { supabaseClient } from "@/api/supabaseClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,7 +27,7 @@ export default function ProjectFormDialog({ open, onClose, onSave, project }) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    localClient.entities.Contractor.list().then(setContractors);
+    supabaseClient.entities.Contractor.list().then(setContractors);
   }, []);
 
   useEffect(() => {
@@ -65,13 +65,22 @@ export default function ProjectFormDialog({ open, onClose, onSave, project }) {
       if (data.status === "Concluído") {
         data.final_score = calculateScore(data);
       }
-      await localClient.entities.Project.update(project.id, data);
-    } else {
-      await localClient.entities.Project.create(data);
     }
-    setSaving(false);
-    onSave();
-    onClose();
+
+    try {
+      if (project?.id) {
+        await supabaseClient.entities.Project.update(project.id, data);
+      } else {
+        await supabaseClient.entities.Project.create(data);
+      }
+      onSave();
+      onClose();
+    } catch (error) {
+      console.error('Erro ao salvar projeto:', error);
+      alert('Erro ao salvar os dados: ' + (error.message || JSON.stringify(error)));
+    } finally {
+      setSaving(false);
+    }
   };
 
   const isIT = form.scope_type === "TI/Automações";

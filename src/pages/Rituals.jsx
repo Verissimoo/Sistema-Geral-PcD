@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { localClient } from "@/api/localClient";
+import { supabaseClient } from "@/api/supabaseClient";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +19,7 @@ export default function Rituals() {
   const [editRitual, setEditRitual] = useState(null);
 
   const load = async () => {
-    const data = await localClient.entities.Ritual.list("-event_date");
+    const data = await supabaseClient.entities.Ritual.list();
     setRituals(data);
     setLoading(false);
   };
@@ -27,7 +27,7 @@ export default function Rituals() {
   useEffect(() => { load(); }, []);
 
   const toggleCompleted = async (ritual) => {
-    await localClient.entities.Ritual.update(ritual.id, { completed: !ritual.completed });
+    await supabaseClient.entities.Ritual.update(ritual.id, { completed: !ritual.completed });
     load();
   };
 

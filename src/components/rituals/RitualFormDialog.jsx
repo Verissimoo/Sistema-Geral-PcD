@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { localClient } from "@/api/localClient";
+import { supabaseClient } from "@/api/supabaseClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,7 +21,7 @@ export default function RitualFormDialog({ open, onClose, onSave, ritual }) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    localClient.entities.Contractor.list().then(setContractors);
+    supabaseClient.entities.Contractor.list().then(setContractors);
   }, []);
 
   useEffect(() => {
@@ -46,14 +46,20 @@ export default function RitualFormDialog({ open, onClose, onSave, ritual }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
-    if (ritual?.id) {
-      await localClient.entities.Ritual.update(ritual.id, form);
-    } else {
-      await localClient.entities.Ritual.create(form);
+    try {
+      if (ritual?.id) {
+        await supabaseClient.entities.Ritual.update(ritual.id, form);
+      } else {
+        await supabaseClient.entities.Ritual.create(form);
+      }
+      onSave();
+      onClose();
+    } catch (error) {
+      console.error('Erro ao salvar ritual:', error);
+      alert('Erro ao salvar os dados: ' + (error.message || JSON.stringify(error)));
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
-    onSave();
-    onClose();
   };
 
   return (

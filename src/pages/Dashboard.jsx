@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { localClient } from "@/api/localClient";
+import { supabaseClient } from "@/api/supabaseClient";
 import { Card } from "@/components/ui/card";
 import { AlertTriangle, CheckCircle, Clock, FileText, TrendingUp, Users } from "lucide-react";
 import { calculateScore, isFullyAccepted } from "@/lib/scoring";
@@ -12,8 +12,8 @@ export default function Dashboard() {
   useEffect(() => {
     async function load() {
       const [p, c] = await Promise.all([
-        localClient.entities.Project.list(),
-        localClient.entities.Contractor.list(),
+        supabaseClient.entities.Project.list(),
+        supabaseClient.entities.Contractor.list(),
       ]);
       setProjects(p);
       setContractors(c);

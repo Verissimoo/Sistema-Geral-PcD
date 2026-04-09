@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { localClient } from "@/api/localClient";
+import { supabaseClient } from "@/api/supabaseClient";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,8 +24,8 @@ export default function Contractors() {
 
   const load = async () => {
     const [data, allProjects] = await Promise.all([
-      localClient.entities.Contractor.list("-created_date"),
-      localClient.entities.Project.list(),
+      supabaseClient.entities.Contractor.list(),
+      supabaseClient.entities.Project.list(),
     ]);
     setContractors(data);
     setProjects(allProjects);

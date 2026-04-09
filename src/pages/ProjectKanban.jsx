@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { localClient } from "@/api/localClient";
+import { supabaseClient } from "@/api/supabaseClient";
 import { DragDropContext } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
@@ -16,7 +16,7 @@ export default function ProjectKanban() {
   const [editProject, setEditProject] = useState(null);
 
   const load = async () => {
-    const data = await localClient.entities.Project.list("-created_date");
+    const data = await supabaseClient.entities.Project.list();
     setProjects(data);
     setLoading(false);
   };
@@ -43,7 +43,7 @@ export default function ProjectKanban() {
       { date: new Date().toISOString(), description: `Status alterado para: ${newStatus}`, changed_by: "sistema" }
     ];
 
-    await localClient.entities.Project.update(draggableId, updateData);
+    await supabaseClient.entities.Project.update(draggableId, updateData);
   };
 
   const handleCardClick = (project) => {

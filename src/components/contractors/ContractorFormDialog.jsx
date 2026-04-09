@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { localClient } from "@/api/localClient";
+import { supabaseClient } from "@/api/supabaseClient";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,14 +23,21 @@ export default function ContractorFormDialog({ open, onClose, onSave, contractor
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
-    if (contractor?.id) {
-      await localClient.entities.Contractor.update(contractor.id, form);
-    } else {
-      await localClient.entities.Contractor.create(form);
+    try {
+      console.log('Iniciando salvamento...');
+      if (contractor?.id) {
+        await supabaseClient.entities.Contractor.update(contractor.id, form);
+      } else {
+        await supabaseClient.entities.Contractor.create(form);
+      }
+      onSave();
+      onClose();
+    } catch (error) {
+      console.error('Erro detalhado:', error);
+      alert('Erro ao salvar os dados: ' + (error.message || JSON.stringify(error)));
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
-    onSave();
-    onClose();
   };
 
   const set = (key, value) => setForm(prev => ({ ...prev, [key]: value }));

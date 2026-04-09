@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { localClient } from "@/api/localClient";
+import { supabaseClient } from "@/api/supabaseClient";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -162,8 +162,8 @@ export default function ContractorDetail() {
 
   const load = async () => {
     const [allContractors, allProjects] = await Promise.all([
-      localClient.entities.Contractor.list(),
-      localClient.entities.Project.list(),
+      supabaseClient.entities.Contractor.list(),
+      supabaseClient.entities.Project.list(),
     ]);
     const c = allContractors.find(x => x.id === id);
     setContractor(c);

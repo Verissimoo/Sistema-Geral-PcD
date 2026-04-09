@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { localClient } from "@/api/localClient";
+import { supabaseClient } from "@/api/supabaseClient";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Trophy, Target, TrendingUp, Award } from "lucide-react";
@@ -13,8 +13,8 @@ export default function Goals() {
   useEffect(() => {
     async function load() {
       const [c, p] = await Promise.all([
-        localClient.entities.Contractor.list(),
-        localClient.entities.Project.list(),
+        supabaseClient.entities.Contractor.list(),
+        supabaseClient.entities.Project.list(),
       ]);
       setContractors(c.filter(x => x.status === "Ativo"));
       setProjects(p);
