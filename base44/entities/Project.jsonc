@@ -1,0 +1,190 @@
+{
+  "name": "Project",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "title": "Nome do Projeto"
+    },
+    "impacted_area": {
+      "type": "string",
+      "title": "\u00c1rea Impactada"
+    },
+    "value_type": {
+      "type": "string",
+      "enum": [
+        "Financeiro direto",
+        "Tempo/Produtividade",
+        "Experi\u00eancia do cliente"
+      ],
+      "title": "Tipo de Valor Gerado"
+    },
+    "scope_summary": {
+      "type": "string",
+      "title": "Escopo Resumido"
+    },
+    "deadline": {
+      "type": "string",
+      "format": "date",
+      "title": "Prazo Previsto"
+    },
+    "validation_responsible": {
+      "type": "string",
+      "title": "Respons\u00e1vel pela Valida\u00e7\u00e3o"
+    },
+    "success_criteria": {
+      "type": "string",
+      "title": "Crit\u00e9rio de Sucesso"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "Backlog",
+        "Em andamento",
+        "Em valida\u00e7\u00e3o",
+        "Conclu\u00eddo",
+        "Cancelado"
+      ],
+      "title": "Status"
+    },
+    "contractor_id": {
+      "type": "string",
+      "title": "Prestador Respons\u00e1vel (ID)"
+    },
+    "contractor_name": {
+      "type": "string",
+      "title": "Nome do Prestador"
+    },
+    "scope_type": {
+      "type": "string",
+      "enum": [
+        "TI/Automa\u00e7\u00f5es",
+        "Educacional/Comercial"
+      ],
+      "title": "Tipo de Escopo"
+    },
+    "complexity": {
+      "type": "string",
+      "enum": [
+        "Baixo",
+        "M\u00e9dio",
+        "Alto",
+        "Muito alto"
+      ],
+      "title": "Complexidade T\u00e9cnica"
+    },
+    "business_impact": {
+      "type": "string",
+      "enum": [
+        "Baixo",
+        "M\u00e9dio",
+        "Alto",
+        "Muito alto"
+      ],
+      "title": "Impacto no Neg\u00f3cio"
+    },
+    "documentation_level": {
+      "type": "string",
+      "enum": [
+        "Sem documenta\u00e7\u00e3o",
+        "Parcial",
+        "Completo"
+      ],
+      "title": "Documenta\u00e7\u00e3o/Autonomia"
+    },
+    "deadline_status": {
+      "type": "string",
+      "enum": [
+        "Atrasado",
+        "No prazo",
+        "Antecipado"
+      ],
+      "title": "Status do Prazo"
+    },
+    "edu_delivery_type": {
+      "type": "string",
+      "enum": [
+        "Documento simples",
+        "Documento completo com passo a passo",
+        "Aula gravada ou live estruturada",
+        "M\u00f3dulo de treinamento completo",
+        "Trilha de onboarding estruturada"
+      ],
+      "title": "Tipo de Entrega Educacional"
+    },
+    "estimated_score": {
+      "type": "number",
+      "title": "Pontua\u00e7\u00e3o Estimada",
+      "default": 0
+    },
+    "final_score": {
+      "type": "number",
+      "title": "Pontua\u00e7\u00e3o Final",
+      "default": 0
+    },
+    "documentation_link": {
+      "type": "string",
+      "title": "Link de Documenta\u00e7\u00e3o"
+    },
+    "documentation_file": {
+      "type": "string",
+      "title": "Arquivo de Documenta\u00e7\u00e3o (URL)"
+    },
+    "acceptance_tested": {
+      "type": "boolean",
+      "title": "Funcionalidade Testada",
+      "default": false
+    },
+    "acceptance_validated": {
+      "type": "boolean",
+      "title": "Valida\u00e7\u00e3o do Respons\u00e1vel",
+      "default": false
+    },
+    "acceptance_documented": {
+      "type": "boolean",
+      "title": "Documenta\u00e7\u00e3o Entregue",
+      "default": false
+    },
+    "acceptance_monitored": {
+      "type": "boolean",
+      "title": "Monitoramento Inicial",
+      "default": false
+    },
+    "change_log": {
+      "type": "array",
+      "title": "Hist\u00f3rico de Altera\u00e7\u00f5es",
+      "items": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "changed_by": {
+            "type": "string"
+          }
+        }
+      },
+      "default": []
+    },
+    "completion_date": {
+      "type": "string",
+      "format": "date",
+      "title": "Data de Conclus\u00e3o"
+    }
+  },
+  "required": [
+    "name",
+    "impacted_area",
+    "value_type",
+    "scope_summary",
+    "deadline",
+    "validation_responsible",
+    "success_criteria",
+    "status",
+    "contractor_id",
+    "scope_type"
+  ]
+}

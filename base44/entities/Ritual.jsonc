@@ -1,0 +1,47 @@
+{
+  "name": "Ritual",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "title": "T\u00edtulo"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "Planejamento mensal",
+        "Acompanhamento quinzenal",
+        "Fechamento mensal"
+      ],
+      "title": "Tipo de Evento"
+    },
+    "contractor_id": {
+      "type": "string",
+      "title": "Prestador (ID)"
+    },
+    "contractor_name": {
+      "type": "string",
+      "title": "Nome do Prestador"
+    },
+    "event_date": {
+      "type": "string",
+      "format": "date",
+      "title": "Data do Evento"
+    },
+    "notes": {
+      "type": "string",
+      "title": "Ata/Notas"
+    },
+    "completed": {
+      "type": "boolean",
+      "title": "Realizado",
+      "default": false
+    }
+  },
+  "required": [
+    "title",
+    "type",
+    "contractor_id",
+    "event_date"
+  ]
+}
