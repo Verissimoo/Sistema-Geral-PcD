@@ -13,10 +13,6 @@ export default function ContractorFormDialog({ open, onClose, onSave, contractor
     monthly_fixed_value: 0,
     contract_start_date: new Date().toISOString().split("T")[0],
     status: "Ativo",
-    monthly_point_goal: 10,
-    bonus_tier1_value: 0,
-    bonus_tier2_value: 0,
-    bonus_additional_value: 0,
   });
   const [saving, setSaving] = useState(false);
 
@@ -24,7 +20,6 @@ export default function ContractorFormDialog({ open, onClose, onSave, contractor
     e.preventDefault();
     setSaving(true);
     try {
-      console.log('Iniciando salvamento...');
       if (contractor?.id) {
         await supabaseClient.entities.Contractor.update(contractor.id, form);
       } else {
@@ -33,7 +28,7 @@ export default function ContractorFormDialog({ open, onClose, onSave, contractor
       onSave();
       onClose();
     } catch (error) {
-      console.error('Erro detalhado:', error);
+      console.error('Erro ao salvar prestador:', error);
       alert('Erro ao salvar os dados: ' + (error.message || JSON.stringify(error)));
     } finally {
       setSaving(false);
@@ -44,7 +39,7 @@ export default function ContractorFormDialog({ open, onClose, onSave, contractor
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{contractor ? "Editar Prestador" : "Novo Prestador PJ"}</DialogTitle>
         </DialogHeader>
@@ -62,6 +57,7 @@ export default function ContractorFormDialog({ open, onClose, onSave, contractor
                 <SelectItem value="Educacional/Comercial">Educacional/Comercial</SelectItem>
               </SelectContent>
             </Select>
+            <p className="text-[10px] text-muted-foreground mt-1">As regras de metas e bônus seguem o padrão global do escopo selecionado.</p>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -83,43 +79,6 @@ export default function ContractorFormDialog({ open, onClose, onSave, contractor
                 <SelectItem value="Encerrado">Encerrado</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-          <div>
-            <Label>Meta Mínima de Pontos do Período</Label>
-            <Input type="number" value={form.monthly_point_goal} onChange={e => set("monthly_point_goal", parseInt(e.target.value) || 0)} />
-          </div>
-          <div className="rounded-lg border border-dashed p-4 space-y-3 bg-muted/30">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Estrutura de Remuneração Variável</p>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs">Desconto máx. por baixo desempenho (R$)</Label>
-                <Input type="number" value={form.bonus_tier1_value} onChange={e => set("bonus_tier1_value", parseFloat(e.target.value) || 0)} />
-                <p className="text-xs text-muted-foreground mt-1">Redução no fixo se meta não for atingida</p>
-              </div>
-              <div>
-                <Label className="text-xs">Bônus máx. por meta atingida (R$)</Label>
-                <Input type="number" value={form.bonus_tier2_value} onChange={e => set("bonus_tier2_value", parseFloat(e.target.value) || 0)} />
-                <p className="text-xs text-muted-foreground mt-1">Acréscimo no fixo ao atingir meta bônus</p>
-              </div>
-            </div>
-            <div>
-              <Label className="text-xs">Bônus por automação ativa (R$)</Label>
-              <Input type="number" value={form.bonus_additional_value} onChange={e => set("bonus_additional_value", parseFloat(e.target.value) || 0)} />
-              <p className="text-xs text-muted-foreground mt-1">Valor adicional por automação/entrega em produção ativa</p>
-            </div>
-            {(form.monthly_fixed_value > 0) && (
-              <div className="rounded-md bg-secondary/10 border border-secondary/30 p-3 text-xs space-y-1">
-                <p className="font-semibold text-secondary-foreground">Faixa de remuneração estimada:</p>
-                <p className="text-muted-foreground">
-                  Mínimo: <span className="font-medium text-foreground">R$ {(form.monthly_fixed_value - (form.bonus_tier1_value || 0)).toLocaleString("pt-BR")}</span>
-                  {" · "}
-                  Base: <span className="font-medium text-foreground">R$ {(form.monthly_fixed_value).toLocaleString("pt-BR")}</span>
-                  {" · "}
-                  Máximo fixo: <span className="font-medium text-foreground">R$ {(form.monthly_fixed_value + (form.bonus_tier2_value || 0)).toLocaleString("pt-BR")}</span>
-                  {form.bonus_additional_value > 0 && <span className="text-secondary font-medium"> + R$ {form.bonus_additional_value?.toLocaleString("pt-BR")}/automação</span>}
-                </p>
-              </div>
-            )}
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>

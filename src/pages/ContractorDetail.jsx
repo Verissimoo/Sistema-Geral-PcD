@@ -4,10 +4,11 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Edit, TrendingUp, Zap, Info } from "lucide-react";
+import { ArrowLeft, Edit, TrendingUp, Zap, Info, CheckCircle, AlertCircle, Trophy } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { calculateScore, isFullyAccepted, getGoalStatus } from "@/lib/scoring";
 import ContractorFormDialog from "../components/contractors/ContractorFormDialog";
+import { loadGoalsConfig, calcMonthlyEstimated } from "@/lib/goalsConfig";
 
 const statusColors = {
   "Ativo": "bg-green-100 text-green-700",
@@ -18,39 +19,32 @@ const statusColors = {
 const fmt = (value) =>
   value?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) ?? "R$ 0,00";
 
-function calcMonthly(contractor, totalPoints, goal) {
-  const min = contractor.min_base_value ?? 1000;
-  const max = contractor.max_base_value ?? 2000;
-  const automations = contractor.active_automations ?? [];
-  const recorrencia = automations.reduce((s, a) => s + (a.monthly_value ?? 100), 0);
-
-  let valorBase = min;
-  if (goal > 0) {
-    const ratio = Math.min(totalPoints / goal, 1);
-    valorBase = min + (max - min) * ratio;
-  }
-
-  let bonusExtra = 0;
-  if (totalPoints > goal && goal > 0) {
-    const excedente = totalPoints - goal;
-    bonusExtra = excedente * ((max - min) / goal);
-  }
-
-  return { valorBase, recorrencia, bonusExtra, total: valorBase + recorrencia + bonusExtra, min, max };
-}
-
-function ValorMensalCard({ contractor, totalPoints, goal }) {
+function ValorMensalCard({ contractor, monthlyContracts }) {
   const [showDetail, setShowDetail] = useState(false);
-  const calc = calcMonthly(contractor, totalPoints, goal);
-  const automations = contractor.active_automations ?? [];
+  const config = loadGoalsConfig();
+  const scopeType = contractor.scope_type || "TI/Automações";
+  const calc = calcMonthlyEstimated(monthlyContracts, config, scopeType);
+  const goal = (config[scopeType] || config["TI/Automações"]).monthly_point_goal;
+
+  let statusColor, StatusIcon;
+  if (monthlyContracts < goal) {
+    statusColor = "text-red-600";
+    StatusIcon = AlertCircle;
+  } else if (monthlyContracts === goal) {
+    statusColor = "text-blue-600";
+    StatusIcon = CheckCircle;
+  } else {
+    statusColor = "text-green-600";
+    StatusIcon = Trophy;
+  }
 
   return (
     <>
       <Card className="p-4">
         <p className="text-xs text-muted-foreground mb-1">Valor Mensal Estimado</p>
-        <p className="text-2xl font-bold text-primary">{fmt(calc.total)}</p>
+        <p className={`text-2xl font-bold ${statusColor}`}>{fmt(calc.total)}</p>
         <p className="text-xs text-muted-foreground mt-1">
-          Base: {fmt(calc.valorBase)} · Automações: {fmt(calc.recorrencia)} · Bônus: {fmt(calc.bonusExtra)}
+          {monthlyContracts} de {goal} pts · {calc.excedente > 0 ? `+${calc.excedente} pts acima` : calc.excedente === 0 && monthlyContracts >= goal ? "Meta atingida" : "Abaixo da meta"}
         </p>
         <button
           onClick={() => setShowDetail(true)}
@@ -66,25 +60,55 @@ function ValorMensalCard({ contractor, totalPoints, goal }) {
             <DialogTitle>Detalhamento do Valor Mensal</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 text-sm">
-            <div>
-              <p className="font-medium">Valor base proporcional: {fmt(calc.valorBase)}</p>
-              <p className="text-xs text-muted-foreground">({totalPoints} pts de {goal} pts meta)</p>
-            </div>
-            <div>
-              <p className="font-medium">Recorrência de automações: {fmt(calc.recorrencia)}</p>
-              <p className="text-xs text-muted-foreground">
-                ({automations.length} automações ativas × média {fmt(automations.length > 0 ? calc.recorrencia / automations.length : 0)} cada)
+            <div className="flex items-center gap-2">
+              <StatusIcon className={`h-4 w-4 ${statusColor}`} />
+              <p className="font-medium">
+                {monthlyContracts < goal
+                  ? "Abaixo da meta"
+                  : monthlyContracts === goal
+                  ? "Meta atingida!"
+                  : `Meta superada! (+${calc.excedente} pts)`}
               </p>
             </div>
-            <div>
-              <p className="font-medium">Bônus por excedente: {fmt(calc.bonusExtra)}</p>
-              <p className="text-xs text-muted-foreground">({Math.max(0, totalPoints - goal)} pts acima da meta)</p>
+            <div className="rounded-md bg-muted/40 p-3 space-y-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Pontuação no mês</span>
+                <span className="font-bold">{monthlyContracts} pts</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Meta configurada</span>
+                <span className="font-bold">{goal} pts</span>
+              </div>
             </div>
+            <div>
+              <p className="font-medium">Salário base: {fmt(calc.salarioBase)}</p>
+              <p className="text-xs text-muted-foreground">
+                {monthlyContracts < goal
+                  ? `Abaixo da meta → ${fmt(config.salary_below_goal)}`
+                  : `Meta atingida → ${fmt(config.salary_at_goal)}`}
+              </p>
+            </div>
+            {calc.bonusExtra > 0 && (
+              <div>
+                <p className="font-medium text-green-600">Bônus excedente: +{fmt(calc.bonusExtra)}</p>
+                <p className="text-xs text-muted-foreground">
+                  {calc.excedente} pts × {fmt(config.bonus_per_extra_point)} cada
+                </p>
+              </div>
+            )}
+            {calc.bonusEspecial > 0 && (
+              <div>
+                <p className="font-medium text-amber-600">Bônus especiais: +{fmt(calc.bonusEspecial)}</p>
+                <p className="text-xs text-muted-foreground">Bônus pontuais configurados pelo gestor</p>
+              </div>
+            )}
             <hr />
             <div>
-              <p className="font-bold text-base">Total estimado: {fmt(calc.total)}</p>
+              <p className={`font-bold text-base ${statusColor}`}>Total estimado: {fmt(calc.total)}</p>
             </div>
-            <p className="text-xs text-muted-foreground">Valores calculados com base na pontuação atual do período</p>
+            <p className="text-xs text-muted-foreground">
+              Valores baseados nas configurações de Metas e Bônus definidas pelo gestor
+            </p>
           </div>
         </DialogContent>
       </Dialog>
@@ -187,8 +211,24 @@ export default function ContractorDetail() {
 
   const completedProjects = projects.filter(p => p.status === "Concluído" && isFullyAccepted(p));
   const totalPoints = completedProjects.reduce((sum, p) => sum + (p.final_score || calculateScore(p)), 0);
-  const goal = contractor.monthly_point_goal || 10;
-  const goalStatus = getGoalStatus(totalPoints, goal);
+  
+  const config = loadGoalsConfig();
+  const scopeType = contractor.scope_type || "TI/Automações";
+  const goal = (config[scopeType] || config["TI/Automações"]).monthly_point_goal;
+  // Pontuação acumulada no mês atual (para Valor Mensal Estimado)
+  const now = new Date();
+  const monthlyPoints = projects
+    .filter(p => {
+      if (p.status !== "Concluído") return false;
+      // Prioriza a data de conclusão para bônus mensal
+      const dateStr = p.completion_date || p.contract_date || p.created_at;
+      if (!dateStr) return false;
+      const d = new Date(dateStr);
+      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    })
+    .reduce((sum, p) => sum + (p.final_score || 0), 0);
+
+  const goalStatus = getGoalStatus(monthlyPoints, goal);
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -207,11 +247,11 @@ export default function ContractorDetail() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <ValorMensalCard contractor={contractor} totalPoints={totalPoints} goal={goal} />
+        <ValorMensalCard contractor={contractor} monthlyContracts={monthlyPoints} />
         <AutomacoesCard contractor={contractor} onEdit={() => setShowEdit(true)} />
         <Card className={`p-4 ${goalStatus.bg}`}>
-          <p className="text-xs text-muted-foreground">Pontuação</p>
-          <p className={`text-xl font-bold mt-1 ${goalStatus.color}`}>{totalPoints}/{goal} pts</p>
+          <p className="text-xs text-muted-foreground">Pontuação Mensal</p>
+          <p className={`text-xl font-bold mt-1 ${goalStatus.color}`}>{monthlyPoints}/{goal} pts</p>
           <p className={`text-xs mt-1 ${goalStatus.color}`}>{goalStatus.label}</p>
         </Card>
       </div>

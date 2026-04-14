@@ -62,9 +62,16 @@ export default function ProjectFormDialog({ open, onClose, onSave, project }) {
         changed_by: "sistema",
       };
       data.change_log = [...(data.change_log || []), changeEntry];
-      if (data.status === "Concluído") {
-        data.final_score = calculateScore(data);
+    }
+
+    if (data.status === "Concluído") {
+      data.final_score = calculateScore(data);
+      if (!data.completion_date) {
+        data.completion_date = new Date().toISOString().split("T")[0];
       }
+    } else {
+      data.final_score = null;
+      data.completion_date = null;
     }
 
     try {

@@ -28,13 +28,26 @@ export default function ProjectKanban() {
     const { draggableId, destination } = result;
     const newStatus = destination.droppableId;
     
-    setProjects(prev => prev.map(p => p.id === draggableId ? { ...p, status: newStatus } : p));
-
     const project = projects.find(p => p.id === draggableId);
-    const updateData = { status: newStatus };
+    if (!project) return;
+
+    // Atualização otimista do estado local
+    const calculatedScore = newStatus === "Concluído" ? calculateScore(project) : null;
     
+    setProjects(prev => prev.map(p => 
+      p.id === draggableId 
+        ? { 
+            ...p, 
+            status: newStatus, 
+            final_score: calculatedScore,
+            completion_date: newStatus === "Concluído" ? new Date().toISOString().split("T")[0] : p.completion_date
+          } 
+        : p
+    ));
+
+    const updateData = { status: newStatus };
     if (newStatus === "Concluído") {
-      updateData.final_score = calculateScore(project);
+      updateData.final_score = calculatedScore;
       updateData.completion_date = new Date().toISOString().split("T")[0];
     }
     
@@ -43,7 +56,15 @@ export default function ProjectKanban() {
       { date: new Date().toISOString(), description: `Status alterado para: ${newStatus}`, changed_by: "sistema" }
     ];
 
-    await supabaseClient.entities.Project.update(draggableId, updateData);
+    try {
+      await supabaseClient.entities.Project.update(draggableId, updateData);
+      // Recarrega para garantir que pegamos IDs gerados e logs do servidor
+      await load();
+    } catch (err) {
+      console.error("Erro ao sincronizar drag-and-drop:", err);
+      // Fallback: recarrega estado original em caso de erro
+      load();
+    }
   };
 
   const handleCardClick = (project) => {

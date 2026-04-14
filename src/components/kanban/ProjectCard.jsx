@@ -26,7 +26,12 @@ export default function ProjectCard({ project, onClick }) {
         <span className="text-xs font-bold text-secondary shrink-0">{score} pts</span>
       </div>
       
-      <p className="text-xs text-muted-foreground line-clamp-2 mb-2.5">{project.scope_summary}</p>
+      {project.impacted_area && (
+        <div className="text-xs mb-2.5 line-clamp-2">
+          <span className="font-semibold text-muted-foreground mr-1">Área Impactada:</span>
+          <span>{project.impacted_area}</span>
+        </div>
+      )}
       
       <div className="flex flex-wrap gap-1.5 mb-2.5">
         <Badge variant="secondary" className={`text-xs py-0 ${valueColors[project.value_type] || ""}`}>
