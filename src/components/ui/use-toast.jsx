@@ -2,7 +2,8 @@
 import { useState, useEffect } from "react";
 
 const TOAST_LIMIT = 20;
-const TOAST_REMOVE_DELAY = 1000000;
+const TOAST_REMOVE_DELAY = 300; // ms até remover do array após dismiss (animação de saída)
+const TOAST_AUTO_DISMISS = 5000; // ms até auto-dismiss (duração visível padrão)
 
 const actionTypes = {
   ADD_TOAST: "ADD_TOAST",
@@ -133,6 +134,12 @@ function toast({ ...props }) {
       },
     },
   });
+
+  // Auto-dismiss após o tempo de exibição (default 5s, customizável via props.duration)
+  const visibleDuration = typeof props.duration === "number" ? props.duration : TOAST_AUTO_DISMISS;
+  setTimeout(() => {
+    dismiss();
+  }, visibleDuration);
 
   return {
     id,

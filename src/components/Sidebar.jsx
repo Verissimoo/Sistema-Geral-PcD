@@ -1,27 +1,154 @@
-import { Link, useLocation } from "react-router-dom";
-import { 
-  LayoutDashboard, FileText, Plane, Calculator, Users, 
-  DollarSign, Settings, Lock, X, Briefcase, Calendar 
+import { useState, useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import {
+  LayoutDashboard, FileText, Plane, Users,
+  Settings, X, Briefcase, Calendar,
+  Store, ChevronDown, Wrench, Star, Info, Target, Kanban, FileStack, BookOpen,
+  LogOut, Trophy, BarChart3, UserSearch, Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/lib/AuthContext";
 
-const navItems = [
-  { label: "Início", icon: LayoutDashboard, path: "/", active: true },
-  { label: "Contratos PJ", icon: Briefcase, path: "/contratos", active: true },
-  { label: "Projetos (Kanban)", icon: FileText, path: "/projetos", active: true },
-  { label: "Metas e Bônus", icon: DollarSign, path: "/metas", active: true },
-  { label: "Rituais", icon: Calendar, path: "/rituais", active: true },
-  { divider: true },
-  { label: "Passagens", icon: Plane, path: null, locked: true },
-  { label: "Orçamentos", icon: Calculator, path: null, locked: true },
-  { label: "Fornecedores de milhas", icon: Users, path: null, locked: true },
-  { label: "Financeiro", icon: DollarSign, path: null, locked: true },
-  { label: "Configurações", icon: Settings, path: "/configuracoes", active: true },
+const inicioItem = { label: "Dashboard", icon: LayoutDashboard, path: "/" };
+
+const gerenteSubItems = [
+  { label: "Metas Comerciais", icon: Target, path: "/gerente/metas" },
+  { label: "Vendedores", icon: Users, path: "/gerente/vendedores" },
+  { label: "Clientes", icon: UserSearch, path: "/gerente/clientes" },
+  { label: "Orçamentos", icon: FileStack, path: "/gerente/orcamentos" },
 ];
+
+const contratosSubItems = [
+  { label: "Contratos PJ", icon: FileText, path: "/contratos" },
+  { label: "Projetos (Kanban)", icon: Kanban, path: "/projetos" },
+  { label: "Metas e Bônus", icon: Target, path: "/metas" },
+  { label: "Rituais", icon: Calendar, path: "/rituais" },
+];
+
+const vendedorSubItems = [
+  { label: "Ferramentas", icon: Wrench, path: "/vendedor/ferramentas" },
+  { label: "Manual do Vendedor", icon: BookOpen, path: "/vendedor/cotacao" },
+  { label: "Gerador de Orçamento", icon: FileText, path: "/vendedor/orcamento" },
+  { label: "Orçamentos", icon: FileStack, path: "/vendedor/orcamentos" },
+  { label: "Tabela de Milhas", icon: Star, path: "/vendedor/milhas" },
+  { label: "Plano de Carreira", icon: Trophy, path: "/vendedor/carreira" },
+  { label: "Informações Essenciais", icon: Info, path: "/vendedor/informacoes" },
+];
+
+const usuariosItem = { label: "Usuários", icon: Shield, path: "/usuarios" };
+const settingsItem = { label: "Configurações", icon: Settings, path: "/configuracoes" };
+
+const initials = (name = "") =>
+  name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase())
+    .join("");
 
 export default function Sidebar({ open, onClose }) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout, isAdmin, isVendedor } = useAuth();
+
+  const isVendedorRoute = location.pathname.startsWith("/vendedor");
+  const isGerenteRoute = location.pathname.startsWith("/gerente");
+  const isContratosRoute =
+    location.pathname.startsWith("/contratos") ||
+    location.pathname.startsWith("/projetos") ||
+    location.pathname.startsWith("/metas") ||
+    location.pathname.startsWith("/rituais");
+
+  const [vendedorOpen, setVendedorOpen] = useState(isVendedorRoute || isVendedor);
+  const [gerenteOpen, setGerenteOpen] = useState(isGerenteRoute);
+  const [contratosOpen, setContratosOpen] = useState(isContratosRoute);
+
+  useEffect(() => { if (isVendedorRoute) setVendedorOpen(true); }, [isVendedorRoute]);
+  useEffect(() => { if (isGerenteRoute) setGerenteOpen(true); }, [isGerenteRoute]);
+  useEffect(() => { if (isContratosRoute) setContratosOpen(true); }, [isContratosRoute]);
+  useEffect(() => { if (isVendedor) setVendedorOpen(true); }, [isVendedor]);
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login", { replace: true });
+  };
+
+  const renderNavItem = (item) => {
+    const Icon = item.icon;
+    const isActive = item.path === "/"
+      ? location.pathname === "/"
+      : location.pathname.startsWith(item.path);
+
+    return (
+      <Link
+        key={item.label}
+        to={item.path}
+        onClick={onClose}
+        className={cn(
+          "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
+          isActive
+            ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+            : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+        )}
+      >
+        <Icon className={cn("h-4.5 w-4.5 shrink-0", isActive && "text-sidebar-primary")} />
+        <span>{item.label}</span>
+      </Link>
+    );
+  };
+
+  const renderGroup = (label, Icon, isActive, isOpen, setIsOpen, subItems, matchExact = false) => (
+    <div>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={cn(
+          "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors w-full text-left",
+          isActive
+            ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+            : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+        )}
+      >
+        <Icon className={cn("h-4.5 w-4.5 shrink-0", isActive && "text-sidebar-primary")} />
+        <span className="flex-1">{label}</span>
+        <ChevronDown className={cn(
+          "h-3.5 w-3.5 transition-transform duration-200",
+          isOpen && "rotate-180"
+        )} />
+      </button>
+
+      <div className={cn(
+        "overflow-hidden transition-all duration-200",
+        isOpen ? "max-h-[480px] opacity-100 mt-1" : "max-h-0 opacity-0"
+      )}>
+        <div className="pl-4 space-y-0.5">
+          {subItems.map((sub) => {
+            const SubIcon = sub.icon;
+            const isSubActive = matchExact
+              ? location.pathname === sub.path
+              : location.pathname.startsWith(sub.path);
+            return (
+              <Link
+                key={sub.path}
+                to={sub.path}
+                onClick={onClose}
+                className={cn(
+                  "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors",
+                  isSubActive
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                    : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+                )}
+              >
+                <SubIcon className={cn("h-3.5 w-3.5 shrink-0", isSubActive && "text-sidebar-primary")} />
+                <span>{sub.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <>
@@ -46,61 +173,90 @@ export default function Sidebar({ open, onClose }) {
               </span>
             </div>
           </div>
-          <Button variant="ghost" size="icon" className="ml-auto lg:hidden text-sidebar-foreground" onClick={onClose}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="ml-auto lg:hidden text-sidebar-foreground"
+            onClick={onClose}
+          >
             <X className="h-4 w-4" />
           </Button>
         </div>
 
         <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
-          {navItems.map((item, idx) => {
-            if (item.divider) {
-              return <div key={`div-${idx}`} className="my-2 border-t border-sidebar-border" />;
-            }
-            const Icon = item.icon;
-            const isActive = item.path && (
-              item.path === "/" 
-                ? location.pathname === "/" 
-                : location.pathname.startsWith(item.path)
-            );
+          {/* Dashboard — admin */}
+          {isAdmin && renderNavItem(inicioItem)}
 
-            if (item.locked) {
-              return (
-                <div key={item.label} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground/40 cursor-not-allowed">
-                  <Icon className="h-4.5 w-4.5 shrink-0" />
-                  <span className="text-sm">{item.label}</span>
-                  <Lock className="h-3 w-3 ml-auto" />
-                </div>
-              );
-            }
+          {/* Portal do Gerente — admin */}
+          {isAdmin &&
+            renderGroup(
+              "Portal do Gerente",
+              BarChart3,
+              isGerenteRoute,
+              gerenteOpen,
+              setGerenteOpen,
+              gerenteSubItems
+            )}
 
-            return (
-              <Link
-                key={item.label}
-                to={item.path}
-                onClick={onClose}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
-                  isActive
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                    : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
-                )}
-              >
-                <Icon className={cn("h-4.5 w-4.5 shrink-0", isActive && "text-sidebar-primary")} />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
+          {/* Portal de Contratos — admin */}
+          {isAdmin &&
+            renderGroup(
+              "Portal de Contratos",
+              Briefcase,
+              isContratosRoute,
+              contratosOpen,
+              setContratosOpen,
+              contratosSubItems
+            )}
+
+          {/* Portal do Vendedor — admin + vendedor */}
+          {renderGroup(
+            "Portal do Vendedor",
+            Store,
+            isVendedorRoute,
+            vendedorOpen,
+            setVendedorOpen,
+            vendedorSubItems,
+            true
+          )}
+
+          {/* Usuários + Configurações — admin */}
+          {isAdmin && renderNavItem(usuariosItem)}
+          {isAdmin && renderNavItem(settingsItem)}
         </nav>
 
+        {/* Rodapé com usuário logado */}
         <div className="px-3 py-4 border-t border-sidebar-border">
           <div className="flex items-center gap-3 px-3">
-            <div className="w-8 h-8 rounded-full bg-sidebar-accent flex items-center justify-center">
-              <span className="text-xs font-semibold text-sidebar-accent-foreground">PD</span>
+            <div className="w-9 h-9 rounded-full bg-sidebar-accent flex items-center justify-center shrink-0">
+              <span className="text-xs font-bold text-sidebar-accent-foreground">
+                {initials(user?.name) || "?"}
+              </span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-sidebar-foreground truncate">Painel Administrativo</p>
-              <p className="text-xs text-sidebar-foreground/50">Gestão PJ</p>
+              <p className="text-xs font-semibold text-sidebar-foreground truncate">
+                {user?.name || "—"}
+              </p>
+              <Badge
+                className={cn(
+                  "h-4 mt-0.5 px-1.5 text-[9px] font-semibold border-0",
+                  isAdmin
+                    ? "bg-[#0B1E3D] text-white hover:bg-[#0B1E3D]"
+                    : "bg-amber-500 text-white hover:bg-amber-500"
+                )}
+              >
+                {isAdmin ? "Administrador" : "Vendedor"}
+              </Badge>
             </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleLogout}
+              className="h-8 w-8 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent shrink-0"
+              title="Sair"
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       </aside>
