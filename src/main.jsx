@@ -14,6 +14,7 @@ if (!__hasMay) {
 
 // Seed dos dados antes do render
 seedMilesIfEmpty();
+// Limpa qualquer pcd_users legado do localStorage — usuários agora vivem no Supabase.
 seedAdminUser();
 seedCommercialGoals();
 

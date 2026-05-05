@@ -33,7 +33,10 @@ export default function VendedorCarreira() {
   const [selectedSellerId, setSelectedSellerId] = useState(null);
 
   useEffect(() => {
-    setUsers(localClient.entities.Users.list());
+    (async () => {
+      const usersList = await localClient.entities.Users.list();
+      setUsers(usersList || []);
+    })();
     setQuotes(localClient.entities.Quotes.list());
   }, []);
 

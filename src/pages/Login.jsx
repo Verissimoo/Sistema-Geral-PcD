@@ -28,19 +28,25 @@ export default function Login() {
     }
   }, [user, navigate]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (submitting) return;
     setError("");
     setSubmitting(true);
 
-    const result = login(username.trim(), password);
-    if (!result.success) {
-      setError(result.error || "Erro ao entrar");
+    try {
+      const result = await login(username.trim(), password);
+      if (!result.success) {
+        setError(result.error || "Erro ao entrar");
+        setSubmitting(false);
+        return;
+      }
+      // success — redirect handled by effect above when user state updates
+    } catch (err) {
+      console.error(err);
+      setError("Erro ao entrar");
       setSubmitting(false);
-      return;
     }
-    // success — redirect handled by effect above when user state updates
   };
 
   return (

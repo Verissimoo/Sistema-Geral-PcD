@@ -45,7 +45,10 @@ export default function UserManagement() {
   const [showPwd, setShowPwd] = useState(false);
   const [formError, setFormError] = useState("");
 
-  const reload = () => setUsers(localClient.entities.Users.list());
+  const reload = async () => {
+    const list = await localClient.entities.Users.list();
+    setUsers(list || []);
+  };
   useEffect(() => { reload(); }, []);
 
   const metrics = useMemo(() => {
@@ -95,48 +98,70 @@ export default function UserManagement() {
     return null;
   };
 
-  const handleSave = () => {
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
     const err = validate();
     if (err) {
       setFormError(err);
       return;
     }
-    const username = form.username.trim().toLowerCase();
-    if (editing) {
-      const updates = {
-        name: form.name.trim(),
-        username,
-        status: form.status,
-      };
-      if (editing.role !== "admin") updates.career_level = form.career_level;
-      if (form.password) updates.password = form.password;
-      localClient.entities.Users.update(editing.id, updates);
-      toast({ title: "Usuário atualizado", description: form.name });
-    } else {
-      const created = localClient.entities.Users.create({
-        name: form.name.trim(),
-        username,
-        password: form.password,
-        role: "vendedor",
-        status: form.status || "Ativo",
-        career_level: form.career_level,
-        created_date: new Date().toISOString(),
-      });
-      toast({
-        title: "Vendedor criado",
-        description: `Usuário "${created.username}" — status: ${created.status}. Pode fazer login imediatamente neste navegador.`,
-      });
+    if (saving) return;
+    setSaving(true);
+    try {
+      const username = form.username.trim().toLowerCase();
+      if (editing) {
+        const updates = {
+          name: form.name.trim(),
+          username,
+          status: form.status,
+        };
+        if (editing.role !== "admin") updates.career_level = form.career_level;
+        if (form.password) updates.password = form.password;
+        const updated = await localClient.entities.Users.update(editing.id, updates);
+        if (!updated) {
+          setFormError("Erro ao atualizar usuário. Tente novamente.");
+          setSaving(false);
+          return;
+        }
+        toast({ title: "Usuário atualizado", description: form.name });
+      } else {
+        const created = await localClient.entities.Users.create({
+          name: form.name.trim(),
+          username,
+          password: form.password,
+          role: "vendedor",
+          status: form.status || "Ativo",
+          career_level: form.career_level,
+          created_date: new Date().toISOString(),
+        });
+        if (!created) {
+          setFormError("Erro ao criar usuário. Tente novamente.");
+          setSaving(false);
+          return;
+        }
+        toast({
+          title: "Vendedor criado",
+          description: `Usuário "${created.username}" salvo no banco. Pode fazer login de qualquer computador.`,
+        });
+      }
+      setDialogOpen(false);
+      await reload();
+    } finally {
+      setSaving(false);
     }
-    setDialogOpen(false);
-    reload();
   };
 
-  const toggleStatus = (u) => {
+  const toggleStatus = async (u) => {
     const next = u.status === "Ativo" ? "Inativo" : "Ativo";
     if (next === "Inativo" && !confirm(`Desativar ${u.name}?`)) return;
-    localClient.entities.Users.update(u.id, { status: next });
+    const updated = await localClient.entities.Users.update(u.id, { status: next });
+    if (!updated) {
+      toast({ title: "Erro ao atualizar status", variant: "destructive" });
+      return;
+    }
     toast({ title: `Usuário ${next.toLowerCase()}`, description: u.name });
-    reload();
+    await reload();
   };
 
   return (
@@ -378,10 +403,12 @@ export default function UserManagement() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
               Cancelar
             </Button>
-            <Button onClick={handleSave}>{editing ? "Salvar" : "Criar"}</Button>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? "Salvando..." : editing ? "Salvar" : "Criar"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -75,7 +75,10 @@ export default function Dashboard() {
   const [periodoCustom, setPeriodoCustom] = useState({ start: "", end: "" });
 
   useEffect(() => {
-    setUsers(localClient.entities.Users.list());
+    (async () => {
+      const usersList = await localClient.entities.Users.list();
+      setUsers(usersList || []);
+    })();
     setQuotes(localClient.entities.Quotes.list());
     setGoals(localClient.entities.CommercialGoals.list());
   }, []);

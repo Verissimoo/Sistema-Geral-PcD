@@ -6,8 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 
+// pcd_users foi migrado para o Supabase — não entra mais no backup local.
 const STORAGE_KEYS = [
-  "pcd_users",
   "pcd_clients",
   "pcd_quotes",
   "pcd_miles_table",

@@ -1,3 +1,5 @@
+import { supabase } from '@/lib/supabase';
+
 const store = (key) => ({
   list: () => {
     const data = JSON.parse(localStorage.getItem(key) || '[]');
@@ -30,13 +32,80 @@ const store = (key) => ({
   },
 });
 
+// Users: persistido no Supabase (tabela pcd_users) — assim usuários
+// criados num PC funcionam em qualquer outro navegador/máquina.
+const usersStore = {
+  list: async () => {
+    const { data, error } = await supabase
+      .from('pcd_users')
+      .select('*')
+      .order('created_date', { ascending: false });
+    if (error) {
+      console.error('Erro ao listar usuários:', error);
+      return [];
+    }
+    return data || [];
+  },
+  get: async (id) => {
+    const { data, error } = await supabase
+      .from('pcd_users')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error) {
+      if (error.code !== 'PGRST116') console.error('Erro ao buscar usuário:', error);
+      return null;
+    }
+    return data;
+  },
+  create: async (record) => {
+    // O id é gerado pelo Supabase (default gen_random_uuid()).
+    const { id: _ignored, ...rest } = record || {};
+    const payload = {
+      ...rest,
+      created_date: rest.created_date || new Date().toISOString(),
+    };
+    const { data, error } = await supabase
+      .from('pcd_users')
+      .insert([payload])
+      .select()
+      .single();
+    if (error) {
+      console.error('Erro ao criar usuário:', error);
+      return null;
+    }
+    return data;
+  },
+  update: async (id, updates) => {
+    const { data, error } = await supabase
+      .from('pcd_users')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) {
+      console.error('Erro ao atualizar usuário:', error);
+      return null;
+    }
+    return data;
+  },
+  delete: async (id) => {
+    const { error } = await supabase.from('pcd_users').delete().eq('id', id);
+    if (error) {
+      console.error('Erro ao deletar usuário:', error);
+      return null;
+    }
+    return { success: true };
+  },
+};
+
 export const localClient = {
   entities: {
     MilesTable: store('pcd_miles_table'),
     Sellers: store('pcd_sellers'),
     Clients: store('pcd_clients'),
     Quotes: store('pcd_quotes'),
-    Users: store('pcd_users'),
+    Users: usersStore,
     CommercialGoals: store('pcd_commercial_goals'),
   },
 };
@@ -145,21 +214,17 @@ export function seedCommercialGoals() {
   localStorage.setItem('pcd_commercial_goals', JSON.stringify(goals));
 }
 
+// Stub mantido apenas por compatibilidade com imports existentes.
+// O usuário admin agora vive no Supabase (tabela pcd_users) — não há
+// nada para "seedar" localmente. Limpamos qualquer resíduo do seed antigo.
 export function seedAdminUser() {
-  const users = JSON.parse(localStorage.getItem('pcd_users') || '[]');
-  const adminExists = users.some((u) => u.username === 'admin');
-  if (!adminExists) {
-    const admin = {
-      id: 'admin-fixed-id',
-      username: 'admin',
-      password: 'Vento123',
-      name: 'Administrador',
-      role: 'admin',
-      status: 'Ativo',
-      created_date: new Date().toISOString(),
-    };
-    users.push(admin);
-    localStorage.setItem('pcd_users', JSON.stringify(users));
+  try {
+    const legacy = JSON.parse(localStorage.getItem('pcd_users') || '[]');
+    if (Array.isArray(legacy) && legacy.length > 0) {
+      localStorage.removeItem('pcd_users');
+    }
+  } catch {
+    localStorage.removeItem('pcd_users');
   }
 }
 

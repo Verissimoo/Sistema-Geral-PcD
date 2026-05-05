@@ -79,9 +79,10 @@ export default function GerenteOrcamentos() {
   const [ticketTypeFilter, setTicketTypeFilter] = useState("Todos");
   const [detailQuote, setDetailQuote] = useState(null);
 
-  const reload = () => {
+  const reload = async () => {
     setQuotes(localClient.entities.Quotes.list());
-    setUsers(localClient.entities.Users.list());
+    const usersList = await localClient.entities.Users.list();
+    setUsers(usersList || []);
   };
   useEffect(() => { reload(); }, []);
 

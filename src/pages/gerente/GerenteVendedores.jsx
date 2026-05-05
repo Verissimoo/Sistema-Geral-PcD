@@ -40,7 +40,10 @@ export default function GerenteVendedores() {
   const [sortBy, setSortBy] = useState("receita");
 
   useEffect(() => {
-    setUsers(localClient.entities.Users.list());
+    (async () => {
+      const usersList = await localClient.entities.Users.list();
+      setUsers(usersList || []);
+    })();
     setQuotes(localClient.entities.Quotes.list());
   }, []);
 

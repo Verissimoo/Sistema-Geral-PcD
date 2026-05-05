@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 
 const AuthContext = createContext(null);
 
@@ -19,28 +20,36 @@ export function AuthProvider({ children }) {
     setLoading(false);
   }, []);
 
-  const login = (username, password) => {
-    const users = JSON.parse(localStorage.getItem("pcd_users") || "[]");
+  const login = async (username, password) => {
     const normalizedUsername = String(username || "").trim().toLowerCase();
-    const inputPassword = String(password || "");
-    const found = users.find(
-      (u) =>
-        String(u.username || "").trim().toLowerCase() === normalizedUsername &&
-        String(u.password || "") === inputPassword &&
-        u.status === "Ativo"
-    );
-    if (!found) {
-      return { success: false, error: "Usuário ou senha inválidos" };
+    const inputPassword = String(password || "").trim();
+    try {
+      const { data, error } = await supabase
+        .from("pcd_users")
+        .select("*")
+        .eq("username", normalizedUsername)
+        .eq("password", inputPassword)
+        .eq("status", "Ativo")
+        .single();
+
+      if (error || !data) {
+        return { success: false, error: "Usuário ou senha inválidos" };
+      }
+
+      const session = {
+        id: data.id,
+        username: data.username,
+        name: data.name,
+        role: data.role,
+        career_level: data.career_level || "N0",
+      };
+      localStorage.setItem("pcd_session", JSON.stringify(session));
+      setUser(session);
+      return { success: true };
+    } catch (err) {
+      console.error("Erro no login:", err);
+      return { success: false, error: "Erro ao conectar. Tente novamente." };
     }
-    const session = {
-      id: found.id,
-      username: found.username,
-      name: found.name,
-      role: found.role,
-    };
-    localStorage.setItem("pcd_session", JSON.stringify(session));
-    setUser(session);
-    return { success: true };
   };
 
   const logout = () => {
