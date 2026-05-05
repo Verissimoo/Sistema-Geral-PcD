@@ -140,11 +140,6 @@ export default function GerenteMetasComerciais() {
     [sortedGoals, currentMonth]
   );
 
-  const activeGoal = useMemo(
-    () => currentMonthGoal || sortedGoals.find((g) => g.status === "Ativa") || null,
-    [currentMonthGoal, sortedGoals]
-  );
-
   const currentMonthLabel = useMemo(() => {
     if (currentMonthGoal?.month_label) return currentMonthGoal.month_label;
     const label = new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
@@ -163,7 +158,7 @@ export default function GerenteMetasComerciais() {
             <h1 className="text-2xl font-bold tracking-tight">Escada de Crescimento</h1>
           </div>
           <p className="text-muted-foreground text-sm ml-12">
-            META-03 — Escada mensal de crescimento · Junho → Outubro 2026
+            META-03 — Escada mensal de crescimento · Maio → Outubro 2026
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -192,10 +187,10 @@ export default function GerenteMetasComerciais() {
           </div>
           <div className="flex flex-wrap gap-3 text-xs">
             <span className="px-3 py-1.5 rounded-full bg-white/10 border border-white/20">
-              <strong>5 meses</strong>
+              <strong>6 meses</strong>
             </span>
             <span className="px-3 py-1.5 rounded-full bg-white/10 border border-white/20">
-              R$ 60k → R$ 220k
+              R$ 30k → R$ 220k
             </span>
             <span className="px-3 py-1.5 rounded-full bg-amber-400/15 border border-amber-400/40 text-amber-200">
               Margem mínima: 15%

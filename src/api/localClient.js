@@ -43,11 +43,29 @@ export const localClient = {
 
 export function seedCommercialGoals() {
   const existing = JSON.parse(localStorage.getItem('pcd_commercial_goals') || '[]');
-  if (existing.length > 0) return;
+  // Só re-seeda quando NÃO existe a meta de Maio (versão correta da escada).
+  // Se já tem Maio + pelo menos 6 meses, considera dados válidos e não mexe.
+  const hasMay = existing.some((g) => g.month === '2026-05');
+  if (hasMay && existing.length >= 6) return;
 
   const goals = [
     {
-      id: crypto.randomUUID(),
+      id: 'goal-2026-05',
+      month: '2026-05',
+      month_label: 'Maio',
+      monthly_target: 30000,
+      weekly_target: 7500,
+      ticket_2500_sales: 12,
+      ticket_3000_sales: 10,
+      objective: 'Validar o sistema e iniciar operação com a equipe.',
+      advance_condition: 'R$ 30k com margem >=15%',
+      advance_next_step: 'Junho mira R$ 60k.',
+      status: 'Ativa',
+      actual_revenue: 0,
+      created_date: new Date().toISOString(),
+    },
+    {
+      id: 'goal-2026-06',
       month: '2026-06',
       month_label: 'Junho',
       monthly_target: 60000,
@@ -57,12 +75,12 @@ export function seedCommercialGoals() {
       objective: 'Provar rotina, treinar primeira leva e medir conversão real.',
       advance_condition: 'R$ 60k com margem >=15%',
       advance_next_step: 'Julho mira R$ 90k.',
-      status: 'Ativa',
+      status: 'Futura',
       actual_revenue: 0,
       created_date: new Date().toISOString(),
     },
     {
-      id: crypto.randomUUID(),
+      id: 'goal-2026-07',
       month: '2026-07',
       month_label: 'Julho',
       monthly_target: 90000,
@@ -77,7 +95,7 @@ export function seedCommercialGoals() {
       created_date: new Date().toISOString(),
     },
     {
-      id: crypto.randomUUID(),
+      id: 'goal-2026-08',
       month: '2026-08',
       month_label: 'Agosto',
       monthly_target: 130000,
@@ -92,7 +110,7 @@ export function seedCommercialGoals() {
       created_date: new Date().toISOString(),
     },
     {
-      id: crypto.randomUUID(),
+      id: 'goal-2026-09',
       month: '2026-09',
       month_label: 'Setembro',
       monthly_target: 170000,
@@ -107,7 +125,7 @@ export function seedCommercialGoals() {
       created_date: new Date().toISOString(),
     },
     {
-      id: crypto.randomUUID(),
+      id: 'goal-2026-10',
       month: '2026-10',
       month_label: 'Outubro',
       monthly_target: 220000,
