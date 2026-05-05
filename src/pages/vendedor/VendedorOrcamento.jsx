@@ -30,6 +30,7 @@ import { localClient } from "@/api/localClient";
 import { openQuoteInNewTab } from "@/lib/generateQuoteHTML";
 import { useAuth } from "@/lib/AuthContext";
 import { getCostForMiles, getSaleForMiles, getTierForMiles } from "@/lib/milesHelper";
+import { parseBR, sanitizeBRInput } from "@/lib/parseBR";
 
 // ─── Helpers ────────────────────────────────────────────────────────
 const toBase64 = (file) =>
@@ -1044,19 +1045,24 @@ function BlocoPrecificacao({ formData, setFormData }) {
   );
 
   const appliedTier = useMemo(
-    () => (selectedProgram ? getTierForMiles(selectedProgram, formData.pricing.miles_qty) : null),
+    () => (selectedProgram ? getTierForMiles(selectedProgram, parseBR(formData.pricing.miles_qty)) : null),
     [selectedProgram, formData.pricing.miles_qty]
+  );
+
+  const milesQtyParsed = useMemo(
+    () => parseBR(formData.pricing.miles_qty),
+    [formData.pricing.miles_qty]
   );
 
   const appliedCostPerThousand = useMemo(() => {
     if (!selectedProgram) return Number(formData.pricing.miles_value_per_thousand) || 0;
-    return getCostForMiles(selectedProgram, formData.pricing.miles_qty);
-  }, [selectedProgram, formData.pricing.miles_qty, formData.pricing.miles_value_per_thousand]);
+    return getCostForMiles(selectedProgram, milesQtyParsed);
+  }, [selectedProgram, milesQtyParsed, formData.pricing.miles_value_per_thousand]);
 
   const appliedSalePerThousand = useMemo(() => {
     if (!selectedProgram) return Number(formData.pricing.miles_value_per_thousand) || 0;
-    return getSaleForMiles(selectedProgram, formData.pricing.miles_qty);
-  }, [selectedProgram, formData.pricing.miles_qty, formData.pricing.miles_value_per_thousand]);
+    return getSaleForMiles(selectedProgram, milesQtyParsed);
+  }, [selectedProgram, milesQtyParsed, formData.pricing.miles_value_per_thousand]);
 
   // Cálculos
   const calc = useMemo(() => {
@@ -1073,15 +1079,15 @@ function BlocoPrecificacao({ formData, setFormData }) {
       custoTotal = Number(pr.total_cost) || 0;
       cost_brl = custoTotal;
     } else {
-      const tax = Number(pr.tax) || 0;
+      const tax = parseBR(pr.tax);
       if (pr.type === "milhas") {
-        const milhas = Number(pr.miles_qty) || 0;
+        const milhas = parseBR(pr.miles_qty);
         cost_brl = (milhas / 1000) * appliedCostPerThousand;
         venda_base = (milhas / 1000) * appliedSalePerThousand;
         // Nipon (preço mínimo de venda) usa o preço de VENDA da milha, não o custo
         nipon = venda_base + tax;
       } else {
-        const cost = Number(pr.cost_brl) || 0;
+        const cost = parseBR(pr.cost_brl);
         const base = cost + tax;
         acrescimo = pr.is_azul ? 0 : base * 0.10;
         nipon = base + acrescimo;
@@ -1090,7 +1096,7 @@ function BlocoPrecificacao({ formData, setFormData }) {
       custoTotal = cost_brl + tax;
     }
 
-    const sale = Number(pr.sale_value) || 0;
+    const sale = parseBR(pr.sale_value);
     // Comissão base = 25% do lucro Nipon (nipon - custo total).
     const lucroNipon = Math.max(0, nipon - custoTotal);
     const comissaoBase = lucroNipon * 0.25;
@@ -1103,9 +1109,9 @@ function BlocoPrecificacao({ formData, setFormData }) {
 
     const total =
       sale +
-      (formData.additional.active ? Number(formData.additional.value) || 0 : 0) +
-      (formData.services.insurance.active ? Number(formData.services.insurance.value) || 0 : 0) +
-      (formData.services.transfer.active ? Number(formData.services.transfer.value) || 0 : 0);
+      (formData.additional.active ? parseBR(formData.additional.value) : 0) +
+      (formData.services.insurance.active ? parseBR(formData.services.insurance.value) : 0) +
+      (formData.services.transfer.active ? parseBR(formData.services.transfer.value) : 0);
 
     return {
       cost_brl, venda_base, nipon, acrescimo,
@@ -1125,7 +1131,7 @@ function BlocoPrecificacao({ formData, setFormData }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [calc.nipon, calc.cost_brl, formData.pricing.is_split]);
 
-  const sale = Number(formData.pricing.sale_value) || 0;
+  const sale = parseBR(formData.pricing.sale_value);
   const aboveNipon = sale >= calc.nipon && sale > 0;
 
   return (
@@ -1187,20 +1193,21 @@ function BlocoPrecificacao({ formData, setFormData }) {
                 <div className="space-y-2">
                   <Label>Custo em milhas</Label>
                   <Input
-                    type="number"
-                    placeholder="Ex: 80000"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="Ex: 80.000 ou 80000"
                     value={formData.pricing.miles_qty}
-                    onChange={(e) => setPricing({ miles_qty: e.target.value })}
+                    onChange={(e) => setPricing({ miles_qty: sanitizeBRInput(e.target.value) })}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>Taxa de embarque (R$)</Label>
                   <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="Ex: 320.50"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="Ex: 320,50"
                     value={formData.pricing.tax}
-                    onChange={(e) => setPricing({ tax: e.target.value })}
+                    onChange={(e) => setPricing({ tax: sanitizeBRInput(e.target.value) })}
                   />
                 </div>
               </div>
@@ -1219,17 +1226,17 @@ function BlocoPrecificacao({ formData, setFormData }) {
                   <Row label="Venda do milheiro" value={formatBRL(appliedSalePerThousand)} />
                   <Row label="Custo real (interno)" value={formatBRL(appliedCostPerThousand)} muted />
                   <Row label="Valor das milhas (venda)" value={formatBRL(calc.venda_base)} />
-                  <Row label="Taxa de embarque" value={formatBRL(formData.pricing.tax)} />
+                  <Row label="Taxa de embarque" value={formatBRL(parseBR(formData.pricing.tax))} />
                   <Separator className="my-2" />
                   <Row label="VALOR NIPON (venda mínima)" value={formatBRL(calc.nipon)} bold accent />
                   <Row
                     label="Custo real total"
-                    value={formatBRL(calc.cost_brl + (Number(formData.pricing.tax) || 0))}
+                    value={formatBRL(calc.cost_brl + parseBR(formData.pricing.tax))}
                     muted
                   />
                   <Row
                     label="Margem bruta"
-                    value={formatBRL(calc.nipon - calc.cost_brl - (Number(formData.pricing.tax) || 0))}
+                    value={formatBRL(calc.nipon - calc.cost_brl - parseBR(formData.pricing.tax))}
                     bold
                   />
                 </CardContent>
@@ -1241,19 +1248,21 @@ function BlocoPrecificacao({ formData, setFormData }) {
                 <div className="space-y-2">
                   <Label>Preço de custo (R$)</Label>
                   <Input
-                    type="number"
-                    step="0.01"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="Ex: 1.234,56"
                     value={formData.pricing.cost_brl}
-                    onChange={(e) => setPricing({ cost_brl: e.target.value })}
+                    onChange={(e) => setPricing({ cost_brl: sanitizeBRInput(e.target.value) })}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>Taxa de embarque (R$)</Label>
                   <Input
-                    type="number"
-                    step="0.01"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="Ex: 320,50"
                     value={formData.pricing.tax}
-                    onChange={(e) => setPricing({ tax: e.target.value })}
+                    onChange={(e) => setPricing({ tax: sanitizeBRInput(e.target.value) })}
                   />
                 </div>
               </div>
@@ -1269,8 +1278,8 @@ function BlocoPrecificacao({ formData, setFormData }) {
               </div>
               <Card className="bg-muted/40 border-border/50">
                 <CardContent className="p-4 space-y-1.5 text-sm">
-                  <Row label="Custo base" value={formatBRL(formData.pricing.cost_brl)} />
-                  <Row label="Taxa de embarque" value={formatBRL(formData.pricing.tax)} />
+                  <Row label="Custo base" value={formatBRL(parseBR(formData.pricing.cost_brl))} />
+                  <Row label="Taxa de embarque" value={formatBRL(parseBR(formData.pricing.tax))} />
                   <Row
                     label="Acréscimo 10%"
                     value={formData.pricing.is_azul ? "Isento — Azul" : formatBRL(calc.acrescimo)}
@@ -1296,10 +1305,11 @@ function BlocoPrecificacao({ formData, setFormData }) {
           <div className="space-y-2 max-w-xs">
             <Label>Valor de venda ao cliente (R$) *</Label>
             <Input
-              type="number"
-              step="0.01"
+              type="text"
+              inputMode="decimal"
+              placeholder="Ex: 1.234,56"
               value={formData.pricing.sale_value}
-              onChange={(e) => setPricing({ sale_value: e.target.value })}
+              onChange={(e) => setPricing({ sale_value: sanitizeBRInput(e.target.value) })}
             />
           </div>
           {sale > 0 && !aboveNipon && (
@@ -1357,11 +1367,12 @@ function BlocoPrecificacao({ formData, setFormData }) {
               <div className="space-y-2">
                 <Label>Valor (R$)</Label>
                 <Input
-                  type="number"
-                  step="0.01"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="Ex: 1.234,56"
                   value={formData.additional.value}
                   onChange={(e) =>
-                    setFormData((p) => ({ ...p, additional: { ...p.additional, value: e.target.value } }))
+                    setFormData((p) => ({ ...p, additional: { ...p.additional, value: sanitizeBRInput(e.target.value) } }))
                   }
                 />
               </div>
@@ -1411,11 +1422,12 @@ function BlocoPrecificacao({ formData, setFormData }) {
               <div className="space-y-2">
                 <Label>Valor (R$)</Label>
                 <Input
-                  type="number"
-                  step="0.01"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="Ex: 1.234,56"
                   value={formData.competitor.value}
                   onChange={(e) =>
-                    setFormData((p) => ({ ...p, competitor: { ...p.competitor, value: e.target.value } }))
+                    setFormData((p) => ({ ...p, competitor: { ...p.competitor, value: sanitizeBRInput(e.target.value) } }))
                   }
                 />
               </div>
@@ -1438,13 +1450,13 @@ function BlocoPrecificacao({ formData, setFormData }) {
                 </Select>
               </div>
             </div>
-            {Number(formData.competitor.value) > 0 && sale > 0 && (
+            {parseBR(formData.competitor.value) > 0 && sale > 0 && (
               <div className="p-3 rounded-lg bg-muted/40 border text-sm">
                 Nosso preço: <strong>{formatBRL(sale)}</strong> vs Concorrência:{" "}
-                <strong>{formatBRL(formData.competitor.value)}</strong> →{" "}
+                <strong>{formatBRL(parseBR(formData.competitor.value))}</strong> →{" "}
                 <span className="text-emerald-700">
-                  Economia de {formatBRL(Number(formData.competitor.value) - sale)} (
-                  {(((Number(formData.competitor.value) - sale) / Number(formData.competitor.value)) * 100).toFixed(1)}%)
+                  Economia de {formatBRL(parseBR(formData.competitor.value) - sale)} (
+                  {(((parseBR(formData.competitor.value) - sale) / parseBR(formData.competitor.value)) * 100).toFixed(1)}%)
                 </span>
               </div>
             )}
@@ -1475,15 +1487,15 @@ function BlocoPrecificacao({ formData, setFormData }) {
               />
               <Label htmlFor={`svc-${s.key}`} className="text-sm cursor-pointer">{s.label}</Label>
               <Input
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 placeholder="R$"
                 disabled={!formData.services[s.key].active}
                 value={formData.services[s.key].value}
                 onChange={(e) =>
                   setFormData((p) => ({
                     ...p,
-                    services: { ...p.services, [s.key]: { ...p.services[s.key], value: e.target.value } },
+                    services: { ...p.services, [s.key]: { ...p.services[s.key], value: sanitizeBRInput(e.target.value) } },
                   }))
                 }
                 className="w-32"
@@ -1600,10 +1612,10 @@ function TrechoPricingCard({ trecho, index, milesTable, onChange }) {
   useEffect(() => {
     let cost_total = 0;
     let nipon_value = 0;
-    const tax = Number(trecho.tax) || 0;
+    const tax = parseBR(trecho.tax);
 
     if (trecho.type === "milhas") {
-      const milhas = Number(trecho.miles_qty) || 0;
+      const milhas = parseBR(trecho.miles_qty);
       if (selectedProgram && milhas > 0) {
         const costPerThousand = getCostForMiles(selectedProgram, milhas);
         const salePerThousand = getSaleForMiles(selectedProgram, milhas);
@@ -1611,7 +1623,7 @@ function TrechoPricingCard({ trecho, index, milesTable, onChange }) {
         nipon_value = (milhas / 1000) * salePerThousand + tax;
       }
     } else {
-      const cost = Number(trecho.cost_brl) || 0;
+      const cost = parseBR(trecho.cost_brl);
       if (cost > 0 || tax > 0) {
         const base = cost + tax;
         const acrescimo = trecho.is_azul ? 0 : base * 0.10;
@@ -1688,20 +1700,21 @@ function TrechoPricingCard({ trecho, index, milesTable, onChange }) {
               <div className="space-y-2">
                 <Label>Custo em milhas</Label>
                 <Input
-                  type="number"
-                  placeholder="Ex: 80000"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="Ex: 80.000 ou 80000"
                   value={trecho.miles_qty || ""}
-                  onChange={(e) => onChange({ ...trecho, miles_qty: e.target.value })}
+                  onChange={(e) => onChange({ ...trecho, miles_qty: sanitizeBRInput(e.target.value) })}
                 />
               </div>
               <div className="space-y-2">
                 <Label>Taxa de embarque (R$)</Label>
                 <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="Ex: 320.50"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="Ex: 320,50"
                   value={trecho.tax || ""}
-                  onChange={(e) => onChange({ ...trecho, tax: e.target.value })}
+                  onChange={(e) => onChange({ ...trecho, tax: sanitizeBRInput(e.target.value) })}
                 />
               </div>
             </div>
@@ -1712,19 +1725,21 @@ function TrechoPricingCard({ trecho, index, milesTable, onChange }) {
               <div className="space-y-2">
                 <Label>Preço de custo (R$)</Label>
                 <Input
-                  type="number"
-                  step="0.01"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="Ex: 1.234,56"
                   value={trecho.cost_brl || ""}
-                  onChange={(e) => onChange({ ...trecho, cost_brl: e.target.value })}
+                  onChange={(e) => onChange({ ...trecho, cost_brl: sanitizeBRInput(e.target.value) })}
                 />
               </div>
               <div className="space-y-2">
                 <Label>Taxa de embarque (R$)</Label>
                 <Input
-                  type="number"
-                  step="0.01"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="Ex: 320,50"
                   value={trecho.tax || ""}
-                  onChange={(e) => onChange({ ...trecho, tax: e.target.value })}
+                  onChange={(e) => onChange({ ...trecho, tax: sanitizeBRInput(e.target.value) })}
                 />
               </div>
             </div>
@@ -1811,10 +1826,10 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
     if (bagList.length === 0) bagList.push("🎒 Bagagem não inclusa");
     texto += `${bagList.join("\n")}\n\n`;
 
-    if (t.services.insurance.active) texto += `🛡️ Seguro Viagem incluso (${formatBRL(t.services.insurance.value)})\n`;
-    if (t.services.transfer.active) texto += `🚗 Transfer incluso (${formatBRL(t.services.transfer.value)})\n`;
+    if (t.services.insurance.active) texto += `🛡️ Seguro Viagem incluso (${formatBRL(parseBR(t.services.insurance.value))})\n`;
+    if (t.services.transfer.active) texto += `🚗 Transfer incluso (${formatBRL(parseBR(t.services.transfer.value))})\n`;
     if (t.additional.active && t.additional.description) {
-      texto += `➕ ${t.additional.description}: ${formatBRL(t.additional.value)}\n`;
+      texto += `➕ ${t.additional.description}: ${formatBRL(parseBR(t.additional.value))}\n`;
     }
     if (t.services.insurance.active || t.services.transfer.active || t.additional.active) texto += `\n`;
 
@@ -1825,8 +1840,50 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
     return texto;
   };
 
+  // Normaliza strings com vírgula/ponto BR para números (usado em persistência e geração de PDF).
+  const buildNormalizedPayload = () => {
+    const normalizedPricing = {
+      ...formData.pricing,
+      program: formData.pricing.program_name,
+      miles_qty: parseBR(formData.pricing.miles_qty),
+      tax: parseBR(formData.pricing.tax),
+      cost_brl: Number(formData.pricing.cost_brl_calc) || parseBR(formData.pricing.cost_brl),
+      sale_value: parseBR(formData.pricing.sale_value),
+    };
+    if (Array.isArray(normalizedPricing.trechos)) {
+      normalizedPricing.trechos = normalizedPricing.trechos.map((t) => ({
+        ...t,
+        miles_qty: parseBR(t.miles_qty),
+        tax: parseBR(t.tax),
+        cost_brl: parseBR(t.cost_brl),
+      }));
+    }
+    return {
+      pricing: normalizedPricing,
+      additional: formData.additional.active
+        ? { ...formData.additional, value: parseBR(formData.additional.value) }
+        : null,
+      competitor: formData.competitor.active
+        ? { ...formData.competitor, value: parseBR(formData.competitor.value) }
+        : null,
+      services: {
+        insurance: {
+          ...formData.services.insurance,
+          value: parseBR(formData.services.insurance.value),
+        },
+        transfer: {
+          ...formData.services.transfer,
+          value: parseBR(formData.services.transfer.value),
+        },
+      },
+    };
+  };
+
   const persistQuote = async (text) => {
     if (savedQuote) return savedQuote;
+
+    const { pricing: normalizedPricing, additional: normalizedAdditional, competitor: normalizedCompetitor, services: normalizedServices } = buildNormalizedPayload();
+
     const quote = await localClient.entities.Quotes.create({
       quote_number: quoteNumber,
       client: formData.client,
@@ -1841,14 +1898,10 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
       },
       passengers: formData.passengers,
       baggage: formData.baggage,
-      pricing: {
-        ...formData.pricing,
-        program: formData.pricing.program_name,
-        cost_brl: formData.pricing.cost_brl_calc || formData.pricing.cost_brl,
-      },
-      additional: formData.additional.active ? formData.additional : null,
-      competitor: formData.competitor.active ? formData.competitor : null,
-      services: formData.services,
+      pricing: normalizedPricing,
+      additional: normalizedAdditional,
+      competitor: normalizedCompetitor,
+      services: normalizedServices,
       total_value: totalValue,
       commission,
       seller_name: user?.name || "Equipe PCD",
@@ -1882,6 +1935,7 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
   const handleGerarPDF = async () => {
     const txt = buildWhatsapp();
     await persistQuote(txt);
+    const normalized = buildNormalizedPayload();
     openQuoteInNewTab({
       quote_number: quoteNumber,
       client: formData.client,
@@ -1895,10 +1949,10 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
       },
       passengers: formData.passengers,
       baggage: formData.baggage,
-      pricing: formData.pricing,
-      additional: formData.additional.active ? formData.additional : null,
-      competitor: formData.competitor.active ? formData.competitor : null,
-      services: formData.services,
+      pricing: normalized.pricing,
+      additional: normalized.additional,
+      competitor: normalized.competitor,
+      services: normalized.services,
       total_value: totalValue,
       commission,
       seller_name: user?.name || "Equipe PCD",
@@ -2020,12 +2074,12 @@ export default function VendedorOrcamento() {
 
   // Cálculos derivados
   const totalValue = useMemo(() => {
-    const sale = Number(formData.pricing.sale_value) || 0;
+    const sale = parseBR(formData.pricing.sale_value);
     return (
       sale +
-      (formData.additional.active ? Number(formData.additional.value) || 0 : 0) +
-      (formData.services.insurance.active ? Number(formData.services.insurance.value) || 0 : 0) +
-      (formData.services.transfer.active ? Number(formData.services.transfer.value) || 0 : 0)
+      (formData.additional.active ? parseBR(formData.additional.value) : 0) +
+      (formData.services.insurance.active ? parseBR(formData.services.insurance.value) : 0) +
+      (formData.services.transfer.active ? parseBR(formData.services.transfer.value) : 0)
     );
   }, [formData]);
 
@@ -2040,14 +2094,14 @@ export default function VendedorOrcamento() {
     } else {
       // Usa cost_brl_calc (calculado em BlocoPrecificacao com faixa variável aplicada se houver)
       const cost_brl = pr.type === "milhas"
-        ? Number(pr.cost_brl_calc) || ((Number(pr.miles_qty) || 0) / 1000) * (Number(pr.miles_value_per_thousand) || 0)
-        : Number(pr.cost_brl) || 0;
-      const tax = Number(pr.tax) || 0;
+        ? Number(pr.cost_brl_calc) || (parseBR(pr.miles_qty) / 1000) * (Number(pr.miles_value_per_thousand) || 0)
+        : parseBR(pr.cost_brl);
+      const tax = parseBR(pr.tax);
       custoTotal = cost_brl + tax;
       nipon = Number(pr.nipon_value) || 0;
     }
 
-    const sale = Number(pr.sale_value) || 0;
+    const sale = parseBR(pr.sale_value);
     const lucroNipon = Math.max(0, nipon - custoTotal);
     const base = lucroNipon * 0.25;
     const excedente = Math.max(0, sale - nipon);
@@ -2068,7 +2122,7 @@ export default function VendedorOrcamento() {
           (formData.one_way || !!formData.return_date)
         );
       case 4: {
-        const sale = Number(formData.pricing.sale_value) || 0;
+        const sale = parseBR(formData.pricing.sale_value);
         return sale > 0;
       }
       default: return true;
