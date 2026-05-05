@@ -172,7 +172,10 @@ function BlocoCliente({ formData, setFormData }) {
   const { toast } = useToast();
 
   useEffect(() => {
-    setClients(localClient.entities.Clients.list());
+    (async () => {
+      const list = await localClient.entities.Clients.list();
+      setClients(list || []);
+    })();
   }, []);
 
   const filtered = useMemo(
@@ -184,16 +187,20 @@ function BlocoCliente({ formData, setFormData }) {
     setFormData((p) => ({ ...p, client: c }));
   };
 
-  const saveNewClient = () => {
+  const saveNewClient = async () => {
     if (!newClient.name.trim()) {
       toast({ title: "Nome obrigatório", variant: "destructive" });
       return;
     }
-    const created = localClient.entities.Clients.create({
+    const created = await localClient.entities.Clients.create({
       name: newClient.name.trim(),
       phone: newClient.phone,
       lead_origin: newClient.lead_origin || "Outro",
     });
+    if (!created) {
+      toast({ title: "Erro ao salvar cliente", variant: "destructive" });
+      return;
+    }
     setClients((arr) => [...arr, created]);
     setFormData((p) => ({ ...p, client: created }));
     setNewClient({ name: "", phone: "", lead_origin: "" });
@@ -958,8 +965,75 @@ function BlocoPrecificacao({ formData, setFormData }) {
   const [milesTable, setMilesTable] = useState([]);
 
   useEffect(() => {
-    setMilesTable(localClient.entities.MilesTable.list());
+    (async () => {
+      const list = await localClient.entities.MilesTable.list();
+      setMilesTable(list || []);
+    })();
   }, []);
+
+  const isSplit = formData.ticket_type === "Quebra de Trecho";
+
+  // Inicialização automática do modo split conforme ticket_type / itinerário.
+  useEffect(() => {
+    if (isSplit) {
+      const trechos = formData.itinerary?.trechos || [];
+      setFormData((prev) => {
+        const existing = prev.pricing?.trechos || [];
+        const newTrechos = trechos.map((t, idx) => {
+          const label = `${t.tipo === "ida" ? "Ida" : "Volta"} — ${t.origem_iata || "?"} → ${t.destino_iata || "?"}`;
+          const prior = existing[idx];
+          return prior
+            ? { ...prior, label }
+            : {
+                label,
+                type: "milhas",
+                program_id: "",
+                program_name: "",
+                miles_qty: "",
+                tax: "",
+                cost_brl: "",
+                is_azul: false,
+                nipon_value: 0,
+                cost_total: 0,
+              };
+        });
+        return {
+          ...prev,
+          pricing: { ...prev.pricing, is_split: true, trechos: newTrechos },
+        };
+      });
+    } else {
+      setFormData((prev) => {
+        if (!prev.pricing?.is_split && !prev.pricing?.trechos) return prev;
+        const next = { ...prev.pricing, is_split: false };
+        delete next.trechos;
+        delete next.total_nipon;
+        delete next.total_cost;
+        return { ...prev, pricing: next };
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSplit, formData.itinerary?.trechos?.length]);
+
+  const updateTrechoPricing = (idx, updatedTrecho) => {
+    setFormData((prev) => {
+      const cur = prev.pricing?.trechos || [];
+      const newTrechos = [...cur];
+      newTrechos[idx] = updatedTrecho;
+      const total_nipon = newTrechos.reduce((s, t) => s + (Number(t.nipon_value) || 0), 0);
+      const total_cost = newTrechos.reduce((s, t) => s + (Number(t.cost_total) || 0), 0);
+      return {
+        ...prev,
+        pricing: {
+          ...prev.pricing,
+          is_split: true,
+          trechos: newTrechos,
+          total_nipon,
+          total_cost,
+        },
+      };
+    });
+  };
 
   const setPricing = (patch) =>
     setFormData((p) => ({ ...p, pricing: { ...p.pricing, ...patch } }));
@@ -991,27 +1065,33 @@ function BlocoPrecificacao({ formData, setFormData }) {
     let venda_base = 0;     // valor de venda das milhas (sale_per_thousand)
     let nipon = 0;
     let acrescimo = 0;
+    let custoTotal = 0;
 
-    const tax = Number(pr.tax) || 0;
-
-    if (pr.type === "milhas") {
-      const milhas = Number(pr.miles_qty) || 0;
-      cost_brl = (milhas / 1000) * appliedCostPerThousand;
-      venda_base = (milhas / 1000) * appliedSalePerThousand;
-      // Nipon (preço mínimo de venda) usa o preço de VENDA da milha, não o custo
-      nipon = venda_base + tax;
+    if (pr.is_split) {
+      // Em modo split, custo e nipon vêm dos totais consolidados (já incluem taxas).
+      nipon = Number(pr.total_nipon) || 0;
+      custoTotal = Number(pr.total_cost) || 0;
+      cost_brl = custoTotal;
     } else {
-      const cost = Number(pr.cost_brl) || 0;
-      const base = cost + tax;
-      acrescimo = pr.is_azul ? 0 : base * 0.10;
-      nipon = base + acrescimo;
-      cost_brl = cost;
+      const tax = Number(pr.tax) || 0;
+      if (pr.type === "milhas") {
+        const milhas = Number(pr.miles_qty) || 0;
+        cost_brl = (milhas / 1000) * appliedCostPerThousand;
+        venda_base = (milhas / 1000) * appliedSalePerThousand;
+        // Nipon (preço mínimo de venda) usa o preço de VENDA da milha, não o custo
+        nipon = venda_base + tax;
+      } else {
+        const cost = Number(pr.cost_brl) || 0;
+        const base = cost + tax;
+        acrescimo = pr.is_azul ? 0 : base * 0.10;
+        nipon = base + acrescimo;
+        cost_brl = cost;
+      }
+      custoTotal = cost_brl + tax;
     }
 
     const sale = Number(pr.sale_value) || 0;
-    const custoTotal = cost_brl + tax;
     // Comissão base = 25% do lucro Nipon (nipon - custo total).
-    // Esse lucro é o "lucro mínimo" garantido se o vendedor vende no Nipon.
     const lucroNipon = Math.max(0, nipon - custoTotal);
     const comissaoBase = lucroNipon * 0.25;
     // Excedente: só conta o que passou do Nipon (nunca negativo).
@@ -1029,17 +1109,21 @@ function BlocoPrecificacao({ formData, setFormData }) {
 
     return {
       cost_brl, venda_base, nipon, acrescimo,
-      lucroNipon, lucroBruto,
+      lucroNipon, lucroBruto, custoTotal,
       comissaoBase, excedente, comissaoExtra, comissaoTotal,
       total,
     };
   }, [formData, appliedCostPerThousand, appliedSalePerThousand]);
 
-  // Mantém nipon_value sincronizado no formData
+  // Mantém nipon_value/cost_brl_calc sincronizados (apenas no modo single).
   useEffect(() => {
-    setFormData((p) => ({ ...p, pricing: { ...p.pricing, nipon_value: calc.nipon, cost_brl_calc: calc.cost_brl } }));
+    if (formData.pricing.is_split) return;
+    setFormData((p) => ({
+      ...p,
+      pricing: { ...p.pricing, nipon_value: calc.nipon, cost_brl_calc: calc.cost_brl },
+    }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [calc.nipon, calc.cost_brl]);
+  }, [calc.nipon, calc.cost_brl, formData.pricing.is_split]);
 
   const sale = Number(formData.pricing.sale_value) || 0;
   const aboveNipon = sale >= calc.nipon && sale > 0;
@@ -1051,9 +1135,19 @@ function BlocoPrecificacao({ formData, setFormData }) {
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
             <Wallet className="h-4 w-4" /> Tipo de Emissão
+            {isSplit && (
+              <Badge variant="secondary" className="text-[10px]">Múltiplas emissões</Badge>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent>
+        {isSplit ? (
+          <SplitPricing
+            trechos={formData.pricing?.trechos || []}
+            milesTable={milesTable}
+            onChange={updateTrechoPricing}
+          />
+        ) : (
           <Tabs
             value={formData.pricing.type}
             onValueChange={(v) => setPricing({ type: v })}
@@ -1187,6 +1281,7 @@ function BlocoPrecificacao({ formData, setFormData }) {
               </Card>
             </TabsContent>
           </Tabs>
+        )}
         </CardContent>
       </Card>
 
@@ -1431,6 +1526,239 @@ function Row({ label, value, bold, accent, muted, className }) {
   );
 }
 
+// ─── Quebra de Trecho — múltiplas emissões ─────────────────────────
+function SplitPricing({ trechos, milesTable, onChange }) {
+  const totalNipon = trechos.reduce((s, t) => s + (Number(t.nipon_value) || 0), 0);
+  const totalCost = trechos.reduce((s, t) => s + (Number(t.cost_total) || 0), 0);
+  const totalMargin = totalNipon - totalCost;
+
+  if (trechos.length === 0) {
+    return (
+      <div className="p-4 rounded-lg bg-muted/40 border border-dashed text-sm text-muted-foreground text-center">
+        Adicione trechos no Bloco 3 para configurar a precificação por trecho.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-sm">
+        <Info className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+        <div className="text-amber-800 dark:text-amber-300">
+          <strong>Quebra de Trecho:</strong> cada trecho pode ser emitido com método
+          diferente (ex: ida em milhas Latam, volta em milhas Smiles, ou um trecho em milhas e outro em dinheiro).
+        </div>
+      </div>
+
+      {trechos.map((trecho, idx) => (
+        <TrechoPricingCard
+          key={idx}
+          trecho={trecho}
+          index={idx}
+          milesTable={milesTable}
+          onChange={(updated) => onChange(idx, updated)}
+        />
+      ))}
+
+      {/* Totais consolidados */}
+      <Card className="bg-slate-900 text-white border-slate-800">
+        <CardContent className="p-5 space-y-2">
+          <div className="text-[10px] uppercase tracking-widest text-slate-400">
+            Totais consolidados
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-300">Custo total:</span>
+            <span className="font-semibold">{formatBRL(totalCost)}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-300">Valor Nipon total:</span>
+            <span className="font-semibold text-amber-400">{formatBRL(totalNipon)}</span>
+          </div>
+          <Separator className="my-2 bg-slate-700" />
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-300">Margem bruta:</span>
+            <span className={cn("font-semibold", totalMargin >= 0 ? "text-emerald-400" : "text-red-400")}>
+              {formatBRL(totalMargin)}
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function TrechoPricingCard({ trecho, index, milesTable, onChange }) {
+  const isIda = (trecho.label || "").startsWith("Ida");
+  const accentClass = isIda ? "border-l-blue-500" : "border-l-red-500";
+
+  const selectedProgram = useMemo(
+    () => milesTable.find((m) => m.id === trecho.program_id) || null,
+    [milesTable, trecho.program_id]
+  );
+
+  // Recalcula nipon_value e cost_total deste trecho conforme entradas mudam.
+  useEffect(() => {
+    let cost_total = 0;
+    let nipon_value = 0;
+    const tax = Number(trecho.tax) || 0;
+
+    if (trecho.type === "milhas") {
+      const milhas = Number(trecho.miles_qty) || 0;
+      if (selectedProgram && milhas > 0) {
+        const costPerThousand = getCostForMiles(selectedProgram, milhas);
+        const salePerThousand = getSaleForMiles(selectedProgram, milhas);
+        cost_total = (milhas / 1000) * costPerThousand + tax;
+        nipon_value = (milhas / 1000) * salePerThousand + tax;
+      }
+    } else {
+      const cost = Number(trecho.cost_brl) || 0;
+      if (cost > 0 || tax > 0) {
+        const base = cost + tax;
+        const acrescimo = trecho.is_azul ? 0 : base * 0.10;
+        cost_total = base;
+        nipon_value = base + acrescimo;
+      }
+    }
+
+    if (
+      Math.abs(cost_total - (Number(trecho.cost_total) || 0)) > 0.001 ||
+      Math.abs(nipon_value - (Number(trecho.nipon_value) || 0)) > 0.001
+    ) {
+      onChange({ ...trecho, cost_total, nipon_value });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trecho.type, trecho.program_id, trecho.miles_qty, trecho.tax, trecho.cost_brl, trecho.is_azul, selectedProgram]);
+
+  return (
+    <Card className={cn("border-l-4", accentClass)}>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <span className="h-7 w-7 rounded-full bg-muted flex items-center justify-center text-xs font-bold">
+              {index + 1}
+            </span>
+            {trecho.label}
+          </CardTitle>
+          {Number(trecho.nipon_value) > 0 && (
+            <span className="text-xs text-amber-600 dark:text-amber-400 font-semibold">
+              Nipon: {formatBRL(trecho.nipon_value)}
+            </span>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        <Tabs
+          value={trecho.type || "milhas"}
+          onValueChange={(v) => onChange({ ...trecho, type: v })}
+        >
+          <TabsList className="grid grid-cols-2 w-full max-w-sm">
+            <TabsTrigger value="milhas">Milhas</TabsTrigger>
+            <TabsTrigger value="dinheiro">Dinheiro</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="milhas" className="space-y-3 mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="space-y-2">
+                <Label>Programa de Milhas</Label>
+                <Select
+                  value={trecho.program_id || ""}
+                  onValueChange={(v) => {
+                    const program = milesTable.find((m) => m.id === v);
+                    onChange({
+                      ...trecho,
+                      program_id: v,
+                      program_name: program?.program || "",
+                    });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue
+                      placeholder={milesTable.length === 0 ? "Sem programas" : "Selecione..."}
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {milesTable.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.program} — {formatBRL(m.cost_per_thousand)}/mil
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Custo em milhas</Label>
+                <Input
+                  type="number"
+                  placeholder="Ex: 80000"
+                  value={trecho.miles_qty || ""}
+                  onChange={(e) => onChange({ ...trecho, miles_qty: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Taxa de embarque (R$)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="Ex: 320.50"
+                  value={trecho.tax || ""}
+                  onChange={(e) => onChange({ ...trecho, tax: e.target.value })}
+                />
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="dinheiro" className="space-y-3 mt-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Preço de custo (R$)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={trecho.cost_brl || ""}
+                  onChange={(e) => onChange({ ...trecho, cost_brl: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Taxa de embarque (R$)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={trecho.tax || ""}
+                  onChange={(e) => onChange({ ...trecho, tax: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id={`azul-${index}`}
+                checked={!!trecho.is_azul}
+                onCheckedChange={(c) => onChange({ ...trecho, is_azul: !!c })}
+              />
+              <Label htmlFor={`azul-${index}`} className="text-sm cursor-pointer">
+                Azul — não aplicar 10%
+              </Label>
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        {Number(trecho.cost_total) > 0 && (
+          <Card className="bg-muted/40 border-border/50 mt-4">
+            <CardContent className="p-3 space-y-1.5 text-sm">
+              <Row label="Custo deste trecho" value={formatBRL(trecho.cost_total)} muted />
+              <Row
+                label="Valor Nipon deste trecho"
+                value={formatBRL(trecho.nipon_value)}
+                bold
+                accent
+              />
+            </CardContent>
+          </Card>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Bloco 5 — Gerar ────────────────────────────────────────────────
 function BlocoGerar({ formData, totalValue, commission, onSaved }) {
   const [whatsappOpen, setWhatsappOpen] = useState(false);
@@ -1497,11 +1825,12 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
     return texto;
   };
 
-  const persistQuote = (text) => {
+  const persistQuote = async (text) => {
     if (savedQuote) return savedQuote;
-    const quote = localClient.entities.Quotes.create({
-      quoteNumber,
+    const quote = await localClient.entities.Quotes.create({
+      quote_number: quoteNumber,
       client: formData.client,
+      client_id: formData.client?.id || null,
       product: formData.product,
       ticket_type: formData.ticket_type,
       itinerary: formData.itinerary,
@@ -1513,14 +1842,9 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
       passengers: formData.passengers,
       baggage: formData.baggage,
       pricing: {
-        type: formData.pricing.type,
+        ...formData.pricing,
         program: formData.pricing.program_name,
-        miles_qty: formData.pricing.miles_qty,
-        tax: formData.pricing.tax,
         cost_brl: formData.pricing.cost_brl_calc || formData.pricing.cost_brl,
-        nipon_value: formData.pricing.nipon_value,
-        sale_value: formData.pricing.sale_value,
-        is_azul: formData.pricing.is_azul,
       },
       additional: formData.additional.active ? formData.additional : null,
       competitor: formData.competitor.active ? formData.competitor : null,
@@ -1530,19 +1854,22 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
       seller_name: user?.name || "Equipe PCD",
       seller_id: user?.id || null,
       status: "Enviado",
-      created_date: new Date().toISOString(),
       whatsapp_text: text,
     });
+    if (!quote) {
+      toast({ title: "Erro ao salvar orçamento no servidor", variant: "destructive" });
+      return null;
+    }
     setSavedQuote(quote);
     onSaved?.(quote);
     toast({ title: "Orçamento salvo com sucesso!" });
     return quote;
   };
 
-  const handleWhatsapp = () => {
+  const handleWhatsapp = async () => {
     const txt = buildWhatsapp();
     setWhatsappText(txt);
-    persistQuote(txt);
+    await persistQuote(txt);
     setWhatsappOpen(true);
   };
 
@@ -1552,11 +1879,11 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
     setTimeout(() => setCopied(false), 2500);
   };
 
-  const handleGerarPDF = () => {
+  const handleGerarPDF = async () => {
     const txt = buildWhatsapp();
-    persistQuote(txt);
+    await persistQuote(txt);
     openQuoteInNewTab({
-      quoteNumber,
+      quote_number: quoteNumber,
       client: formData.client,
       product: formData.product,
       ticket_type: formData.ticket_type,
@@ -1704,14 +2031,23 @@ export default function VendedorOrcamento() {
 
   const commission = useMemo(() => {
     const pr = formData.pricing;
-    // Usa cost_brl_calc (calculado em BlocoPrecificacao com faixa variável aplicada se houver)
-    const cost_brl = pr.type === "milhas"
-      ? Number(pr.cost_brl_calc) || ((Number(pr.miles_qty) || 0) / 1000) * (Number(pr.miles_value_per_thousand) || 0)
-      : Number(pr.cost_brl) || 0;
-    const tax = Number(pr.tax) || 0;
+    let custoTotal = 0;
+    let nipon = 0;
+
+    if (pr.is_split) {
+      custoTotal = Number(pr.total_cost) || 0;
+      nipon = Number(pr.total_nipon) || 0;
+    } else {
+      // Usa cost_brl_calc (calculado em BlocoPrecificacao com faixa variável aplicada se houver)
+      const cost_brl = pr.type === "milhas"
+        ? Number(pr.cost_brl_calc) || ((Number(pr.miles_qty) || 0) / 1000) * (Number(pr.miles_value_per_thousand) || 0)
+        : Number(pr.cost_brl) || 0;
+      const tax = Number(pr.tax) || 0;
+      custoTotal = cost_brl + tax;
+      nipon = Number(pr.nipon_value) || 0;
+    }
+
     const sale = Number(pr.sale_value) || 0;
-    const nipon = pr.nipon_value || 0;
-    const custoTotal = cost_brl + tax;
     const lucroNipon = Math.max(0, nipon - custoTotal);
     const base = lucroNipon * 0.25;
     const excedente = Math.max(0, sale - nipon);

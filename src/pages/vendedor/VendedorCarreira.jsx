@@ -34,10 +34,13 @@ export default function VendedorCarreira() {
 
   useEffect(() => {
     (async () => {
-      const usersList = await localClient.entities.Users.list();
+      const [usersList, quotesList] = await Promise.all([
+        localClient.entities.Users.list(),
+        localClient.entities.Quotes.list(),
+      ]);
       setUsers(usersList || []);
+      setQuotes(quotesList || []);
     })();
-    setQuotes(localClient.entities.Quotes.list());
   }, []);
 
   const sellersList = useMemo(

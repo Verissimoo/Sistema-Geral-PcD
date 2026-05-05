@@ -56,8 +56,14 @@ export default function GerenteClientes() {
   const [statusFilter, setStatusFilter] = useState("Todos");
 
   useEffect(() => {
-    setClients(localClient.entities.Clients.list());
-    setQuotes(localClient.entities.Quotes.list());
+    (async () => {
+      const [clientsList, quotesList] = await Promise.all([
+        localClient.entities.Clients.list(),
+        localClient.entities.Quotes.list(),
+      ]);
+      setClients(clientsList || []);
+      setQuotes(quotesList || []);
+    })();
   }, []);
 
   // Enriquece clientes com dados agregados dos quotes

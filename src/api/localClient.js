@@ -1,125 +1,171 @@
 import { supabase } from '@/lib/supabase';
 
-const store = (key) => ({
-  list: () => {
-    const data = JSON.parse(localStorage.getItem(key) || '[]');
-    return data;
-  },
-  get: (id) => {
-    const data = JSON.parse(localStorage.getItem(key) || '[]');
-    return data.find((item) => item.id === id) || null;
-  },
-  create: (item) => {
-    const data = JSON.parse(localStorage.getItem(key) || '[]');
-    const newItem = { id: crypto.randomUUID(), ...item };
-    data.push(newItem);
-    localStorage.setItem(key, JSON.stringify(data));
-    return newItem;
-  },
-  update: (id, updates) => {
-    const data = JSON.parse(localStorage.getItem(key) || '[]');
-    const index = data.findIndex((item) => item.id === id);
-    if (index === -1) return null;
-    data[index] = { ...data[index], ...updates };
-    localStorage.setItem(key, JSON.stringify(data));
-    return data[index];
-  },
-  delete: (id) => {
-    const data = JSON.parse(localStorage.getItem(key) || '[]');
-    const filtered = data.filter((item) => item.id !== id);
-    localStorage.setItem(key, JSON.stringify(filtered));
-    return { success: true };
-  },
-});
-
-// Users: persistido no Supabase (tabela pcd_users) — assim usuários
-// criados num PC funcionam em qualquer outro navegador/máquina.
-const usersStore = {
+// Factory genérica: cria CRUD assíncrono apontando para qualquer tabela do Supabase.
+// Padrão idêntico ao usersStore que já estava em produção.
+const supabaseStore = (tableName, dateField = 'created_date') => ({
   list: async () => {
     const { data, error } = await supabase
-      .from('pcd_users')
+      .from(tableName)
       .select('*')
-      .order('created_date', { ascending: false });
+      .order(dateField, { ascending: false });
     if (error) {
-      console.error('Erro ao listar usuários:', error);
+      console.error(`Erro ao listar ${tableName}:`, error);
       return [];
     }
     return data || [];
   },
+
   get: async (id) => {
     const { data, error } = await supabase
-      .from('pcd_users')
+      .from(tableName)
       .select('*')
       .eq('id', id)
       .single();
     if (error) {
-      if (error.code !== 'PGRST116') console.error('Erro ao buscar usuário:', error);
+      if (error.code !== 'PGRST116') console.error(`Erro ao buscar ${tableName}:`, error);
       return null;
     }
     return data;
   },
+
   create: async (record) => {
-    // O id é gerado pelo Supabase (default gen_random_uuid()).
+    // Deixa o Supabase gerar UUID via default — não passamos id do client.
     const { id: _ignored, ...rest } = record || {};
-    const payload = {
-      ...rest,
-      created_date: rest.created_date || new Date().toISOString(),
-    };
     const { data, error } = await supabase
-      .from('pcd_users')
-      .insert([payload])
+      .from(tableName)
+      .insert([rest])
       .select()
       .single();
     if (error) {
-      console.error('Erro ao criar usuário:', error);
+      console.error(`Erro ao criar em ${tableName}:`, error);
       return null;
     }
     return data;
   },
+
   update: async (id, updates) => {
     const { data, error } = await supabase
-      .from('pcd_users')
+      .from(tableName)
       .update(updates)
       .eq('id', id)
       .select()
       .single();
     if (error) {
-      console.error('Erro ao atualizar usuário:', error);
+      console.error(`Erro ao atualizar ${tableName}:`, error);
       return null;
     }
     return data;
   },
+
   delete: async (id) => {
-    const { error } = await supabase.from('pcd_users').delete().eq('id', id);
+    const { error } = await supabase.from(tableName).delete().eq('id', id);
     if (error) {
-      console.error('Erro ao deletar usuário:', error);
+      console.error(`Erro ao deletar ${tableName}:`, error);
       return null;
     }
     return { success: true };
   },
-};
+});
 
 export const localClient = {
   entities: {
-    MilesTable: store('pcd_miles_table'),
-    Sellers: store('pcd_sellers'),
-    Clients: store('pcd_clients'),
-    Quotes: store('pcd_quotes'),
-    Users: usersStore,
-    CommercialGoals: store('pcd_commercial_goals'),
+    Users: supabaseStore('pcd_users'),
+    Clients: supabaseStore('pcd_clients'),
+    Quotes: supabaseStore('pcd_quotes'),
+    MilesTable: supabaseStore('pcd_miles_table', 'updated_date'),
+    CommercialGoals: supabaseStore('pcd_commercial_goals'),
+    Rituals: supabaseStore('pcd_rituals'),
+    Contractors: supabaseStore('pcd_contractors'),
+    Projects: supabaseStore('pcd_projects'),
   },
 };
 
-export function seedCommercialGoals() {
-  const existing = JSON.parse(localStorage.getItem('pcd_commercial_goals') || '[]');
-  // Só re-seeda quando NÃO existe a meta de Maio (versão correta da escada).
-  // Se já tem Maio + pelo menos 6 meses, considera dados válidos e não mexe.
-  const hasMay = existing.some((g) => g.month === '2026-05');
-  if (hasMay && existing.length >= 6) return;
+// ─── Seeds ──────────────────────────────────────────────────────────
+// Inserem dados iniciais no Supabase apenas quando a tabela está vazia.
+
+export async function seedAdminUser() {
+  // Limpeza preventiva: remove qualquer pcd_users legado do localStorage.
+  try {
+    localStorage.removeItem('pcd_users');
+  } catch {
+    /* ignore */
+  }
+
+  const { data: existing } = await supabase
+    .from('pcd_users')
+    .select('id')
+    .eq('username', 'admin')
+    .maybeSingle();
+  if (existing) return;
+
+  const { error } = await supabase.from('pcd_users').insert([
+    {
+      username: 'admin',
+      password: 'Vento123',
+      name: 'Administrador',
+      role: 'admin',
+      status: 'Ativo',
+    },
+  ]);
+  if (error) console.error('Erro ao seedar admin:', error);
+}
+
+export async function seedMilesIfEmpty() {
+  const { data: existing, error: readError } = await supabase
+    .from('pcd_miles_table')
+    .select('id')
+    .limit(1);
+  if (readError) {
+    console.error('Erro ao verificar pcd_miles_table:', readError);
+    return;
+  }
+  if (existing && existing.length > 0) return;
+
+  const miles = [
+    {
+      program: 'LATAM',
+      cost_per_thousand: 25,
+      sale_per_thousand: 28.5,
+      has_variable_pricing: true,
+      variable_tiers: [
+        { min_miles: 100000, max_miles: null, label: '100K+ por pax', cost: 25.25 },
+        { min_miles: 75000, max_miles: 99999, label: '75-99K por pax', cost: 25.75 },
+        { min_miles: 50000, max_miles: 74999, label: '50-74K por pax', cost: 26.25 },
+        { min_miles: 25000, max_miles: 49999, label: '25-49K por pax', cost: 27.0 },
+        { min_miles: 18000, max_miles: 24999, label: '18-24K por pax', cost: 29.0 },
+        { min_miles: 0, max_miles: 17999, label: 'Até 17K por pax', cost: 30.0 },
+      ],
+    },
+    { program: 'Voe Azul', cost_per_thousand: 15, sale_per_thousand: 20, has_variable_pricing: false, variable_tiers: [] },
+    { program: 'Smiles (GOL)', cost_per_thousand: 15, sale_per_thousand: 20, has_variable_pricing: false, variable_tiers: [] },
+    { program: 'Avios', cost_per_thousand: 58, sale_per_thousand: 70, has_variable_pricing: false, variable_tiers: [] },
+    { program: 'TAP', cost_per_thousand: 44, sale_per_thousand: 50, has_variable_pricing: false, variable_tiers: [] },
+    { program: 'American Airlines', cost_per_thousand: 66, sale_per_thousand: 80, has_variable_pricing: false, variable_tiers: [] },
+    { program: 'Livelo', cost_per_thousand: 33, sale_per_thousand: 40, has_variable_pricing: false, variable_tiers: [] },
+    { program: 'Air Canada', cost_per_thousand: 65, sale_per_thousand: 80, has_variable_pricing: false, variable_tiers: [] },
+    { program: 'Flying Blue', cost_per_thousand: 91, sale_per_thousand: 115, has_variable_pricing: false, variable_tiers: [] },
+    { program: 'LifeMiles (Avianca)', cost_per_thousand: 70, sale_per_thousand: 80, has_variable_pricing: false, variable_tiers: [] },
+    { program: 'Copa', cost_per_thousand: 60, sale_per_thousand: 72, has_variable_pricing: false, variable_tiers: [] },
+    { program: 'Azul Pelo Mundo', cost_per_thousand: 12, sale_per_thousand: 18, has_variable_pricing: false, variable_tiers: [] },
+  ];
+
+  const { error } = await supabase.from('pcd_miles_table').insert(miles);
+  if (error) console.error('Erro ao seedar pcd_miles_table:', error);
+}
+
+export async function seedCommercialGoals() {
+  const { data: existing, error: readError } = await supabase
+    .from('pcd_commercial_goals')
+    .select('id, month')
+    .limit(50);
+  if (readError) {
+    console.error('Erro ao verificar pcd_commercial_goals:', readError);
+    return;
+  }
+  if (existing && existing.length > 0) return;
 
   const goals = [
     {
-      id: 'goal-2026-05',
       month: '2026-05',
       month_label: 'Maio',
       monthly_target: 30000,
@@ -130,11 +176,8 @@ export function seedCommercialGoals() {
       advance_condition: 'R$ 30k com margem >=15%',
       advance_next_step: 'Junho mira R$ 60k.',
       status: 'Ativa',
-      actual_revenue: 0,
-      created_date: new Date().toISOString(),
     },
     {
-      id: 'goal-2026-06',
       month: '2026-06',
       month_label: 'Junho',
       monthly_target: 60000,
@@ -145,11 +188,8 @@ export function seedCommercialGoals() {
       advance_condition: 'R$ 60k com margem >=15%',
       advance_next_step: 'Julho mira R$ 90k.',
       status: 'Futura',
-      actual_revenue: 0,
-      created_date: new Date().toISOString(),
     },
     {
-      id: 'goal-2026-07',
       month: '2026-07',
       month_label: 'Julho',
       monthly_target: 90000,
@@ -160,11 +200,8 @@ export function seedCommercialGoals() {
       advance_condition: 'R$ 90k com margem >=15% e leads em alta',
       advance_next_step: 'Agosto mira R$ 130k.',
       status: 'Futura',
-      actual_revenue: 0,
-      created_date: new Date().toISOString(),
     },
     {
-      id: 'goal-2026-08',
       month: '2026-08',
       month_label: 'Agosto',
       monthly_target: 130000,
@@ -175,11 +212,8 @@ export function seedCommercialGoals() {
       advance_condition: 'R$ 130k com margem >=15% e ticket subindo',
       advance_next_step: 'Setembro mira R$ 170k.',
       status: 'Futura',
-      actual_revenue: 0,
-      created_date: new Date().toISOString(),
     },
     {
-      id: 'goal-2026-09',
       month: '2026-09',
       month_label: 'Setembro',
       monthly_target: 170000,
@@ -190,11 +224,8 @@ export function seedCommercialGoals() {
       advance_condition: 'R$ 170k com margem >=15%',
       advance_next_step: 'Outubro mira R$ 200k oficial e R$ 220k de gestão.',
       status: 'Futura',
-      actual_revenue: 0,
-      created_date: new Date().toISOString(),
     },
     {
-      id: 'goal-2026-10',
       month: '2026-10',
       month_label: 'Outubro',
       monthly_target: 220000,
@@ -206,150 +237,9 @@ export function seedCommercialGoals() {
       advance_condition: 'R$ 200k+ com ticket >= R$ 2.500, margem >=15%',
       advance_next_step: 'Consolidar operação e definir metas 2027.',
       status: 'Futura',
-      actual_revenue: 0,
-      created_date: new Date().toISOString(),
     },
   ];
 
-  localStorage.setItem('pcd_commercial_goals', JSON.stringify(goals));
-}
-
-// Stub mantido apenas por compatibilidade com imports existentes.
-// O usuário admin agora vive no Supabase (tabela pcd_users) — não há
-// nada para "seedar" localmente. Limpamos qualquer resíduo do seed antigo.
-export function seedAdminUser() {
-  try {
-    const legacy = JSON.parse(localStorage.getItem('pcd_users') || '[]');
-    if (Array.isArray(legacy) && legacy.length > 0) {
-      localStorage.removeItem('pcd_users');
-    }
-  } catch {
-    localStorage.removeItem('pcd_users');
-  }
-}
-
-export function seedMilesIfEmpty() {
-  const existing = JSON.parse(localStorage.getItem('pcd_miles_table') || '[]');
-  // Se já tem dados no formato novo (com cost_per_thousand), não faz nada
-  if (existing.length > 0 && existing[0].cost_per_thousand !== undefined) return;
-
-  const initial = [
-    {
-      id: crypto.randomUUID(),
-      program: 'LATAM',
-      cost_per_thousand: 25,
-      sale_per_thousand: 28.5,
-      updated_date: '2025-10-28T00:00:00.000Z',
-      has_variable_pricing: true,
-      variable_tiers: [
-        { min_miles: 100000, max_miles: null, label: '100K+ por pax', cost: 25.25 },
-        { min_miles: 75000, max_miles: 99999, label: '75-99K por pax', cost: 25.75 },
-        { min_miles: 50000, max_miles: 74999, label: '50-74K por pax', cost: 26.25 },
-        { min_miles: 25000, max_miles: 49999, label: '25-49K por pax', cost: 27.0 },
-        { min_miles: 18000, max_miles: 24999, label: '18-24K por pax', cost: 29.0 },
-        { min_miles: 0, max_miles: 17999, label: 'Até 17K por pax', cost: 30.0 },
-      ],
-    },
-    {
-      id: crypto.randomUUID(),
-      program: 'Voe Azul',
-      cost_per_thousand: 15,
-      sale_per_thousand: 20,
-      updated_date: '2026-01-12T00:00:00.000Z',
-      has_variable_pricing: false,
-      variable_tiers: [],
-    },
-    {
-      id: crypto.randomUUID(),
-      program: 'Smiles (GOL)',
-      cost_per_thousand: 15,
-      sale_per_thousand: 20,
-      updated_date: '2025-10-28T00:00:00.000Z',
-      has_variable_pricing: false,
-      variable_tiers: [],
-    },
-    {
-      id: crypto.randomUUID(),
-      program: 'Avios',
-      cost_per_thousand: 58,
-      sale_per_thousand: 70,
-      updated_date: '2025-10-28T00:00:00.000Z',
-      has_variable_pricing: false,
-      variable_tiers: [],
-    },
-    {
-      id: crypto.randomUUID(),
-      program: 'TAP',
-      cost_per_thousand: 44,
-      sale_per_thousand: 50,
-      updated_date: '2025-10-28T00:00:00.000Z',
-      has_variable_pricing: false,
-      variable_tiers: [],
-    },
-    {
-      id: crypto.randomUUID(),
-      program: 'American Airlines',
-      cost_per_thousand: 66,
-      sale_per_thousand: 80,
-      updated_date: '2025-10-28T00:00:00.000Z',
-      has_variable_pricing: false,
-      variable_tiers: [],
-    },
-    {
-      id: crypto.randomUUID(),
-      program: 'Livelo',
-      cost_per_thousand: 33,
-      sale_per_thousand: 40,
-      updated_date: '2025-10-28T00:00:00.000Z',
-      has_variable_pricing: false,
-      variable_tiers: [],
-    },
-    {
-      id: crypto.randomUUID(),
-      program: 'Air Canada',
-      cost_per_thousand: 65,
-      sale_per_thousand: 80,
-      updated_date: '2025-10-28T00:00:00.000Z',
-      has_variable_pricing: false,
-      variable_tiers: [],
-    },
-    {
-      id: crypto.randomUUID(),
-      program: 'Flying Blue',
-      cost_per_thousand: 91,
-      sale_per_thousand: 115,
-      updated_date: '2025-10-28T00:00:00.000Z',
-      has_variable_pricing: false,
-      variable_tiers: [],
-    },
-    {
-      id: crypto.randomUUID(),
-      program: 'LifeMiles (Avianca)',
-      cost_per_thousand: 70,
-      sale_per_thousand: 80,
-      updated_date: '2025-10-28T00:00:00.000Z',
-      has_variable_pricing: false,
-      variable_tiers: [],
-    },
-    {
-      id: crypto.randomUUID(),
-      program: 'Copa',
-      cost_per_thousand: 60,
-      sale_per_thousand: 72,
-      updated_date: '2025-10-28T00:00:00.000Z',
-      has_variable_pricing: false,
-      variable_tiers: [],
-    },
-    {
-      id: crypto.randomUUID(),
-      program: 'Azul Pelo Mundo',
-      cost_per_thousand: 12,
-      sale_per_thousand: 18,
-      updated_date: '2025-10-28T00:00:00.000Z',
-      has_variable_pricing: false,
-      variable_tiers: [],
-    },
-  ];
-
-  localStorage.setItem('pcd_miles_table', JSON.stringify(initial));
+  const { error } = await supabase.from('pcd_commercial_goals').insert(goals);
+  if (error) console.error('Erro ao seedar pcd_commercial_goals:', error);
 }

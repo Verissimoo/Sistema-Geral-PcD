@@ -74,7 +74,10 @@ export default function VendedorOrcamentos() {
   const [statusExtra, setStatusExtra] = useState({ emission_date: "", reject_reason: "" });
   const [copied, setCopied] = useState(false);
 
-  const reload = () => setQuotes(localClient.entities.Quotes.list());
+  const reload = async () => {
+    const list = await localClient.entities.Quotes.list();
+    setQuotes(list || []);
+  };
 
   useEffect(() => { reload(); }, []);
 
@@ -118,17 +121,21 @@ export default function VendedorOrcamentos() {
     setStatusExtra({ emission_date: "", reject_reason: "" });
   };
 
-  const confirmStatusChange = () => {
+  const confirmStatusChange = async () => {
     if (!statusChangeQuote || !statusChangeTo) return;
-    const dateField = `${statusChangeTo.toLowerCase()}_date`;
-    const updates = { status: statusChangeTo, [dateField]: new Date().toISOString() };
-    if (statusChangeTo === "Aprovado" && statusExtra.emission_date) {
-      updates.emission_date_planned = statusExtra.emission_date;
-    }
+    // Mapeia os status (PT) para a coluna de data correta no Supabase (EN).
+    const STATUS_DATE_COLUMN = {
+      Aprovado: "approved_date",
+      Recusado: "rejected_date",
+      Emitido: "issued_date",
+    };
+    const updates = { status: statusChangeTo };
+    const dateColumn = STATUS_DATE_COLUMN[statusChangeTo];
+    if (dateColumn) updates[dateColumn] = new Date().toISOString();
     if (statusChangeTo === "Recusado" && statusExtra.reject_reason) {
-      updates.reject_reason = statusExtra.reject_reason;
+      updates.rejection_reason = statusExtra.reject_reason;
     }
-    localClient.entities.Quotes.update(statusChangeQuote.id, updates);
+    await localClient.entities.Quotes.update(statusChangeQuote.id, updates);
     toast({ title: `Status atualizado para: ${statusChangeTo}` });
     setStatusChangeQuote(null);
     setStatusChangeTo(null);
@@ -143,7 +150,7 @@ export default function VendedorOrcamentos() {
 
   const regeneratePDF = (quote) => {
     openQuoteInNewTab({
-      quoteNumber: quote.quoteNumber || `PCD-${quote.id?.slice(0, 5).toUpperCase()}`,
+      quote_number: quote.quote_number || `PCD-${quote.id?.slice(0, 5).toUpperCase()}`,
       client: quote.client,
       product: quote.product,
       ticket_type: quote.ticket_type,
@@ -291,7 +298,7 @@ export default function VendedorOrcamentos() {
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              Cotação {detailQuote?.quoteNumber || `#${detailQuote?.id?.slice(0, 8)}`}
+              Cotação {detailQuote?.quote_number || `#${detailQuote?.id?.slice(0, 8)}`}
             </DialogTitle>
             <DialogDescription>
               Criada {timeAgo(detailQuote?.created_date)} ·{" "}

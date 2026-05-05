@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, MessageCircle, FileText, ShoppingCart, DollarSign,
   Clock, Eye, Calendar, Plane, CheckCircle2, XCircle, Send,
-  FileStack, Ban,
+  FileStack,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -80,21 +80,25 @@ export default function GerenteClienteDetalhe() {
   const [detailQuote, setDetailQuote] = useState(null);
 
   useEffect(() => {
-    const allQ = localClient.entities.Quotes.list();
-    setAllQuotes(allQ);
+    (async () => {
+      const [allQ, clientFromStore] = await Promise.all([
+        localClient.entities.Quotes.list(),
+        localClient.entities.Clients.get(id),
+      ]);
+      setAllQuotes(allQ || []);
 
-    // Tenta buscar do store Clients primeiro
-    let c = localClient.entities.Clients.get(id);
-    // Fallback: extrai dos quotes se cliente não estiver mais no store
-    if (!c) {
-      const fromQuote = allQ.find(
-        (q) => q.client?.id === id || q.client_id === id
-      );
-      if (fromQuote?.client) {
-        c = { ...fromQuote.client, id };
+      let c = clientFromStore;
+      // Fallback: extrai dos quotes se cliente não estiver mais no store
+      if (!c) {
+        const fromQuote = (allQ || []).find(
+          (q) => q.client?.id === id || q.client_id === id
+        );
+        if (fromQuote?.client) {
+          c = { ...fromQuote.client, id };
+        }
       }
-    }
-    setClient(c);
+      setClient(c);
+    })();
   }, [id]);
 
   const quotes = useMemo(
@@ -153,17 +157,16 @@ export default function GerenteClienteDetalhe() {
         type: "create",
         date: q.created_date,
         quote: q,
-        text: `Cotação criada — ${q.quoteNumber || "—"}`,
+        text: `Cotação criada — ${q.quote_number || "—"}`,
         sub: `${formatBRL(q.total_value)} · ${q.seller_name || "—"}`,
         icon: FileText,
         color: "text-blue-600",
         bg: "bg-blue-100",
       });
       const statusFields = [
-        { f: "aprovado_date", label: "Aprovado", icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-100" },
-        { f: "emitido_date", label: "Emitido", icon: Plane, color: "text-purple-600", bg: "bg-purple-100" },
-        { f: "recusado_date", label: "Recusado", icon: XCircle, color: "text-red-600", bg: "bg-red-100" },
-        { f: "cancelado_date", label: "Cancelado", icon: Ban, color: "text-gray-600", bg: "bg-gray-100" },
+        { f: "approved_date", label: "Aprovado", icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-100" },
+        { f: "issued_date", label: "Emitido", icon: Plane, color: "text-purple-600", bg: "bg-purple-100" },
+        { f: "rejected_date", label: "Recusado", icon: XCircle, color: "text-red-600", bg: "bg-red-100" },
       ];
       statusFields.forEach((sf) => {
         if (q[sf.f]) {
@@ -171,7 +174,7 @@ export default function GerenteClienteDetalhe() {
             type: "status",
             date: q[sf.f],
             quote: q,
-            text: `${q.quoteNumber || ""} marcado como ${sf.label}`,
+            text: `${q.quote_number || ""} marcado como ${sf.label}`,
             sub: formatBRL(q.total_value),
             icon: sf.icon,
             color: sf.color,
@@ -361,7 +364,7 @@ export default function GerenteClienteDetalhe() {
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {detailQuote?.quoteNumber || "Orçamento"}
+              {detailQuote?.quote_number || "Orçamento"}
             </DialogTitle>
             <DialogDescription>
               Criado em {fmtDateTime(detailQuote?.created_date)} ·{" "}
@@ -403,7 +406,7 @@ function QuoteRow({ quote, onView }) {
     <div className="p-3 rounded-lg border border-border bg-card flex items-center gap-3 flex-wrap hover:border-primary/30 transition-colors">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-mono text-xs font-bold">{quote.quoteNumber || "—"}</span>
+          <span className="font-mono text-xs font-bold">{quote.quote_number || "—"}</span>
           <span className="text-sm font-semibold">{route}</span>
           <Badge variant="secondary" className="text-[10px]">{companhia}</Badge>
           <Badge variant="outline" className="text-[10px]">{quote.ticket_type || "Normal"}</Badge>

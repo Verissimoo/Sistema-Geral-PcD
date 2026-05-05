@@ -80,8 +80,11 @@ export default function GerenteOrcamentos() {
   const [detailQuote, setDetailQuote] = useState(null);
 
   const reload = async () => {
-    setQuotes(localClient.entities.Quotes.list());
-    const usersList = await localClient.entities.Users.list();
+    const [quotesList, usersList] = await Promise.all([
+      localClient.entities.Quotes.list(),
+      localClient.entities.Users.list(),
+    ]);
+    setQuotes(quotesList || []);
     setUsers(usersList || []);
   };
   useEffect(() => { reload(); }, []);
@@ -115,7 +118,7 @@ export default function GerenteOrcamentos() {
       list = list.filter(
         (x) =>
           x.client?.name?.toLowerCase().includes(q) ||
-          x.quoteNumber?.toLowerCase().includes(q)
+          x.quote_number?.toLowerCase().includes(q)
       );
     }
     if (statusFilter !== "Todos") {
@@ -164,19 +167,23 @@ export default function GerenteOrcamentos() {
       .sort((a, b) => new Date(a.created_date) - new Date(b.created_date));
   }, [quotes]);
 
-  const changeStatus = (quote, newStatus) => {
-    const dateField = `${newStatus.toLowerCase()}_date`;
-    localClient.entities.Quotes.update(quote.id, {
-      status: newStatus,
-      [dateField]: new Date().toISOString(),
-    });
+  const changeStatus = async (quote, newStatus) => {
+    const STATUS_DATE_COLUMN = {
+      Aprovado: "approved_date",
+      Recusado: "rejected_date",
+      Emitido: "issued_date",
+    };
+    const updates = { status: newStatus };
+    const dateColumn = STATUS_DATE_COLUMN[newStatus];
+    if (dateColumn) updates[dateColumn] = new Date().toISOString();
+    await localClient.entities.Quotes.update(quote.id, updates);
     toast({ title: `Status atualizado para: ${newStatus}` });
     reload();
   };
 
   const exportPDF = (quote) => {
     openQuoteInNewTab({
-      quoteNumber: quote.quoteNumber || `PCD-${quote.id?.slice(0, 5).toUpperCase()}`,
+      quote_number: quote.quote_number || `PCD-${quote.id?.slice(0, 5).toUpperCase()}`,
       client: quote.client,
       product: quote.product,
       ticket_type: quote.ticket_type,
@@ -324,7 +331,7 @@ export default function GerenteOrcamentos() {
                   key={q.id}
                   className="flex items-center gap-3 p-2.5 rounded-lg bg-card border border-border flex-wrap"
                 >
-                  <span className="font-mono text-xs font-bold">{q.quoteNumber}</span>
+                  <span className="font-mono text-xs font-bold">{q.quote_number}</span>
                   <span className="text-sm font-medium">{q.client?.name}</span>
                   <span className="text-xs text-muted-foreground">{route}</span>
                   <span className="font-bold text-sm ml-auto">{formatBRL(q.total_value)}</span>
@@ -399,7 +406,7 @@ export default function GerenteOrcamentos() {
       <Dialog open={!!detailQuote} onOpenChange={(o) => !o && setDetailQuote(null)}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{detailQuote?.quoteNumber}</DialogTitle>
+            <DialogTitle>{detailQuote?.quote_number}</DialogTitle>
             <DialogDescription>
               {detailQuote?.client?.name} ·{" "}
               {detailQuote && fmtDateBR(detailQuote.created_date)} ·{" "}
@@ -456,7 +463,7 @@ function QuoteRow({ quote, seller, onView, onChangeStatus, onPDF, onClickClient 
   return (
     <tr className="border-b border-border/50 hover:bg-muted/20 transition-colors">
       <td className="px-4 py-3">
-        <span className="font-mono text-xs font-bold">{quote.quoteNumber || "—"}</span>
+        <span className="font-mono text-xs font-bold">{quote.quote_number || "—"}</span>
       </td>
       <td className="px-4 py-3">
         <button

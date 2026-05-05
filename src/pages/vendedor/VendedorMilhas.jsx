@@ -47,9 +47,10 @@ export default function VendedorMilhas() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
 
-  const loadData = useCallback(() => {
-    seedMilesIfEmpty();
-    setData(localClient.entities.MilesTable.list());
+  const loadData = useCallback(async () => {
+    await seedMilesIfEmpty();
+    const list = await localClient.entities.MilesTable.list();
+    setData(list || []);
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -86,9 +87,9 @@ export default function VendedorMilhas() {
   const openEditTiers = (item) => {
     openEdit(item);
   };
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (!confirm("Tem certeza que deseja excluir este programa?")) return;
-    localClient.entities.MilesTable.delete(id);
+    await localClient.entities.MilesTable.delete(id);
     toast({ title: "Programa excluído" });
     loadData();
   };
@@ -119,7 +120,7 @@ export default function VendedorMilhas() {
     });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.program.trim()) {
       toast({ title: "Nome do programa é obrigatório", variant: "destructive" });
       return;
@@ -153,10 +154,10 @@ export default function VendedorMilhas() {
     };
 
     if (editing) {
-      localClient.entities.MilesTable.update(editing.id, payload);
+      await localClient.entities.MilesTable.update(editing.id, payload);
       toast({ title: "Programa atualizado", description: payload.program });
     } else {
-      localClient.entities.MilesTable.create(payload);
+      await localClient.entities.MilesTable.create(payload);
       toast({ title: "Programa criado", description: payload.program });
     }
     setDialogOpen(false);

@@ -87,21 +87,28 @@ export default function GerenteMetasComerciais() {
     return "Futura";
   };
 
-  const reload = () => {
-    const all = localClient.entities.CommercialGoals.list();
-    // Atualiza status no localStorage para refletir o calendário real
-    all.forEach((g) => {
-      const want = expectedStatus(g.month);
-      if (g.status !== want) {
-        localClient.entities.CommercialGoals.update(g.id, { status: want });
-      }
-    });
+  const reload = async () => {
+    const all = (await localClient.entities.CommercialGoals.list()) || [];
+    // Atualiza status no Supabase para refletir o calendário real
+    const pendingUpdates = all
+      .filter((g) => g.status !== expectedStatus(g.month))
+      .map((g) =>
+        localClient.entities.CommercialGoals.update(g.id, {
+          status: expectedStatus(g.month),
+        })
+      );
+    if (pendingUpdates.length > 0) await Promise.all(pendingUpdates);
+
     // Re-lê após eventuais updates e ordena cronologicamente
-    const fresh = localClient.entities.CommercialGoals.list().sort((a, b) =>
+    const [fresh, quotesList] = await Promise.all([
+      localClient.entities.CommercialGoals.list(),
+      localClient.entities.Quotes.list(),
+    ]);
+    const sorted = (fresh || []).sort((a, b) =>
       (a.month || "").localeCompare(b.month || "")
     );
-    setGoals(fresh);
-    setQuotes(localClient.entities.Quotes.list());
+    setGoals(sorted);
+    setQuotes(quotesList || []);
   };
 
   useEffect(() => { reload(); }, []);
@@ -772,43 +779,55 @@ function EditGoalsDialog({ open, onClose, goals, onChange, toast }) {
     });
   };
 
-  const handleSaveAll = () => {
+  const handleSaveAll = async () => {
     // Persiste: atualiza existentes, cria novos, deleta removidos
-    const existing = localClient.entities.CommercialGoals.list();
+    const existing = (await localClient.entities.CommercialGoals.list()) || [];
     const existingIds = new Set(existing.map((g) => g.id));
     const draftIds = new Set(drafts.map((g) => g.id));
 
     // Deleta removidos
-    existing.forEach((g) => {
-      if (!draftIds.has(g.id)) {
-        localClient.entities.CommercialGoals.delete(g.id);
-      }
-    });
+    const deletes = existing
+      .filter((g) => !draftIds.has(g.id))
+      .map((g) => localClient.entities.CommercialGoals.delete(g.id));
+
     // Atualiza/cria
-    drafts.forEach((d) => {
+    const upserts = drafts.map((d) => {
       const payload = {
-        ...d,
+        month: d.month,
+        month_label: d.month_label,
         monthly_target: Number(d.monthly_target) || 0,
         weekly_target: Number(d.weekly_target) || 0,
         ticket_2500_sales: Number(d.ticket_2500_sales) || 0,
         ticket_3000_sales: Number(d.ticket_3000_sales) || 0,
+        objective: d.objective || null,
+        advance_condition: d.advance_condition || null,
+        advance_next_step: d.advance_next_step || null,
+        official_target:
+          d.official_target === "" || d.official_target == null
+            ? null
+            : Number(d.official_target),
+        status: d.status || "Futura",
       };
       if (existingIds.has(d.id)) {
-        localClient.entities.CommercialGoals.update(d.id, payload);
-      } else {
-        localClient.entities.CommercialGoals.create(payload);
+        return localClient.entities.CommercialGoals.update(d.id, payload);
       }
+      return localClient.entities.CommercialGoals.create(payload);
     });
+
+    await Promise.all([...deletes, ...upserts]);
 
     toast({ title: "Escada atualizada" });
     onChange();
     onClose();
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
     if (!confirm("Resetar todas as metas? Isso apaga as metas atuais e re-aplica o seed.")) return;
-    localStorage.removeItem("pcd_commercial_goals");
-    seedCommercialGoals();
+    const existing = (await localClient.entities.CommercialGoals.list()) || [];
+    await Promise.all(
+      existing.map((g) => localClient.entities.CommercialGoals.delete(g.id))
+    );
+    await seedCommercialGoals();
     toast({ title: "Metas resetadas para o padrão" });
     onChange();
     onClose();

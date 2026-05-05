@@ -565,7 +565,7 @@ export function generateQuoteHTML(data) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cotação ${esc(data.quoteNumber)} — PassagensComDesconto</title>
+<title>Cotação ${esc(data.quote_number)} — PassagensComDesconto</title>
 <style>${CSS}</style>
 </head>
 <body>
@@ -587,7 +587,7 @@ ${SVG_ICONS}
   </div>
   <div class="hd-meta-row">
     <div class="hd-metas">
-      <div><div class="hd-meta-lbl">Cotação Nº</div><div class="hd-meta-val">${esc(data.quoteNumber)}</div></div>
+      <div><div class="hd-meta-lbl">Cotação Nº</div><div class="hd-meta-val">${esc(data.quote_number)}</div></div>
       <div><div class="hd-meta-lbl">Emitida em</div><div class="hd-meta-val">${esc(dataFormatada)}</div></div>
       <div><div class="hd-meta-lbl">Válida até</div><div class="hd-meta-val">${esc(validoAte)}</div></div>
       <div><div class="hd-meta-lbl">Vendedor</div><div class="hd-meta-val">${esc(data.seller_name || "Equipe PCD")}</div></div>

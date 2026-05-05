@@ -76,11 +76,15 @@ export default function Dashboard() {
 
   useEffect(() => {
     (async () => {
-      const usersList = await localClient.entities.Users.list();
+      const [usersList, quotesList, goalsList] = await Promise.all([
+        localClient.entities.Users.list(),
+        localClient.entities.Quotes.list(),
+        localClient.entities.CommercialGoals.list(),
+      ]);
       setUsers(usersList || []);
+      setQuotes(quotesList || []);
+      setGoals(goalsList || []);
     })();
-    setQuotes(localClient.entities.Quotes.list());
-    setGoals(localClient.entities.CommercialGoals.list());
   }, []);
 
   // ── Filtro de período ──────────────────────────────────────────────
@@ -312,25 +316,23 @@ export default function Dashboard() {
       events.push({
         type: "create",
         date: q.created_date,
-        text: `${q.seller_name || "—"} criou orçamento ${q.quoteNumber || ""} — ${q.client?.name || ""} · ${formatBRL(q.total_value)}`,
+        text: `${q.seller_name || "—"} criou orçamento ${q.quote_number || ""} — ${q.client?.name || ""} · ${formatBRL(q.total_value)}`,
         icon: FileText,
         color: "text-blue-600",
       });
-      ["aprovado_date", "emitido_date", "recusado_date", "cancelado_date"].forEach((field) => {
+      [
+        { field: "approved_date", label: "Aprovado", color: "text-emerald-600" },
+        { field: "issued_date", label: "Emitido", color: "text-purple-600" },
+        { field: "rejected_date", label: "Recusado", color: "text-red-600" },
+      ].forEach(({ field, label, color }) => {
         if (q[field]) {
-          const status = field.replace("_date", "");
-          const cap = status.charAt(0).toUpperCase() + status.slice(1);
-          const cfg = STATUS_CONFIG[cap];
+          const cfg = STATUS_CONFIG[label];
           events.push({
             type: "status",
             date: q[field],
-            text: `${q.seller_name || "—"} alterou ${q.quoteNumber || ""} para ${cap} · ${formatBRL(q.total_value)}`,
+            text: `${q.seller_name || "—"} alterou ${q.quote_number || ""} para ${label} · ${formatBRL(q.total_value)}`,
             icon: cfg?.icon || CheckCircle2,
-            color:
-              cap === "Aprovado" ? "text-emerald-600" :
-              cap === "Emitido" ? "text-purple-600" :
-              cap === "Recusado" ? "text-red-600" :
-              "text-gray-600",
+            color,
           });
         }
       });

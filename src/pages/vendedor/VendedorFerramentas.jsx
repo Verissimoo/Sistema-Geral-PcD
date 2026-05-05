@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { getCostForMiles, getSaleForMiles, getTierForMiles } from "@/lib/milesHelper";
+import { localClient } from "@/api/localClient";
 
 // ─── Dados de Plataformas de Pagamento ─────────────────────────────
 const PLATFORMS = [
@@ -81,8 +82,10 @@ function ComissaoTab() {
   const [resultado, setResultado] = useState(null);
 
   useEffect(() => {
-    const data = JSON.parse(localStorage.getItem('pcd_miles_table') || '[]');
-    setMilesPrograms(data);
+    (async () => {
+      const data = await localClient.entities.MilesTable.list();
+      setMilesPrograms(data || []);
+    })();
   }, []);
 
   const selectedProgram = milesPrograms.find(p => p.id === programaSelecionado);

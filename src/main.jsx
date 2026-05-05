@@ -4,20 +4,31 @@ import App from '@/App.jsx'
 import '@/index.css'
 import { seedMilesIfEmpty, seedAdminUser, seedCommercialGoals } from '@/api/localClient'
 
-// Migração do seed de metas: se a meta de Maio não existe (seed antigo),
-// limpa para que seedCommercialGoals re-popule com a escada correta.
-const __existingGoals = JSON.parse(localStorage.getItem('pcd_commercial_goals') || '[]');
-const __hasMay = __existingGoals.some((g) => g.month === '2026-05');
-if (!__hasMay) {
-  localStorage.removeItem('pcd_commercial_goals');
+// Limpa resíduos do storage antigo (dados agora vivem no Supabase).
+const LEGACY_KEYS = [
+  'pcd_users',
+  'pcd_clients',
+  'pcd_quotes',
+  'pcd_miles_table',
+  'pcd_commercial_goals',
+  'pcd_rituals',
+  'pcd_contractors',
+  'pcd_projects',
+  'pcd_sellers',
+];
+LEGACY_KEYS.forEach((k) => {
+  try { localStorage.removeItem(k); } catch { /* ignore */ }
+});
+
+async function bootstrap() {
+  // Seeds rodam em paralelo — cada um verifica se já existe antes de inserir.
+  await Promise.all([
+    seedAdminUser(),
+    seedMilesIfEmpty(),
+    seedCommercialGoals(),
+  ]).catch((err) => console.error('Erro nos seeds iniciais:', err));
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
 }
 
-// Seed dos dados antes do render
-seedMilesIfEmpty();
-// Limpa qualquer pcd_users legado do localStorage — usuários agora vivem no Supabase.
-seedAdminUser();
-seedCommercialGoals();
-
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <App />
-)
+bootstrap();
