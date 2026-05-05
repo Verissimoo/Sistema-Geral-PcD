@@ -113,16 +113,19 @@ export default function UserManagement() {
       localClient.entities.Users.update(editing.id, updates);
       toast({ title: "Usuário atualizado", description: form.name });
     } else {
-      localClient.entities.Users.create({
+      const created = localClient.entities.Users.create({
         name: form.name.trim(),
         username,
         password: form.password,
         role: "vendedor",
-        status: "Ativo",
+        status: form.status || "Ativo",
         career_level: form.career_level,
         created_date: new Date().toISOString(),
       });
-      toast({ title: "Vendedor criado", description: form.name });
+      toast({
+        title: "Vendedor criado",
+        description: `Usuário "${created.username}" — status: ${created.status}. Pode fazer login imediatamente neste navegador.`,
+      });
     }
     setDialogOpen(false);
     reload();

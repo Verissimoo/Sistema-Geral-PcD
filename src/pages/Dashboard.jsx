@@ -216,10 +216,17 @@ export default function Dashboard() {
     return { buckets, max, totalCot, totalSales, conv, groupByWeek };
   }, [filteredQuotes, periodRange]);
 
-  // ── Meta ativa (escada mensal) ────────────────────────────────────
+  // ── Meta do mês atual (real do calendário), com fallback à "Ativa" ─
+  const currentMonthYM = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  }, []);
+
   const activeGoal = useMemo(
-    () => goals.find((g) => g.status === "Ativa"),
-    [goals]
+    () =>
+      goals.find((g) => g.month === currentMonthYM) ||
+      goals.find((g) => g.status === "Ativa"),
+    [goals, currentMonthYM]
   );
 
   const goalStats = useMemo(() => {

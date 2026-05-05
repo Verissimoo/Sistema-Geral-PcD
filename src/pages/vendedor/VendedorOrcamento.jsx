@@ -49,6 +49,21 @@ const formatDateBR = (dateStr) => {
   return `${d}/${m}/${y}`;
 };
 
+const calculateDuration = (departure, arrival) => {
+  if (!departure || !arrival) return "";
+  const depMatch = departure.match(/^(\d{1,2}):(\d{2})$/);
+  const arrMatch = arrival.match(/^(\d{1,2}):(\d{2})$/);
+  if (!depMatch || !arrMatch) return "";
+  const depMinutes = parseInt(depMatch[1], 10) * 60 + parseInt(depMatch[2], 10);
+  let arrMinutes = parseInt(arrMatch[1], 10) * 60 + parseInt(arrMatch[2], 10);
+  // Se chegada é antes ou igual à saída, assume dia seguinte
+  if (arrMinutes <= depMinutes) arrMinutes += 24 * 60;
+  const diff = arrMinutes - depMinutes;
+  const hours = Math.floor(diff / 60);
+  const minutes = diff % 60;
+  return `${hours}h ${String(minutes).padStart(2, "0")}min`;
+};
+
 const LEAD_ORIGINS = [
   "Marketing (Zenvia)",
   "Carteira própria",
@@ -76,7 +91,7 @@ const initialFormData = {
   return_date: "",
   one_way: false,
   passengers: 1,
-  baggage: { personal: true, carry_on: true, checked: false },
+  baggage: { personal: 1, carry_on: 1, checked: 0 },
   pricing: {
     type: "milhas",
     program_id: "",
@@ -488,10 +503,36 @@ Se houver dois trechos visíveis (ida e volta), retorne ambos no array. Se houve
   const updateTrecho = (idx, field, value) => {
     setFormData((p) => {
       const trechos = [...p.itinerary.trechos];
-      trechos[idx] = { ...trechos[idx], [field]: value };
+      const patch = { [field]: value };
+      if (field === "duracao") patch._duracao_manual = true;
+      trechos[idx] = { ...trechos[idx], ...patch };
       return { ...p, itinerary: { trechos }, itinerary_reviewed: false };
     });
   };
+
+  // Recalcula duração automaticamente quando saída/chegada mudam
+  // (a menos que o vendedor já tenha editado a duração manualmente)
+  const trechosTimeKey = (formData.itinerary?.trechos || [])
+    .map((t) => `${t.horario_saida || ""}~${t.horario_chegada || ""}~${t._duracao_manual ? "m" : "a"}`)
+    .join("|");
+  useEffect(() => {
+    setFormData((p) => {
+      const trechos = p.itinerary?.trechos || [];
+      let changed = false;
+      const next = trechos.map((t) => {
+        if (t._duracao_manual) return t;
+        if (!t.horario_saida || !t.horario_chegada) return t;
+        const dur = calculateDuration(t.horario_saida, t.horario_chegada);
+        if (dur && dur !== t.duracao) {
+          changed = true;
+          return { ...t, duracao: dur };
+        }
+        return t;
+      });
+      if (!changed) return p;
+      return { ...p, itinerary: { ...p.itinerary, trechos: next } };
+    });
+  }, [trechosTimeKey]);
 
   const addTrechoManual = () => {
     setFormData((p) => ({
@@ -712,25 +753,57 @@ Se houver dois trechos visíveis (ida e volta), retorne ambos no array. Se houve
             </div>
             <div className="space-y-2">
               <Label>Bagagem incluída</Label>
-              <div className="flex flex-wrap gap-x-6 gap-y-2">
+              <div className="space-y-2">
                 {[
-                  { key: "personal", label: "Artigo pessoal (mochila/bolsa)" },
-                  { key: "carry_on", label: "Bagagem de mão (10kg)" },
-                  { key: "checked", label: "Bagagem despachada (23kg)" },
-                ].map((b) => (
-                  <div key={b.key} className="flex items-center gap-2">
-                    <Checkbox
-                      id={`bag-${b.key}`}
-                      checked={formData.baggage[b.key]}
-                      onCheckedChange={(c) =>
-                        setFormData((p) => ({ ...p, baggage: { ...p.baggage, [b.key]: !!c } }))
-                      }
-                    />
-                    <Label htmlFor={`bag-${b.key}`} className="text-sm cursor-pointer">
-                      {b.label}
-                    </Label>
-                  </div>
-                ))}
+                  { key: "personal", label: "🎒 Artigo pessoal (mochila/bolsa)", max: 1 },
+                  { key: "carry_on", label: "🎒 Bagagem de mão (10kg)", max: 5 },
+                  { key: "checked", label: "🧳 Bagagem despachada (23kg)", max: 5 },
+                ].map((b) => {
+                  const value = Number(formData.baggage[b.key]) || 0;
+                  return (
+                    <div
+                      key={b.key}
+                      className="flex items-center justify-between gap-3 p-2.5 rounded-lg border border-border bg-muted/20"
+                    >
+                      <span className="text-sm">{b.label}</span>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() =>
+                            setFormData((p) => ({
+                              ...p,
+                              baggage: { ...p.baggage, [b.key]: Math.max(0, value - 1) },
+                            }))
+                          }
+                          disabled={value <= 0}
+                        >
+                          −
+                        </Button>
+                        <span className="w-8 text-center font-bold tabular-nums">
+                          {String(value).padStart(2, "0")}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() =>
+                            setFormData((p) => ({
+                              ...p,
+                              baggage: { ...p.baggage, [b.key]: Math.min(b.max, value + 1) },
+                            }))
+                          }
+                          disabled={value >= b.max}
+                        >
+                          +
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </CardContent>
@@ -803,12 +876,22 @@ Se houver dois trechos visíveis (ida e volta), retorne ambos no array. Se houve
                   </div>
                   <div className="flex flex-col items-center text-xs text-muted-foreground gap-1">
                     <ChevronRight className="h-5 w-5" />
-                    <Input
-                      placeholder="Duração"
-                      value={t.duracao || ""}
-                      onChange={(e) => updateTrecho(idx, "duracao", e.target.value)}
-                      className="text-center"
-                    />
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Input
+                          placeholder="Duração"
+                          value={t.duracao || ""}
+                          onChange={(e) => updateTrecho(idx, "duracao", e.target.value)}
+                          className={cn(
+                            "text-center",
+                            !t._duracao_manual && t.duracao && "bg-muted/40"
+                          )}
+                        />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        Calculado automaticamente pelos horários. Edite se necessário.
+                      </TooltipContent>
+                    </Tooltip>
                     <Input
                       placeholder="Escalas"
                       type="number"
@@ -904,32 +987,39 @@ function BlocoPrecificacao({ formData, setFormData }) {
   // Cálculos
   const calc = useMemo(() => {
     const pr = formData.pricing;
-    let cost_brl = 0;       // custo real interno (cost_per_thousand)
+    let cost_brl = 0;       // custo real interno (cost_per_thousand × milhas) — sem taxa
     let venda_base = 0;     // valor de venda das milhas (sale_per_thousand)
     let nipon = 0;
     let acrescimo = 0;
 
+    const tax = Number(pr.tax) || 0;
+
     if (pr.type === "milhas") {
       const milhas = Number(pr.miles_qty) || 0;
-      const tax = Number(pr.tax) || 0;
       cost_brl = (milhas / 1000) * appliedCostPerThousand;
       venda_base = (milhas / 1000) * appliedSalePerThousand;
       // Nipon (preço mínimo de venda) usa o preço de VENDA da milha, não o custo
       nipon = venda_base + tax;
     } else {
       const cost = Number(pr.cost_brl) || 0;
-      const tax = Number(pr.tax) || 0;
       const base = cost + tax;
       acrescimo = pr.is_azul ? 0 : base * 0.10;
       nipon = base + acrescimo;
+      cost_brl = cost;
     }
 
     const sale = Number(pr.sale_value) || 0;
-    const lucroBruto = sale - cost_brl - (Number(pr.tax) || 0);
-    const comissaoBase = Math.max(0, lucroBruto) * 0.25;
+    const custoTotal = cost_brl + tax;
+    // Comissão base = 25% do lucro Nipon (nipon - custo total).
+    // Esse lucro é o "lucro mínimo" garantido se o vendedor vende no Nipon.
+    const lucroNipon = Math.max(0, nipon - custoTotal);
+    const comissaoBase = lucroNipon * 0.25;
+    // Excedente: só conta o que passou do Nipon (nunca negativo).
     const excedente = Math.max(0, sale - nipon);
     const comissaoExtra = excedente * 0.45;
     const comissaoTotal = comissaoBase + comissaoExtra;
+    // Lucro bruto real (mantido para exibição)
+    const lucroBruto = sale - custoTotal;
 
     const total =
       sale +
@@ -937,7 +1027,12 @@ function BlocoPrecificacao({ formData, setFormData }) {
       (formData.services.insurance.active ? Number(formData.services.insurance.value) || 0 : 0) +
       (formData.services.transfer.active ? Number(formData.services.transfer.value) || 0 : 0);
 
-    return { cost_brl, venda_base, nipon, acrescimo, lucroBruto, comissaoBase, excedente, comissaoExtra, comissaoTotal, total };
+    return {
+      cost_brl, venda_base, nipon, acrescimo,
+      lucroNipon, lucroBruto,
+      comissaoBase, excedente, comissaoExtra, comissaoTotal,
+      total,
+    };
   }, [formData, appliedCostPerThousand, appliedSalePerThousand]);
 
   // Mantém nipon_value sincronizado no formData
@@ -1116,23 +1211,28 @@ function BlocoPrecificacao({ formData, setFormData }) {
             <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-sm">
               <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
               <span className="text-amber-700 dark:text-amber-400">
-                Valor abaixo do Nipon ({formatBRL(calc.nipon)}) — margem negativa
+                Valor de venda ({formatBRL(sale)}) está abaixo do Nipon ({formatBRL(calc.nipon)}).
+                Sem comissão extra — comissão base calculada sobre o lucro mínimo do Nipon.
               </span>
             </div>
           )}
-          {aboveNipon && (
-            <Card className="bg-emerald-500/5 border-emerald-500/30">
+          {sale > 0 && (
+            <Card className={cn(
+              aboveNipon
+                ? "bg-emerald-500/5 border-emerald-500/30"
+                : "bg-muted/40 border-border/60"
+            )}>
               <CardContent className="p-4 space-y-1.5 text-sm">
-                <Row label="Lucro bruto" value={formatBRL(calc.lucroBruto)} />
-                <Row label="Comissão base (25%)" value={formatBRL(calc.comissaoBase)} />
+                <Row label="Lucro Nipon (nipon − custo)" value={formatBRL(calc.lucroNipon)} />
+                <Row label="Comissão base (25% do lucro Nipon)" value={formatBRL(calc.comissaoBase)} />
                 <Row label="Excedente sobre Nipon" value={formatBRL(calc.excedente)} />
-                <Row label="Comissão extra (45%)" value={formatBRL(calc.comissaoExtra)} />
+                <Row label="Comissão extra (45% do excedente)" value={formatBRL(calc.comissaoExtra)} />
                 <Separator className="my-2" />
                 <Row
                   label="COMISSÃO TOTAL DO VENDEDOR"
                   value={formatBRL(calc.comissaoTotal)}
                   bold
-                  className="text-emerald-700"
+                  className={aboveNipon ? "text-emerald-700" : "text-foreground"}
                 />
               </CardContent>
             </Card>
@@ -1370,10 +1470,17 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
     texto += `👤 PASSAGEIROS:\n${t.passengers} ${t.passengers > 1 ? "Adultos" : "Adulto"}\n\n`;
 
     const bagList = [];
-    if (t.baggage.personal) bagList.push("🎒 01 artigo pessoal (mochila/bolsa)");
-    if (t.baggage.carry_on) bagList.push("🎒 01 bagagem de mão (10kg)");
-    if (t.baggage.checked) bagList.push("🧳 01 bagagem despachada (23kg)");
-    if (bagList.length === 0) bagList.push("🎒 Somente artigo pessoal");
+    const pad2 = (n) => String(n).padStart(2, "0");
+    const personalQty = Number(t.baggage.personal) || 0;
+    const carryQty = Number(t.baggage.carry_on) || 0;
+    const checkedQty = Number(t.baggage.checked) || 0;
+    if (personalQty > 0)
+      bagList.push(`🎒 ${pad2(personalQty)} ${personalQty > 1 ? "artigos pessoais" : "artigo pessoal"} (mochila/bolsa)`);
+    if (carryQty > 0)
+      bagList.push(`🎒 ${pad2(carryQty)} ${carryQty > 1 ? "bagagens de mão" : "bagagem de mão"} (10kg)`);
+    if (checkedQty > 0)
+      bagList.push(`🧳 ${pad2(checkedQty)} ${checkedQty > 1 ? "bagagens despachadas" : "bagagem despachada"} (23kg)`);
+    if (bagList.length === 0) bagList.push("🎒 Bagagem não inclusa");
     texto += `${bagList.join("\n")}\n\n`;
 
     if (t.services.insurance.active) texto += `🛡️ Seguro Viagem incluso (${formatBRL(t.services.insurance.value)})\n`;
@@ -1604,8 +1711,9 @@ export default function VendedorOrcamento() {
     const tax = Number(pr.tax) || 0;
     const sale = Number(pr.sale_value) || 0;
     const nipon = pr.nipon_value || 0;
-    const lucroBruto = sale - cost_brl - tax;
-    const base = Math.max(0, lucroBruto) * 0.25;
+    const custoTotal = cost_brl + tax;
+    const lucroNipon = Math.max(0, nipon - custoTotal);
+    const base = lucroNipon * 0.25;
     const excedente = Math.max(0, sale - nipon);
     const extra = excedente * 0.45;
     return { base, extra, total: base + extra };

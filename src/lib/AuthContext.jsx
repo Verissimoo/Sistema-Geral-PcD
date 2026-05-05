@@ -21,13 +21,17 @@ export function AuthProvider({ children }) {
 
   const login = (username, password) => {
     const users = JSON.parse(localStorage.getItem("pcd_users") || "[]");
+    const normalizedUsername = String(username || "").trim().toLowerCase();
+    const inputPassword = String(password || "");
     const found = users.find(
       (u) =>
-        u.username === username &&
-        u.password === password &&
+        String(u.username || "").trim().toLowerCase() === normalizedUsername &&
+        String(u.password || "") === inputPassword &&
         u.status === "Ativo"
     );
-    if (!found) return { success: false, error: "Usuário ou senha inválidos" };
+    if (!found) {
+      return { success: false, error: "Usuário ou senha inválidos" };
+    }
     const session = {
       id: found.id,
       username: found.username,

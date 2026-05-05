@@ -73,14 +73,40 @@ export default function GerenteMetasComerciais() {
   const [quotes, setQuotes] = useState([]);
   const [editOpen, setEditOpen] = useState(false);
 
+  // Mês real do calendário (independente do status "Ativa" das metas seedadas)
+  const currentMonth = useMemo(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  }, []);
+
+  // Status derivado do calendário (não depende do flag "Ativa" persistido)
+  const expectedStatus = (monthStr) => {
+    if (!monthStr) return "Futura";
+    if (monthStr === currentMonth) return "Ativa";
+    if (monthStr < currentMonth) return "Concluída";
+    return "Futura";
+  };
+
   const reload = () => {
-    setGoals(localClient.entities.CommercialGoals.list());
+    const all = localClient.entities.CommercialGoals.list();
+    // Atualiza status no localStorage para refletir o calendário real
+    all.forEach((g) => {
+      const want = expectedStatus(g.month);
+      if (g.status !== want) {
+        localClient.entities.CommercialGoals.update(g.id, { status: want });
+      }
+    });
+    // Re-lê após eventuais updates e ordena cronologicamente
+    const fresh = localClient.entities.CommercialGoals.list().sort((a, b) =>
+      (a.month || "").localeCompare(b.month || "")
+    );
+    setGoals(fresh);
     setQuotes(localClient.entities.Quotes.list());
   };
 
   useEffect(() => { reload(); }, []);
 
-  // Ordena cronologicamente
+  // sortedGoals = goals já chega ordenado de reload(), mas mantemos a garantia
   const sortedGoals = useMemo(
     () => [...goals].sort((a, b) => (a.month || "").localeCompare(b.month || "")),
     [goals]
@@ -100,10 +126,30 @@ export default function GerenteMetasComerciais() {
       )
       .reduce((s, q) => s + (q.total_value || 0), 0);
 
-  const activeGoal = useMemo(
-    () => sortedGoals.find((g) => g.status === "Ativa"),
-    [sortedGoals]
+  // Estado visual baseado no calendário real
+  const getGoalVisualState = (goal) => {
+    if (!goal.month) return "future";
+    if (goal.month === currentMonth) return "current";
+    if (goal.month < currentMonth) return "past";
+    return "future";
+  };
+
+  // Meta do mês atual (calendário); fallback à primeira meta com status "Ativa"
+  const currentMonthGoal = useMemo(
+    () => sortedGoals.find((g) => g.month === currentMonth) || null,
+    [sortedGoals, currentMonth]
   );
+
+  const activeGoal = useMemo(
+    () => currentMonthGoal || sortedGoals.find((g) => g.status === "Ativa") || null,
+    [currentMonthGoal, sortedGoals]
+  );
+
+  const currentMonthLabel = useMemo(() => {
+    if (currentMonthGoal?.month_label) return currentMonthGoal.month_label;
+    const label = new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+    return label.charAt(0).toUpperCase() + label.slice(1);
+  }, [currentMonthGoal]);
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-12">
@@ -121,12 +167,10 @@ export default function GerenteMetasComerciais() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {activeGoal && (
-            <Badge className="bg-amber-500 hover:bg-amber-500 text-white border-0 px-3 py-1.5">
-              <Calendar className="h-3.5 w-3.5 mr-1.5" />
-              Mês ativo: {activeGoal.month_label}
-            </Badge>
-          )}
+          <Badge className="bg-amber-500 hover:bg-amber-500 text-white border-0 px-3 py-1.5">
+            <Calendar className="h-3.5 w-3.5 mr-1.5" />
+            Mês ativo: {currentMonthLabel}
+          </Badge>
           <Button onClick={() => setEditOpen(true)} variant="outline" className="gap-2">
             <Settings className="h-4 w-4" /> Editar escada
           </Button>
@@ -168,98 +212,124 @@ export default function GerenteMetasComerciais() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-3 items-end h-auto md:h-[360px]">
+          <div className="flex items-end gap-3 overflow-x-auto pb-2">
             {sortedGoals.map((g) => {
               const revenue = goalRevenue(g);
               const pct =
                 Number(g.monthly_target) > 0
                   ? Math.min(100, (revenue / Number(g.monthly_target)) * 100)
                   : 0;
-              const heightPct = Math.max(28, (Number(g.monthly_target) / maxTarget) * 100);
-              const isActive = g.status === "Ativa";
-              const isFuture = g.status === "Futura";
-              const isDone = g.status === "Concluída";
+              const state = getGoalVisualState(g);
+              const isCurrent = state === "current";
+              const isPast = state === "past";
+              const isFuture = state === "future";
+
+              // Altura proporcional à meta mensal (degrau crescente)
+              const ratio = (Number(g.monthly_target) || 0) / maxTarget;
+              const minH = 180;
+              const maxH = 320;
+              const height = minH + (maxH - minH) * ratio;
 
               return (
-                <div key={g.id} className="flex flex-col justify-end h-full">
-                  <Card
-                    className={cn(
-                      "border-2 transition-all flex flex-col justify-between",
-                      isActive && "border-amber-400 shadow-xl shadow-amber-500/20 ring-2 ring-amber-400/40",
-                      isFuture && "border-border bg-[#0B1E3D]/95 text-white opacity-80",
-                      isDone && "border-emerald-400 bg-emerald-500/10"
-                    )}
-                    style={{ height: `${heightPct}%`, minHeight: "150px" }}
-                  >
-                    <CardContent className="p-3 md:p-4 flex flex-col h-full gap-2">
-                      <div className="flex items-center justify-between">
-                        <div className={cn(
-                          "text-xl md:text-2xl font-extrabold tracking-tight",
-                          isFuture && "text-white"
-                        )}>
-                          {g.month_label}
-                        </div>
-                        <Badge className={cn("text-[9px] px-1.5", STATUS_BADGE[g.status])}>
-                          {g.status}
+                <Card
+                  key={g.id}
+                  className={cn(
+                    "shrink-0 w-[200px] border-2 transition-all flex flex-col justify-between",
+                    isCurrent && "border-amber-400 bg-white shadow-xl shadow-amber-500/20 ring-2 ring-amber-300/60",
+                    isPast && "border-emerald-400 bg-emerald-500/10",
+                    isFuture && "border-border bg-[#0B1E3D]/95 text-white opacity-90"
+                  )}
+                  style={{ height: `${height}px` }}
+                >
+                  <CardContent className="p-3 md:p-4 flex flex-col h-full gap-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className={cn(
+                        "text-xl md:text-2xl font-extrabold tracking-tight",
+                        isFuture && "text-white"
+                      )}>
+                        {g.month_label}
+                      </div>
+                      {isCurrent && (
+                        <Badge className="bg-amber-500 hover:bg-amber-500 text-white text-[9px] border-0">
+                          Mês Atual
                         </Badge>
-                      </div>
-                      <div>
-                        <div className={cn(
-                          "text-[10px] uppercase tracking-widest font-bold",
-                          isFuture ? "text-white/50" : "text-muted-foreground"
-                        )}>
-                          Meta mensal
-                        </div>
-                        <div className={cn(
-                          "text-base md:text-lg font-bold",
-                          isActive && "text-amber-600",
-                          isDone && "text-emerald-700"
-                        )}>
-                          {formatBRLShort(g.monthly_target)}
-                        </div>
-                        <div className={cn(
-                          "text-[10px]",
-                          isFuture ? "text-white/50" : "text-muted-foreground"
-                        )}>
-                          {formatBRLShort(g.weekly_target)}/sem
-                        </div>
-                      </div>
+                      )}
+                      {isPast && (
+                        <Badge className="bg-emerald-500 hover:bg-emerald-500 text-white text-[9px] border-0 gap-1">
+                          <CheckCircle2 className="h-2.5 w-2.5" /> Concluído
+                        </Badge>
+                      )}
+                      {isFuture && (
+                        <Badge className="bg-slate-500 hover:bg-slate-500 text-white text-[9px] border-0">
+                          Futura
+                        </Badge>
+                      )}
+                    </div>
 
-                      <div className="mt-auto space-y-1.5">
-                        {(isActive || isDone) && (
-                          <>
-                            <div className={cn(
-                              "text-[10px] font-semibold",
-                              isFuture ? "text-white/70" : "text-foreground"
-                            )}>
-                              {formatBRLShort(revenue)} ({pct.toFixed(0)}%)
-                            </div>
-                            <Progress value={pct} className="h-1.5" />
-                          </>
-                        )}
-                        {isActive && (
-                          <Badge className="bg-amber-500 hover:bg-amber-500 text-white text-[9px] border-0 w-fit">
-                            <Calendar className="h-2.5 w-2.5 mr-1" /> Mês atual
-                          </Badge>
-                        )}
-                        {isDone && (
-                          <Badge className="bg-emerald-500 hover:bg-emerald-500 text-white text-[9px] border-0 w-fit gap-1">
-                            <CheckCircle2 className="h-2.5 w-2.5" /> Concluído
-                          </Badge>
-                        )}
+                    <div>
+                      <div className={cn(
+                        "text-[10px] uppercase tracking-widest font-bold",
+                        isFuture ? "text-white/50" : "text-muted-foreground"
+                      )}>
+                        Meta mensal
                       </div>
-                    </CardContent>
-                  </Card>
-                </div>
+                      <div className={cn(
+                        "text-base md:text-lg font-bold",
+                        isCurrent && "text-amber-600",
+                        isPast && "text-emerald-700"
+                      )}>
+                        {formatBRLShort(g.monthly_target)}
+                      </div>
+                      <div className={cn(
+                        "text-[10px]",
+                        isFuture ? "text-white/50" : "text-muted-foreground"
+                      )}>
+                        {formatBRLShort(g.weekly_target)}/sem
+                      </div>
+                    </div>
+
+                    <div className="mt-auto space-y-1.5">
+                      {(isCurrent || isPast) && (
+                        <>
+                          <div className="text-[10px] font-semibold text-foreground">
+                            {formatBRLShort(revenue)} ({pct.toFixed(0)}%)
+                          </div>
+                          <Progress value={pct} className="h-1.5" />
+                        </>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
               );
             })}
           </div>
         </CardContent>
       </Card>
 
-      {/* Card grande do mês ativo */}
-      {activeGoal && (
-        <ActiveMonthCard goal={activeGoal} quotes={quotes} />
+      {/* Card grande do mês atual (calendário) — com fallback de aviso */}
+      {currentMonthGoal ? (
+        <ActiveMonthCard
+          goal={currentMonthGoal}
+          quotes={quotes}
+          isCurrentMonth={true}
+        />
+      ) : (
+        <Card className="border-amber-300 bg-amber-50 dark:bg-amber-500/10">
+          <CardContent className="p-6 flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="space-y-1 flex-1">
+              <div className="font-semibold text-amber-700 dark:text-amber-300">
+                Nenhuma meta definida para {currentMonthLabel}
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Adicione uma meta para o mês atual clicando em "Editar escada".
+              </p>
+            </div>
+            <Button onClick={() => setEditOpen(true)} variant="outline" className="gap-2">
+              <Plus className="h-4 w-4" /> Adicionar
+            </Button>
+          </CardContent>
+        </Card>
       )}
 
       {/* Tabela detalhada */}
@@ -286,6 +356,7 @@ export default function GerenteMetasComerciais() {
                   Number(g.monthly_target) > 0
                     ? (revenue / Number(g.monthly_target)) * 100
                     : 0;
+                const isCurrentMonth = g.month === currentMonth;
                 const isActive = g.status === "Ativa";
                 const isDone = g.status === "Concluída";
                 return (
@@ -293,15 +364,20 @@ export default function GerenteMetasComerciais() {
                     key={g.id}
                     className={cn(
                       "border-b border-border/50",
-                      isActive && "bg-amber-50 dark:bg-amber-500/10 font-medium"
+                      isCurrentMonth && "bg-amber-50 dark:bg-amber-500/10 font-medium"
                     )}
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-bold">{g.month_label}</span>
-                        {isActive && (
+                        {isCurrentMonth && (
                           <Badge className="bg-amber-500 hover:bg-amber-500 text-white text-[9px] border-0">
-                            Atual
+                            Mês atual
+                          </Badge>
+                        )}
+                        {isActive && !isCurrentMonth && (
+                          <Badge className="bg-amber-400 hover:bg-amber-400 text-white text-[9px] border-0">
+                            Ativa
                           </Badge>
                         )}
                         {isDone && (
@@ -313,7 +389,7 @@ export default function GerenteMetasComerciais() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="font-semibold">{formatBRL(g.monthly_target)}</div>
-                      {(isActive || isDone) && (
+                      {(isCurrentMonth || isDone) && (
                         <div className="text-xs text-muted-foreground">
                           {formatBRLShort(revenue)} atingido ({pct.toFixed(0)}%)
                         </div>
@@ -440,7 +516,7 @@ function Th({ children }) {
 }
 
 // ─── Card grande do mês ativo ───────────────────────────────────────
-function ActiveMonthCard({ goal, quotes }) {
+function ActiveMonthCard({ goal, quotes, isCurrentMonth = true }) {
   const target = Number(goal.monthly_target) || 0;
   const monthQuotes = useMemo(
     () =>
@@ -500,7 +576,7 @@ function ActiveMonthCard({ goal, quotes }) {
           {/* Esquerda: progresso */}
           <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center gap-2 text-amber-400 text-xs font-bold uppercase tracking-[0.3em]">
-              <Calendar className="h-3 w-3" /> Mês ativo
+              <Calendar className="h-3 w-3" /> {isCurrentMonth ? "Mês atual" : "Mês ativo"}
             </div>
             <div className="flex items-baseline gap-3 flex-wrap">
               <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight">
@@ -645,6 +721,17 @@ function EditGoalsDialog({ open, onClose, goals, onChange, toast }) {
     setDrafts((p) => {
       const next = [...p];
       next[idx] = { ...next[idx], [field]: value };
+      // Recalcula derivados quando o usuário muda a meta mensal
+      if (field === "monthly_target") {
+        const monthly = parseFloat(value) || 0;
+        next[idx] = {
+          ...next[idx],
+          monthly_target: value,
+          weekly_target: monthly > 0 ? Math.round(monthly / 4) : 0,
+          ticket_2500_sales: monthly > 0 ? Math.ceil(monthly / 2500) : 0,
+          ticket_3000_sales: monthly > 0 ? Math.ceil(monthly / 3000) : 0,
+        };
+      }
       return next;
     });
   };
@@ -792,25 +879,28 @@ function EditGoalsDialog({ open, onClose, goals, onChange, toast }) {
                       onChange={(e) => updateField(idx, "monthly_target", e.target.value)}
                     />
                   </FormField>
-                  <FormField label="Meta semanal (R$)">
+                  <FormField label="Meta semanal (R$) · auto">
                     <Input
                       type="number"
                       value={d.weekly_target}
                       onChange={(e) => updateField(idx, "weekly_target", e.target.value)}
+                      className="bg-muted/40"
                     />
                   </FormField>
-                  <FormField label="Vendas ticket R$2.500">
+                  <FormField label="Vendas ticket R$2.500 · auto">
                     <Input
                       type="number"
                       value={d.ticket_2500_sales}
                       onChange={(e) => updateField(idx, "ticket_2500_sales", e.target.value)}
+                      className="bg-muted/40"
                     />
                   </FormField>
-                  <FormField label="Vendas ticket R$3.000">
+                  <FormField label="Vendas ticket R$3.000 · auto">
                     <Input
                       type="number"
                       value={d.ticket_3000_sales}
                       onChange={(e) => updateField(idx, "ticket_3000_sales", e.target.value)}
+                      className="bg-muted/40"
                     />
                   </FormField>
                 </div>

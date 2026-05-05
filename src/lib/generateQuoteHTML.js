@@ -137,34 +137,54 @@ function buildFlightCard(trecho, data) {
 
 function buildBaggage(data) {
   const b = data.baggage || {};
-  const card = (hl, label, value, bottom) => `
-    <div class="bag${hl ? " hl" : ""}">
-      <div class="bag-top">
-        <div class="bag-ico"><svg><use href="#ic-bag"/></svg></div>
-        <div><div class="bag-lbl">${esc(label)}</div><div class="bag-val">${esc(value)}</div></div>
-      </div>
-      <div class="bag-bottom">${esc(bottom)}</div>
-    </div>`;
+  // Compatível com formato antigo (boolean) e novo (quantidade numérica)
+  const qty = (v) => {
+    if (typeof v === "number") return v;
+    if (typeof v === "boolean") return v ? 1 : 0;
+    return Number(v) || 0;
+  };
+  const personalQ = qty(b.personal);
+  const carryQ = qty(b.carry_on);
+  const checkedQ = qty(b.checked);
+
+  const card = (count, label, valueIncluded, valueExcluded, bottomIncluded, bottomExcluded) => {
+    const has = count > 0;
+    const display = has ? `${String(count).padStart(2, "0")} · ${valueIncluded}` : valueExcluded;
+    return `
+      <div class="bag${has ? " hl" : ""}">
+        <div class="bag-top">
+          <div class="bag-ico"><svg><use href="#ic-bag"/></svg></div>
+          <div><div class="bag-lbl">${esc(label)}</div><div class="bag-val">${esc(display)}</div></div>
+        </div>
+        <div class="bag-bottom">${esc(has ? bottomIncluded : bottomExcluded)}</div>
+      </div>`;
+  };
 
   return `
     <div class="bag-grid">
       ${card(
-        b.personal,
+        personalQ,
         "Artigo Pessoal",
-        b.personal ? "Bolsa / Mochila" : "Não incluso",
-        b.personal ? "Sob o assento da frente" : "Adquira separadamente"
+        "Bolsa / Mochila",
+        "Não incluso",
+        "Sob o assento da frente",
+        "Adquira separadamente"
       )}
       ${card(
-        b.carry_on,
+        carryQ,
         "Bagagem de Mão",
-        b.carry_on ? "Mala Pequena" : "Não inclusa",
-        b.carry_on ? "Até 10 kg · Compartimento superior" : "Adquira separadamente"
+        "Mala Pequena (10kg)",
+        "Não inclusa",
+        "Até 10 kg · Compartimento superior",
+        "Adquira separadamente"
       )}
       ${card(
-        b.checked,
+        checkedQ,
         "Bagagem Despachada",
-        b.checked ? "Mala Grande (23kg)" : "Não inclusa",
-        b.checked ? "Até 23 kg · Despachada no check-in" : "Adquira separadamente"
+        "Mala Grande (23kg)",
+        "Não inclusa",
+        "Até 23 kg · Despachada no check-in",
+        "Adquira separadamente"
       )}
     </div>`;
 }
@@ -258,9 +278,17 @@ function buildPriceSection(data, dataFormatada) {
 function buildIncluso(data, tipoViagem, companhia) {
   const items = [];
   items.push(`Passagem aérea ${tipoViagem}${companhia ? ` — ${companhia}` : ""}`);
-  if (data.baggage?.personal) items.push("Artigo pessoal (bolsa ou mochila)");
-  if (data.baggage?.carry_on) items.push("Bagagem de mão até 10 kg");
-  if (data.baggage?.checked) items.push("Bagagem despachada 23 kg");
+  const bagQty = (v) =>
+    typeof v === "number" ? v : (typeof v === "boolean" ? (v ? 1 : 0) : Number(v) || 0);
+  const personalQ = bagQty(data.baggage?.personal);
+  const carryQ = bagQty(data.baggage?.carry_on);
+  const checkedQ = bagQty(data.baggage?.checked);
+  if (personalQ > 0)
+    items.push(`${personalQ > 1 ? `${personalQ} artigos pessoais` : "Artigo pessoal"} (bolsa ou mochila)`);
+  if (carryQ > 0)
+    items.push(`${carryQ > 1 ? `${carryQ} bagagens de mão` : "Bagagem de mão"} até 10 kg`);
+  if (checkedQ > 0)
+    items.push(`${checkedQ > 1 ? `${checkedQ} bagagens despachadas` : "Bagagem despachada"} 23 kg`);
   items.push("Todas as taxas aeroportuárias inclusas");
   if (data.services?.insurance?.active) items.push("Seguro viagem");
   if (data.services?.transfer?.active) items.push("Transfer aeroporto ↔ hotel");

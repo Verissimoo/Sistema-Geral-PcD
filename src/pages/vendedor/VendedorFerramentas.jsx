@@ -122,21 +122,27 @@ function ComissaoTab() {
     const venda = parseFloat(valorVenda);
     if (!venda || valorNipon === 0) return;
 
-    const custoBase = modoMilhas ? 0 : parseFloat(custoPassagem);
-    const lucroNipon = valorNipon - (modoMilhas ? 0 : custoBase);
+    // Custo total = custo base + taxa (apenas modo milhas tem taxa separada)
+    const custoTotal = modoMilhas
+      ? custoReal // já inclui taxa
+      : (parseFloat(custoPassagem) || 0);
+
+    // Lucro Nipon = nipon - custoTotal (sempre não-negativo)
+    const lucroNipon = Math.max(0, valorNipon - custoTotal);
     const comissaoBase = lucroNipon * 0.25;
 
-    let comissaoExtra = 0;
-    if (venda > valorNipon) {
-      const excedente = venda - valorNipon;
-      comissaoExtra = excedente * 0.45;
-    }
+    // Excedente: só conta o que passou do Nipon (nunca negativo)
+    const excedente = Math.max(0, venda - valorNipon);
+    const comissaoExtra = excedente * 0.45;
 
     const comissaoTotal = comissaoBase + comissaoExtra;
 
     setResultado({
       valorNipon,
       valorVenda: venda,
+      lucroNipon,
+      excedente,
+      abaixoNipon: venda < valorNipon,
       comissaoBase,
       comissaoExtra,
       comissaoTotal,
@@ -299,6 +305,12 @@ function ComissaoTab() {
           <CardContent>
             {resultado ? (
               <div className="space-y-3">
+                {resultado.abaixoNipon && (
+                  <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-700 dark:text-amber-300">
+                    ⚠️ Venda ({fmt(resultado.valorVenda)}) está abaixo do Nipon ({fmt(resultado.valorNipon)}).
+                    Sem comissão extra — só comissão base sobre o lucro mínimo.
+                  </div>
+                )}
                 <div className="flex justify-between items-center py-2">
                   <span className="text-sm text-muted-foreground">Valor Nipon</span>
                   <span className="text-sm font-medium">{fmt(resultado.valorNipon)}</span>
@@ -307,10 +319,18 @@ function ComissaoTab() {
                   <span className="text-sm text-muted-foreground">Valor de Venda</span>
                   <span className="text-sm font-medium">{fmt(resultado.valorVenda)}</span>
                 </div>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm text-muted-foreground">Lucro Nipon (nipon − custo)</span>
+                  <span className="text-sm font-medium">{fmt(resultado.lucroNipon)}</span>
+                </div>
                 <div className="h-px bg-border" />
                 <div className="flex justify-between items-center py-2">
                   <span className="text-sm text-muted-foreground">Comissão Base (25% do lucro Nipon)</span>
                   <span className="text-sm font-medium">{fmt(resultado.comissaoBase)}</span>
+                </div>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm text-muted-foreground">Excedente sobre Nipon</span>
+                  <span className="text-sm font-medium">{fmt(resultado.excedente)}</span>
                 </div>
                 <div className="flex justify-between items-center py-2">
                   <span className="text-sm text-muted-foreground">Comissão Extra (45% do excedente)</span>
