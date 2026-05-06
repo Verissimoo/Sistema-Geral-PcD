@@ -19,6 +19,7 @@ import GerenteVendedorDetalhe from './pages/gerente/GerenteVendedorDetalhe';
 import GerenteClientes from './pages/gerente/GerenteClientes';
 import GerenteClienteDetalhe from './pages/gerente/GerenteClienteDetalhe';
 import GerenteOrcamentos from './pages/gerente/GerenteOrcamentos';
+import GerenteParceiros from './pages/gerente/GerenteParceiros';
 import { AuthProvider } from './lib/AuthContext';
 import { ProtectedRoute } from './lib/ProtectedRoute';
 
@@ -31,6 +32,11 @@ import VendedorMilhas from './pages/vendedor/VendedorMilhas';
 import VendedorCarreira from './pages/vendedor/VendedorCarreira';
 import VendedorInformacoes from './pages/vendedor/VendedorInformacoes';
 
+// Portal do Parceiro
+import ParceiroOrcamentos from './pages/parceiro/ParceiroOrcamentos';
+import ParceiroOrcamentoDetalhe from './pages/parceiro/ParceiroOrcamentoDetalhe';
+import ParceiroClientes from './pages/parceiro/ParceiroClientes';
+
 function App() {
   return (
     <QueryClientProvider client={queryClientInstance}>
@@ -42,7 +48,7 @@ function App() {
 
             {/* Rotas protegidas dentro do Layout */}
             <Route element={
-              <ProtectedRoute allowedRoles={['admin', 'vendedor']}>
+              <ProtectedRoute allowedRoles={['admin', 'vendedor', 'parceiro']}>
                 <Layout />
               </ProtectedRoute>
             }>
@@ -119,15 +125,45 @@ function App() {
                   <GerenteOrcamentos />
                 </ProtectedRoute>
               } />
+              <Route path="/gerente/parceiros" element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <GerenteParceiros />
+                </ProtectedRoute>
+              } />
 
               {/* === PORTAL DO VENDEDOR (admin + vendedor) === */}
-              <Route path="/vendedor/ferramentas" element={<VendedorFerramentas />} />
-              <Route path="/vendedor/cotacao" element={<VendedorCotacao />} />
-              <Route path="/vendedor/orcamento" element={<VendedorOrcamento />} />
-              <Route path="/vendedor/orcamentos" element={<VendedorOrcamentos />} />
-              <Route path="/vendedor/milhas" element={<VendedorMilhas />} />
-              <Route path="/vendedor/carreira" element={<VendedorCarreira />} />
-              <Route path="/vendedor/informacoes" element={<VendedorInformacoes />} />
+              <Route path="/vendedor/ferramentas" element={
+                <ProtectedRoute allowedRoles={['admin', 'vendedor']}><VendedorFerramentas /></ProtectedRoute>
+              } />
+              <Route path="/vendedor/cotacao" element={
+                <ProtectedRoute allowedRoles={['admin', 'vendedor']}><VendedorCotacao /></ProtectedRoute>
+              } />
+              <Route path="/vendedor/orcamento" element={
+                <ProtectedRoute allowedRoles={['admin', 'vendedor']}><VendedorOrcamento /></ProtectedRoute>
+              } />
+              <Route path="/vendedor/orcamentos" element={
+                <ProtectedRoute allowedRoles={['admin', 'vendedor']}><VendedorOrcamentos /></ProtectedRoute>
+              } />
+              <Route path="/vendedor/milhas" element={
+                <ProtectedRoute allowedRoles={['admin', 'vendedor']}><VendedorMilhas /></ProtectedRoute>
+              } />
+              <Route path="/vendedor/carreira" element={
+                <ProtectedRoute allowedRoles={['admin', 'vendedor']}><VendedorCarreira /></ProtectedRoute>
+              } />
+              <Route path="/vendedor/informacoes" element={
+                <ProtectedRoute allowedRoles={['admin', 'vendedor']}><VendedorInformacoes /></ProtectedRoute>
+              } />
+
+              {/* === PORTAL DO PARCEIRO (parceiro only) === */}
+              <Route path="/parceiro/orcamentos" element={
+                <ProtectedRoute allowedRoles={['parceiro']}><ParceiroOrcamentos /></ProtectedRoute>
+              } />
+              <Route path="/parceiro/orcamentos/:id" element={
+                <ProtectedRoute allowedRoles={['parceiro']}><ParceiroOrcamentoDetalhe /></ProtectedRoute>
+              } />
+              <Route path="/parceiro/clientes" element={
+                <ProtectedRoute allowedRoles={['parceiro']}><ParceiroClientes /></ProtectedRoute>
+              } />
 
               <Route path="*" element={<PageNotFound />} />
             </Route>

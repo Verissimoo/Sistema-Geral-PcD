@@ -11,7 +11,8 @@
       "mcp__claude_ai_Supabase__list_tables",
       "mcp__claude_ai_Supabase__execute_sql",
       "Bash(git commit *)",
-      "mcp__claude_ai_Supabase__apply_migration"
+      "mcp__claude_ai_Supabase__apply_migration",
+      "Bash(node -e \"require\\('fs'\\).readFileSync\\('./src/pages/vendedor/VendedorOrcamento.jsx','utf8'\\).split\\('\\\\n'\\).forEach\\(\\(l,i\\)=>{ if\\(l.includes\\('TabsContent value=\\\\\"new\\\\\"'\\)\\) console.log\\(i+1, l\\) }\\)\")"
     ]
   }
 }

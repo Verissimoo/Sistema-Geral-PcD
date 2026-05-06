@@ -4,7 +4,7 @@ import {
   FileText, Plane, Palmtree, User, UserPlus, Search, Lock,
   ImagePlus, X, Check, Loader2, AlertTriangle, Info,
   ArrowLeft, ArrowRight, Copy, Sparkles, ChevronRight, ClipboardPaste,
-  DollarSign, Wallet, Plus, Trash2, MessageCircle
+  DollarSign, Wallet, Plus, Trash2, MessageCircle, Handshake
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -82,6 +82,9 @@ const TICKET_TYPES = [
 ];
 
 const initialFormData = {
+  recipient_type: "cliente",
+  partner_id: null,
+  partner_name: null,
   client: null,
   product: null,
   ticket_type: "Normal",
@@ -165,11 +168,12 @@ function Stepper({ currentStep, completedSteps }) {
   );
 }
 
-// ─── Bloco 1 — Cliente ──────────────────────────────────────────────
+// ─── Bloco 1 — Cliente ou Parceiro ──────────────────────────────────
 function BlocoCliente({ formData, setFormData }) {
   const [mode, setMode] = useState(formData.client?.id ? "select" : "select");
   const [search, setSearch] = useState("");
   const [clients, setClients] = useState([]);
+  const [partners, setPartners] = useState([]);
   const [newClient, setNewClient] = useState({ name: "", phone: "", lead_origin: "" });
   const { toast } = useToast();
   const { user, isAdmin } = useAuth();
@@ -182,6 +186,13 @@ function BlocoCliente({ formData, setFormData }) {
       setClients(visible);
     })();
   }, [user?.id, isAdmin]);
+
+  useEffect(() => {
+    (async () => {
+      const list = (await localClient.entities.Partners.list()) || [];
+      setPartners(list);
+    })();
+  }, []);
 
   const filtered = useMemo(
     () => clients.filter((c) => c.name?.toLowerCase().includes(search.toLowerCase())),
@@ -215,8 +226,68 @@ function BlocoCliente({ formData, setFormData }) {
     toast({ title: "Cliente cadastrado", description: created.name });
   };
 
+  const recipientType = formData.recipient_type || "cliente";
+
   return (
     <div className="space-y-4">
+      {/* Toggle: Cliente Final vs Parceiro */}
+      <div>
+        <Label className="text-sm font-semibold mb-2 block">Para quem é este orçamento?</Label>
+        <Tabs
+          value={recipientType}
+          onValueChange={(v) =>
+            setFormData((p) => ({
+              ...p,
+              recipient_type: v,
+              client: v === "cliente" ? p.client : null,
+              partner_id: v === "parceiro" ? p.partner_id : null,
+              partner_name: v === "parceiro" ? p.partner_name : null,
+            }))
+          }
+        >
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="cliente" className="gap-2">
+              <User className="w-4 h-4" /> Cliente Final
+            </TabsTrigger>
+            <TabsTrigger value="parceiro" className="gap-2">
+              <Handshake className="w-4 h-4" /> Parceiro
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="parceiro" className="mt-4 space-y-3">
+            <Label>Selecionar parceiro</Label>
+            <Select
+              value={formData.partner_id || ""}
+              onValueChange={(v) => {
+                const partner = partners.find((p) => p.id === v);
+                setFormData((prev) => ({
+                  ...prev,
+                  partner_id: v,
+                  partner_name: partner?.name || null,
+                }));
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={partners.length === 0 ? "Sem parceiros cadastrados" : "Escolha um parceiro"} />
+              </SelectTrigger>
+              <SelectContent>
+                {partners.filter((p) => p.status === "Ativo").map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}{p.company ? ` · ${p.company}` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {formData.partner_id && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                <strong>ℹ️ Modo Parceiro:</strong> você preencherá apenas o custo e o sistema calculará o Nipon. O parceiro definirá o valor de venda final no portal dele.
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="cliente" className="mt-4">
+
       <Tabs value={mode} onValueChange={setMode}>
         <TabsList>
           <TabsTrigger value="select" className="gap-2">
@@ -321,6 +392,9 @@ function BlocoCliente({ formData, setFormData }) {
           <span><strong>{formData.client.name}</strong> selecionado</span>
         </div>
       )}
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 }
@@ -1085,6 +1159,7 @@ function BlocoPrecificacao({ formData, setFormData }) {
   }, []);
 
   const isSplit = formData.ticket_type === "Quebra de Trecho";
+  const isParceiroMode = formData.recipient_type === "parceiro";
 
   // Inicialização automática do modo split conforme ticket_type / itinerário.
   useEffect(() => {
@@ -1435,7 +1510,30 @@ function BlocoPrecificacao({ formData, setFormData }) {
         </CardContent>
       </Card>
 
+      {/* 4B - Aguardando precificação do parceiro */}
+      {isParceiroMode && (
+        <Card className="bg-slate-100 border-2 border-dashed border-slate-300">
+          <CardContent className="p-5 text-center">
+            <p className="text-slate-700 font-semibold">⏳ Aguardando precificação do parceiro</p>
+            <p className="text-sm text-slate-500 mt-1">
+              O parceiro definirá o valor de venda final no portal dele.
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+              <div className="rounded-lg bg-white border border-slate-200 p-3">
+                <div className="text-[11px] uppercase text-muted-foreground tracking-wider">Custo total</div>
+                <div className="font-semibold mt-1">{formatBRL(calc.custoTotal)}</div>
+              </div>
+              <div className="rounded-lg bg-white border border-slate-200 p-3">
+                <div className="text-[11px] uppercase text-muted-foreground tracking-wider">Valor Nipon</div>
+                <div className="font-semibold mt-1 text-primary">{formatBRL(calc.nipon)}</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* 4B - Valor de venda */}
+      {!isParceiroMode && (
       <Card className="border-border/50">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
@@ -1524,8 +1622,10 @@ function BlocoPrecificacao({ formData, setFormData }) {
           )}
         </CardContent>
       </Card>
+      )}
 
       {/* 4C - Valor adicional */}
+      {!isParceiroMode && (
       <Card className="border-border/50">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
@@ -1570,8 +1670,10 @@ function BlocoPrecificacao({ formData, setFormData }) {
           </CardContent>
         )}
       </Card>
+      )}
 
       {/* 4D - Concorrência */}
+      {!isParceiroMode && (
       <Card className="border-border/50 border-dashed">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
@@ -1643,8 +1745,10 @@ function BlocoPrecificacao({ formData, setFormData }) {
           </CardContent>
         )}
       </Card>
+      )}
 
       {/* 4E - Serviços adicionais */}
+      {!isParceiroMode && (
       <Card className="border-border/50">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm">Serviços Adicionais</CardTitle>
@@ -1684,8 +1788,10 @@ function BlocoPrecificacao({ formData, setFormData }) {
           ))}
         </CardContent>
       </Card>
+      )}
 
       {/* Total */}
+      {!isParceiroMode && (
       <Card className="bg-primary text-primary-foreground">
         <CardContent className="p-5 flex items-center justify-between">
           <div>
@@ -1695,6 +1801,7 @@ function BlocoPrecificacao({ formData, setFormData }) {
           <DollarSign className="h-10 w-10 opacity-30" />
         </CardContent>
       </Card>
+      )}
     </div>
   );
 }
@@ -1999,11 +2106,14 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
   const navigate = useNavigate();
   const { user } = useAuth();
 
+  const isParceiroMode = formData.recipient_type === "parceiro";
+
   const buildWhatsapp = () => {
     const t = formData;
     const trechos = t.itinerary.trechos || [];
     let texto = `✈️ PassagensComDesconto\n📌 CADASTUR: 62830477000151\n\n`;
-    texto += `Olá ${t.client?.name || ""}! Segue sua cotação personalizada com todo suporte da nossa agência.\n\n`;
+    const greetName = isParceiroMode ? (t.partner_name || "parceiro") : (t.client?.name || "");
+    texto += `Olá ${greetName}! Segue sua cotação personalizada com todo suporte da nossa agência.\n\n`;
     const isSplit = t.ticket_type === "Quebra de Trecho";
     texto += `🛫 ITINERÁRIO:\n`;
     trechos.forEach((tr) => {
@@ -2109,10 +2219,23 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
 
     const { pricing: normalizedPricing, additional: normalizedAdditional, competitor: normalizedCompetitor, services: normalizedServices } = buildNormalizedPayload();
 
+    const isParceiroMode = formData.recipient_type === "parceiro";
+    // Para parceiro, sale_value provisório = nipon (será sobrescrito pelo parceiro).
+    const niponBase = Number(normalizedPricing.nipon_value)
+      || Number(normalizedPricing.total_nipon)
+      || 0;
+    const finalPricing = isParceiroMode
+      ? { ...normalizedPricing, sale_value: niponBase }
+      : normalizedPricing;
+    const finalTotalValue = isParceiroMode ? niponBase : totalValue;
+
     const quote = await localClient.entities.Quotes.create({
       quote_number: quoteNumber,
-      client: formData.client,
-      client_id: formData.client?.id || null,
+      recipient_type: formData.recipient_type || "cliente",
+      partner_id: formData.partner_id || null,
+      partner_name: formData.partner_name || null,
+      client: isParceiroMode ? null : formData.client,
+      client_id: isParceiroMode ? null : (formData.client?.id || null),
       product: formData.product,
       ticket_type: formData.ticket_type,
       itinerary: formData.itinerary,
@@ -2123,12 +2246,14 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
       },
       passengers: formData.passengers,
       baggage: formData.baggage,
-      pricing: normalizedPricing,
-      additional: normalizedAdditional,
-      competitor: normalizedCompetitor,
-      services: normalizedServices,
-      total_value: totalValue,
-      commission,
+      pricing: finalPricing,
+      additional: isParceiroMode ? null : normalizedAdditional,
+      competitor: isParceiroMode ? null : normalizedCompetitor,
+      services: isParceiroMode
+        ? { insurance: { active: false, value: 0 }, transfer: { active: false, value: 0 } }
+        : normalizedServices,
+      total_value: finalTotalValue,
+      commission: isParceiroMode ? { base: 0, extra: 0, total: 0 } : commission,
       seller_name: user?.name || "Equipe PCD",
       seller_id: user?.id || null,
       status: "Enviado",
@@ -2161,9 +2286,19 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
     const txt = buildWhatsapp();
     await persistQuote(txt);
     const normalized = buildNormalizedPayload();
+    const niponBase = Number(normalized.pricing?.nipon_value) || Number(normalized.pricing?.total_nipon) || 0;
+    const finalTotal = isParceiroMode ? niponBase : totalValue;
+    const finalPricing = isParceiroMode
+      ? { ...normalized.pricing, sale_value: niponBase }
+      : normalized.pricing;
     openQuoteInNewTab({
       quote_number: quoteNumber,
-      client: formData.client,
+      recipient_type: formData.recipient_type || "cliente",
+      partner_id: formData.partner_id || null,
+      partner_name: formData.partner_name || null,
+      client: isParceiroMode
+        ? { name: formData.partner_name || "Parceiro" }
+        : formData.client,
       product: formData.product,
       ticket_type: formData.ticket_type,
       itinerary: formData.itinerary,
@@ -2174,12 +2309,14 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
       },
       passengers: formData.passengers,
       baggage: formData.baggage,
-      pricing: normalized.pricing,
-      additional: normalized.additional,
-      competitor: normalized.competitor,
-      services: normalized.services,
-      total_value: totalValue,
-      commission,
+      pricing: finalPricing,
+      additional: isParceiroMode ? null : normalized.additional,
+      competitor: isParceiroMode ? null : normalized.competitor,
+      services: isParceiroMode
+        ? { insurance: { active: false, value: 0 }, transfer: { active: false, value: 0 } }
+        : normalized.services,
+      total_value: finalTotal,
+      commission: isParceiroMode ? { base: 0, extra: 0, total: 0 } : commission,
       seller_name: user?.name || "Equipe PCD",
       created_date: new Date().toISOString(),
     });
@@ -2187,14 +2324,30 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
 
   return (
     <div className="space-y-4">
-      {/* Resumo */}
-      <Card className="border-border/50">
-        <CardHeader className="pb-3"><CardTitle className="text-sm">Cliente</CardTitle></CardHeader>
-        <CardContent className="text-sm space-y-1">
-          <div><strong>{formData.client?.name}</strong></div>
-          <div className="text-muted-foreground">{formData.client?.phone || "—"} · {formData.client?.lead_origin || "—"}</div>
-        </CardContent>
-      </Card>
+      {/* Resumo destinatário */}
+      {isParceiroMode ? (
+        <Card className="border-border/50 border-purple-200 bg-purple-50/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Handshake className="h-4 w-4 text-purple-700" /> Parceiro
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm space-y-1">
+            <div><strong>{formData.partner_name}</strong></div>
+            <div className="text-muted-foreground">
+              O parceiro definirá o valor de venda final no portal dele.
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="border-border/50">
+          <CardHeader className="pb-3"><CardTitle className="text-sm">Cliente</CardTitle></CardHeader>
+          <CardContent className="text-sm space-y-1">
+            <div><strong>{formData.client?.name}</strong></div>
+            <div className="text-muted-foreground">{formData.client?.phone || "—"} · {formData.client?.lead_origin || "—"}</div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card className="border-border/50">
         <CardHeader className="pb-3"><CardTitle className="text-sm">Itinerário</CardTitle></CardHeader>
@@ -2219,17 +2372,32 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
       <Card className="border-border/50">
         <CardHeader className="pb-3"><CardTitle className="text-sm">Precificação</CardTitle></CardHeader>
         <CardContent className="text-sm space-y-1">
-          <Row label="Custo total (Nipon)" value={formatBRL(formData.pricing.nipon_value)} />
-          <Row label="Valor de venda" value={formatBRL(formData.pricing.sale_value)} />
-          <Row label="Comissão do vendedor" value={formatBRL(commission.total)} bold />
+          <Row label="Custo total (Nipon)" value={formatBRL(formData.pricing.nipon_value || formData.pricing.total_nipon || 0)} />
+          {!isParceiroMode && (
+            <>
+              <Row label="Valor de venda" value={formatBRL(formData.pricing.sale_value)} />
+              <Row label="Comissão do vendedor" value={formatBRL(commission.total)} bold />
+            </>
+          )}
+          {isParceiroMode && (
+            <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 mt-2">
+              ⏳ Valor de venda final e comissão serão definidos quando o parceiro precificar.
+            </div>
+          )}
         </CardContent>
       </Card>
 
       <Card className="bg-primary text-primary-foreground">
         <CardContent className="p-5 flex items-center justify-between">
           <div>
-            <div className="text-xs opacity-80">VALOR TOTAL DA PROPOSTA</div>
-            <div className="text-2xl font-bold mt-1">{formatBRL(totalValue)}</div>
+            <div className="text-xs opacity-80">
+              {isParceiroMode ? "VALOR NIPON (PROVISÓRIO)" : "VALOR TOTAL DA PROPOSTA"}
+            </div>
+            <div className="text-2xl font-bold mt-1">
+              {formatBRL(isParceiroMode
+                ? (formData.pricing.nipon_value || formData.pricing.total_nipon || 0)
+                : totalValue)}
+            </div>
           </div>
           <Sparkles className="h-10 w-10 opacity-30" />
         </CardContent>
@@ -2345,9 +2513,11 @@ export default function VendedorOrcamento() {
   }, [formData.pricing, formData.passengers]);
 
   // Validação por bloco
+  const isParceiroMode = formData.recipient_type === "parceiro";
   const canAdvance = useMemo(() => {
     switch (currentStep) {
-      case 1: return !!formData.client?.id;
+      case 1:
+        return isParceiroMode ? !!formData.partner_id : !!formData.client?.id;
       case 2: return formData.product === "aereo";
       case 3:
         return (
@@ -2357,12 +2527,17 @@ export default function VendedorOrcamento() {
           (formData.one_way || !!formData.return_date)
         );
       case 4: {
+        if (isParceiroMode) {
+          // Parceiro: basta ter Nipon definido (custo preenchido).
+          const nipon = Number(formData.pricing?.nipon_value) || Number(formData.pricing?.total_nipon) || 0;
+          return nipon > 0;
+        }
         const sale = parseBR(formData.pricing.sale_value);
         return sale > 0;
       }
       default: return true;
     }
-  }, [currentStep, formData]);
+  }, [currentStep, formData, isParceiroMode]);
 
   const next = () => {
     if (!canAdvance) return;

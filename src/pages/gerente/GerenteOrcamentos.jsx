@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
-  FileStack, Search, Eye, FileText, Download, MoreVertical,
-  AlertTriangle, Clock, ShoppingCart, DollarSign, TrendingUp,
+  FileStack, Search, Eye, FileText, Download,
+  AlertTriangle, Clock, ShoppingCart, DollarSign, TrendingUp, Handshake,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -104,6 +104,7 @@ export default function GerenteOrcamentos() {
   const [sellerFilter, setSellerFilter] = useState("Todos");
   const [periodFilter, setPeriodFilter] = useState("all");
   const [ticketTypeFilter, setTicketTypeFilter] = useState("Todos");
+  const [recipientFilter, setRecipientFilter] = useState("Todos");
   const [detailQuote, setDetailQuote] = useState(null);
 
   const reload = async () => {
@@ -145,6 +146,8 @@ export default function GerenteOrcamentos() {
       list = list.filter(
         (x) =>
           x.client?.name?.toLowerCase().includes(q) ||
+          x.partner_name?.toLowerCase().includes(q) ||
+          x.partner_client_data?.name?.toLowerCase().includes(q) ||
           x.quote_number?.toLowerCase().includes(q)
       );
     }
@@ -156,6 +159,9 @@ export default function GerenteOrcamentos() {
     }
     if (ticketTypeFilter !== "Todos") {
       list = list.filter((x) => (x.ticket_type || "Normal") === ticketTypeFilter);
+    }
+    if (recipientFilter !== "Todos") {
+      list = list.filter((x) => (x.recipient_type || "cliente") === recipientFilter);
     }
     if (periodFilter !== "all") {
       const now = Date.now();
@@ -171,7 +177,7 @@ export default function GerenteOrcamentos() {
 
     list.sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
     return list;
-  }, [quotes, search, statusFilter, sellerFilter, periodFilter, ticketTypeFilter]);
+  }, [quotes, search, statusFilter, sellerFilter, periodFilter, ticketTypeFilter, recipientFilter]);
 
   const summary = useMemo(() => {
     const sold = filtered.filter((q) => q.status === "Aprovado" || q.status === "Emitido");
@@ -279,7 +285,7 @@ export default function GerenteOrcamentos() {
               </SelectContent>
             </Select>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <Select value={periodFilter} onValueChange={setPeriodFilter}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -295,6 +301,14 @@ export default function GerenteOrcamentos() {
               <SelectContent>
                 <SelectItem value="Todos">Todos os tipos</SelectItem>
                 {TICKET_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={recipientFilter} onValueChange={setRecipientFilter}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Todos">Todos os destinatários</SelectItem>
+                <SelectItem value="cliente">Cliente Final</SelectItem>
+                <SelectItem value="parceiro">Parceiro</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -399,7 +413,7 @@ export default function GerenteOrcamentos() {
               <thead>
                 <tr className="border-b border-border bg-muted/40">
                   <Th>Nº</Th>
-                  <Th>Cliente</Th>
+                  <Th>Para</Th>
                   <Th>Rota</Th>
                   <Th>Vendedor</Th>
                   <Th>Tipo</Th>
@@ -435,7 +449,10 @@ export default function GerenteOrcamentos() {
           <DialogHeader>
             <DialogTitle>{detailQuote?.quote_number}</DialogTitle>
             <DialogDescription>
-              {detailQuote?.client?.name} ·{" "}
+              {detailQuote?.recipient_type === "parceiro"
+                ? `Parceiro: ${detailQuote?.partner_name || "—"}`
+                : detailQuote?.client?.name}
+              {" · "}
               {detailQuote && fmtDateBR(detailQuote.created_date)} ·{" "}
               <Badge className={cn("ml-1 border", STATUS_STYLES[detailQuote?.status])}>
                 {STATUS_LABELS[detailQuote?.status] || detailQuote?.status}
@@ -493,14 +510,30 @@ function QuoteRow({ quote, seller, onView, onChangeStatus, onPDF, onClickClient 
         <span className="font-mono text-xs font-bold">{quote.quote_number || "—"}</span>
       </td>
       <td className="px-4 py-3">
-        <button
-          onClick={onClickClient}
-          className="text-left hover:text-primary transition-colors"
-          title="Ver cliente"
-        >
-          <div className="font-medium text-sm">{quote.client?.name || "—"}</div>
-          <div className="text-xs text-muted-foreground">{quote.client?.phone || ""}</div>
-        </button>
+        {quote.recipient_type === "parceiro" ? (
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5">
+              <Badge className="bg-purple-100 text-purple-800 border border-purple-300 hover:bg-purple-100 gap-1 text-[10px]">
+                <Handshake className="h-3 w-3" /> Parceiro
+              </Badge>
+              <span className="font-medium text-sm">{quote.partner_name || "—"}</span>
+            </div>
+            {quote.partner_client_data?.name && (
+              <div className="text-xs text-muted-foreground">
+                Cliente: {quote.partner_client_data.name}
+              </div>
+            )}
+          </div>
+        ) : (
+          <button
+            onClick={onClickClient}
+            className="text-left hover:text-primary transition-colors"
+            title="Ver cliente"
+          >
+            <div className="font-medium text-sm">{quote.client?.name || "—"}</div>
+            <div className="text-xs text-muted-foreground">{quote.client?.phone || ""}</div>
+          </button>
+        )}
       </td>
       <td className="px-4 py-3">
         <div className="font-mono font-semibold text-sm">{route}</div>
@@ -568,13 +601,32 @@ function QuoteRow({ quote, seller, onView, onChangeStatus, onPDF, onClickClient 
 }
 
 function QuoteDetail({ quote, onPDF }) {
+  const isParceiro = quote.recipient_type === "parceiro";
   return (
     <div className="space-y-4 text-sm">
-      <DetailSection title="Cliente">
-        <DetailRow label="Nome" value={quote.client?.name} />
-        <DetailRow label="Telefone" value={quote.client?.phone || "—"} />
-        <DetailRow label="Origem" value={quote.client?.lead_origin || "—"} />
-      </DetailSection>
+      {isParceiro ? (
+        <>
+          <DetailSection title="Parceiro">
+            <DetailRow label="Nome" value={quote.partner_name} />
+            {quote.partner_sale_value != null && (
+              <DetailRow label="Preço final do parceiro" value={formatBRL(quote.partner_sale_value)} />
+            )}
+          </DetailSection>
+          {quote.partner_client_data && (
+            <DetailSection title="Cliente final (cadastrado pelo parceiro)">
+              <DetailRow label="Nome" value={quote.partner_client_data.name} />
+              <DetailRow label="Telefone" value={quote.partner_client_data.phone || "—"} />
+              <DetailRow label="Email" value={quote.partner_client_data.email || "—"} />
+            </DetailSection>
+          )}
+        </>
+      ) : (
+        <DetailSection title="Cliente">
+          <DetailRow label="Nome" value={quote.client?.name} />
+          <DetailRow label="Telefone" value={quote.client?.phone || "—"} />
+          <DetailRow label="Origem" value={quote.client?.lead_origin || "—"} />
+        </DetailSection>
+      )}
 
       <DetailSection title="Vendedor">
         <DetailRow label="Nome" value={quote.seller_name || "—"} />

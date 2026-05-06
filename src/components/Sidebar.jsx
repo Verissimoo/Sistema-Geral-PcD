@@ -4,7 +4,7 @@ import {
   LayoutDashboard, FileText, Plane, Users,
   Settings, X, Briefcase, Calendar,
   Store, ChevronDown, Wrench, Star, Info, Target, Kanban, FileStack, BookOpen,
-  LogOut, Trophy, BarChart3, UserSearch, Shield,
+  LogOut, Trophy, BarChart3, UserSearch, Shield, Handshake,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ const gerenteSubItems = [
   { label: "Vendedores", icon: Users, path: "/gerente/vendedores" },
   { label: "Clientes", icon: UserSearch, path: "/gerente/clientes" },
   { label: "Orçamentos", icon: FileStack, path: "/gerente/orcamentos" },
+  { label: "Parceiros", icon: Handshake, path: "/gerente/parceiros" },
 ];
 
 const contratosSubItems = [
@@ -37,6 +38,11 @@ const vendedorSubItems = [
   { label: "Informações Essenciais", icon: Info, path: "/vendedor/informacoes" },
 ];
 
+const parceiroSubItems = [
+  { label: "Meus Orçamentos", icon: FileStack, path: "/parceiro/orcamentos" },
+  { label: "Meus Clientes", icon: Users, path: "/parceiro/clientes" },
+];
+
 const usuariosItem = { label: "Usuários", icon: Shield, path: "/usuarios" };
 const settingsItem = { label: "Configurações", icon: Settings, path: "/configuracoes" };
 
@@ -51,10 +57,11 @@ const initials = (name = "") =>
 export default function Sidebar({ open, onClose }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout, isAdmin, isVendedor } = useAuth();
+  const { user, logout, isAdmin, isVendedor, isParceiro } = useAuth();
 
   const isVendedorRoute = location.pathname.startsWith("/vendedor");
   const isGerenteRoute = location.pathname.startsWith("/gerente");
+  const isParceiroRoute = location.pathname.startsWith("/parceiro");
   const isContratosRoute =
     location.pathname.startsWith("/contratos") ||
     location.pathname.startsWith("/projetos") ||
@@ -63,12 +70,15 @@ export default function Sidebar({ open, onClose }) {
 
   const [vendedorOpen, setVendedorOpen] = useState(isVendedorRoute || isVendedor);
   const [gerenteOpen, setGerenteOpen] = useState(isGerenteRoute);
+  const [parceiroOpen, setParceiroOpen] = useState(isParceiroRoute || isParceiro);
   const [contratosOpen, setContratosOpen] = useState(isContratosRoute);
 
   useEffect(() => { if (isVendedorRoute) setVendedorOpen(true); }, [isVendedorRoute]);
   useEffect(() => { if (isGerenteRoute) setGerenteOpen(true); }, [isGerenteRoute]);
+  useEffect(() => { if (isParceiroRoute) setParceiroOpen(true); }, [isParceiroRoute]);
   useEffect(() => { if (isContratosRoute) setContratosOpen(true); }, [isContratosRoute]);
   useEffect(() => { if (isVendedor) setVendedorOpen(true); }, [isVendedor]);
+  useEffect(() => { if (isParceiro) setParceiroOpen(true); }, [isParceiro]);
 
   const handleLogout = () => {
     logout();
@@ -150,6 +160,12 @@ export default function Sidebar({ open, onClose }) {
     </div>
   );
 
+  const roleBadge = isAdmin
+    ? { label: "Administrador", className: "bg-[#0B1E3D] text-white hover:bg-[#0B1E3D]" }
+    : isParceiro
+      ? { label: "Parceiro", className: "bg-purple-600 text-white hover:bg-purple-600" }
+      : { label: "Vendedor", className: "bg-amber-500 text-white hover:bg-amber-500" };
+
   return (
     <>
       {open && (
@@ -184,45 +200,60 @@ export default function Sidebar({ open, onClose }) {
         </div>
 
         <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
-          {/* Dashboard — admin */}
-          {isAdmin && renderNavItem(inicioItem)}
-
-          {/* Portal do Gerente — admin */}
-          {isAdmin &&
-            renderGroup(
-              "Portal do Gerente",
-              BarChart3,
-              isGerenteRoute,
-              gerenteOpen,
-              setGerenteOpen,
-              gerenteSubItems
-            )}
-
-          {/* Portal de Contratos — admin */}
-          {isAdmin &&
-            renderGroup(
-              "Portal de Contratos",
-              Briefcase,
-              isContratosRoute,
-              contratosOpen,
-              setContratosOpen,
-              contratosSubItems
-            )}
-
-          {/* Portal do Vendedor — admin + vendedor */}
-          {renderGroup(
-            "Portal do Vendedor",
-            Store,
-            isVendedorRoute,
-            vendedorOpen,
-            setVendedorOpen,
-            vendedorSubItems,
-            true
+          {/* Parceiro — apenas Portal do Parceiro */}
+          {isParceiro && renderGroup(
+            "Portal do Parceiro",
+            Handshake,
+            isParceiroRoute,
+            parceiroOpen,
+            setParceiroOpen,
+            parceiroSubItems
           )}
 
-          {/* Usuários + Configurações — admin */}
-          {isAdmin && renderNavItem(usuariosItem)}
-          {isAdmin && renderNavItem(settingsItem)}
+          {/* Demais portais — admin / vendedor */}
+          {!isParceiro && (
+            <>
+              {/* Dashboard — admin */}
+              {isAdmin && renderNavItem(inicioItem)}
+
+              {/* Portal do Gerente — admin */}
+              {isAdmin &&
+                renderGroup(
+                  "Portal do Gerente",
+                  BarChart3,
+                  isGerenteRoute,
+                  gerenteOpen,
+                  setGerenteOpen,
+                  gerenteSubItems
+                )}
+
+              {/* Portal de Contratos — admin */}
+              {isAdmin &&
+                renderGroup(
+                  "Portal de Contratos",
+                  Briefcase,
+                  isContratosRoute,
+                  contratosOpen,
+                  setContratosOpen,
+                  contratosSubItems
+                )}
+
+              {/* Portal do Vendedor — admin + vendedor */}
+              {renderGroup(
+                "Portal do Vendedor",
+                Store,
+                isVendedorRoute,
+                vendedorOpen,
+                setVendedorOpen,
+                vendedorSubItems,
+                true
+              )}
+
+              {/* Usuários + Configurações — admin */}
+              {isAdmin && renderNavItem(usuariosItem)}
+              {isAdmin && renderNavItem(settingsItem)}
+            </>
+          )}
         </nav>
 
         {/* Rodapé com usuário logado */}
@@ -240,12 +271,10 @@ export default function Sidebar({ open, onClose }) {
               <Badge
                 className={cn(
                   "h-4 mt-0.5 px-1.5 text-[9px] font-semibold border-0",
-                  isAdmin
-                    ? "bg-[#0B1E3D] text-white hover:bg-[#0B1E3D]"
-                    : "bg-amber-500 text-white hover:bg-amber-500"
+                  roleBadge.className
                 )}
               >
-                {isAdmin ? "Administrador" : "Vendedor"}
+                {roleBadge.label}
               </Badge>
             </div>
             <Button
