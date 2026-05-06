@@ -50,12 +50,25 @@ const timeAgo = (iso) => {
   return new Date(iso).toLocaleDateString("pt-BR");
 };
 
+const AGUARDANDO_FECHAMENTO_STATUSES = [
+  "Enviado",
+  "FollowUp Pendente",
+  "FollowUp 1 Enviado",
+  "FollowUp 2 Enviado",
+  "FollowUp 3 Enviado",
+];
+
 const STATUS_CONFIG = {
-  Enviado: { color: "blue", icon: Send, label: "Enviados" },
-  Aprovado: { color: "emerald", icon: CheckCircle2, label: "Aprovados" },
-  Emitido: { color: "purple", icon: FileStack, label: "Emitidos" },
-  Recusado: { color: "red", icon: X, label: "Recusados" },
-  Cancelado: { color: "gray", icon: Ban, label: "Cancelados" },
+  Enviado: {
+    color: "blue",
+    icon: Send,
+    label: "Aguardando fechamento",
+    matches: AGUARDANDO_FECHAMENTO_STATUSES,
+  },
+  Aprovado: { color: "emerald", icon: CheckCircle2, label: "Aprovados", matches: ["Aprovado"] },
+  Emitido: { color: "purple", icon: FileStack, label: "Emitidos", matches: ["Emitido"] },
+  Recusado: { color: "red", icon: X, label: "Recusados", matches: ["Recusado"] },
+  Cancelado: { color: "gray", icon: Ban, label: "Cancelados", matches: ["Cancelado"] },
 };
 
 const COLOR_CLASSES = {
@@ -273,9 +286,10 @@ export default function Dashboard() {
   // ── Status counts (no período) ────────────────────────────────────
   const statusCounts = useMemo(() => {
     const out = {};
-    Object.keys(STATUS_CONFIG).forEach((s) => {
-      const list = filteredQuotes.filter((q) => q.status === s);
-      out[s] = {
+    Object.entries(STATUS_CONFIG).forEach(([key, cfg]) => {
+      const matches = cfg.matches || [key];
+      const list = filteredQuotes.filter((q) => matches.includes(q.status));
+      out[key] = {
         count: list.length,
         total: list.reduce((sum, q) => sum + (q.total_value || 0), 0),
       };

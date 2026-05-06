@@ -25,9 +25,36 @@ import { localClient } from "@/api/localClient";
 import { openQuoteInNewTab } from "@/lib/generateQuoteHTML";
 import { CAREER_LEVELS } from "@/lib/careerPlan";
 
-const STATUSES = ["Enviado", "Aprovado", "Recusado", "Emitido", "Cancelado"];
+const STATUSES = [
+  "Enviado",
+  "FollowUp Pendente",
+  "FollowUp 1 Enviado",
+  "FollowUp 2 Enviado",
+  "FollowUp 3 Enviado",
+  "Aprovado",
+  "Recusado",
+  "Emitido",
+  "Cancelado",
+];
+
+const STATUS_LABELS = {
+  Enviado: "Enviado",
+  "FollowUp Pendente": "⚡ Follow-up Pendente",
+  "FollowUp 1 Enviado": "Follow-up 1 ✓",
+  "FollowUp 2 Enviado": "Follow-up 2 ✓",
+  "FollowUp 3 Enviado": "Follow-up 3 ✓",
+  Aprovado: "Aprovado",
+  Recusado: "Recusado",
+  Emitido: "Emitido",
+  Cancelado: "Cancelado",
+};
+
 const STATUS_STYLES = {
   Enviado: "bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-100",
+  "FollowUp Pendente": "bg-amber-100 text-amber-800 border-amber-400 hover:bg-amber-100 animate-pulse",
+  "FollowUp 1 Enviado": "bg-sky-100 text-sky-800 border-sky-300 hover:bg-sky-100",
+  "FollowUp 2 Enviado": "bg-blue-100 text-blue-800 border-blue-300 hover:bg-blue-100",
+  "FollowUp 3 Enviado": "bg-indigo-100 text-indigo-800 border-indigo-300 hover:bg-indigo-100",
   Aprovado: "bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100",
   Recusado: "bg-red-100 text-red-700 border-red-200 hover:bg-red-100",
   Emitido: "bg-purple-100 text-purple-700 border-purple-200 hover:bg-purple-100",
@@ -239,7 +266,7 @@ export default function GerenteOrcamentos() {
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="Todos">Todos os status</SelectItem>
-                {STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                {STATUSES.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s] || s}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={sellerFilter} onValueChange={setSellerFilter}>
@@ -411,7 +438,7 @@ export default function GerenteOrcamentos() {
               {detailQuote?.client?.name} ·{" "}
               {detailQuote && fmtDateBR(detailQuote.created_date)} ·{" "}
               <Badge className={cn("ml-1 border", STATUS_STYLES[detailQuote?.status])}>
-                {detailQuote?.status}
+                {STATUS_LABELS[detailQuote?.status] || detailQuote?.status}
               </Badge>
             </DialogDescription>
           </DialogHeader>
@@ -505,18 +532,18 @@ function QuoteRow({ quote, seller, onView, onChangeStatus, onPDF, onClickClient 
           <DropdownMenuTrigger asChild>
             <button className="cursor-pointer">
               <Badge className={cn("font-medium border", STATUS_STYLES[quote.status] || STATUS_STYLES.Enviado)}>
-                {quote.status || "Enviado"}
+                {STATUS_LABELS[quote.status] || quote.status || "Enviado"}
               </Badge>
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
             <DropdownMenuLabel>Alterar status</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {["Enviado", "Aprovado", "Recusado", "Emitido", "Cancelado"]
+            {STATUSES
               .filter((s) => s !== quote.status)
               .map((s) => (
                 <DropdownMenuItem key={s} onClick={() => onChangeStatus(s)}>
-                  {s}
+                  {STATUS_LABELS[s] || s}
                 </DropdownMenuItem>
               ))}
           </DropdownMenuContent>

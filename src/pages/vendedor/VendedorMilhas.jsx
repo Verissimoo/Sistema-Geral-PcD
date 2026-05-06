@@ -12,6 +12,9 @@ import { Switch } from "@/components/ui/switch";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import { localClient, seedMilesIfEmpty } from "@/api/localClient";
@@ -36,6 +39,13 @@ const emptyForm = {
   sale_per_thousand: "",
   has_variable_pricing: false,
   variable_tiers: [],
+  stock_status: "supplier",
+};
+
+const STOCK_CONFIG = {
+  own: { label: "Estoque próprio", color: "bg-green-100 text-green-800 border-green-300", dot: "bg-green-500" },
+  supplier: { label: "Fornecedor", color: "bg-yellow-100 text-yellow-800 border-yellow-300", dot: "bg-yellow-500" },
+  unavailable: { label: "Em falta", color: "bg-red-100 text-red-800 border-red-300", dot: "bg-red-500" },
 };
 
 export default function VendedorMilhas() {
@@ -81,6 +91,7 @@ export default function VendedorMilhas() {
       sale_per_thousand: String(item.sale_per_thousand),
       has_variable_pricing: !!item.has_variable_pricing,
       variable_tiers: item.variable_tiers ? item.variable_tiers.map((t) => ({ ...t })) : [],
+      stock_status: item.stock_status || "supplier",
     });
     setDialogOpen(true);
   };
@@ -102,7 +113,13 @@ export default function VendedorMilhas() {
       ...p,
       variable_tiers: [
         ...p.variable_tiers,
-        { min_miles: 0, max_miles: null, label: "Nova faixa", cost: Number(p.cost_per_thousand) || 0 },
+        {
+          min_miles: 0,
+          max_miles: null,
+          label: "Nova faixa",
+          cost: Number(p.cost_per_thousand) || 0,
+          sale: Number(p.sale_per_thousand) || 0,
+        },
       ],
     }));
   };
@@ -135,12 +152,19 @@ export default function VendedorMilhas() {
     // Ordena tiers por min_miles desc
     const tiers = form.has_variable_pricing
       ? [...form.variable_tiers]
-          .map((t) => ({
-            min_miles: Number(t.min_miles) || 0,
-            max_miles: t.max_miles === "" || t.max_miles === null ? null : Number(t.max_miles),
-            label: t.label || `Faixa ${t.min_miles}+`,
-            cost: Number(t.cost) || 0,
-          }))
+          .map((t) => {
+            const tCost = Number(t.cost) || 0;
+            const tSaleRaw = t.sale === "" || t.sale === null || t.sale === undefined
+              ? null
+              : Number(t.sale);
+            return {
+              min_miles: Number(t.min_miles) || 0,
+              max_miles: t.max_miles === "" || t.max_miles === null ? null : Number(t.max_miles),
+              label: t.label || `Faixa ${t.min_miles}+`,
+              cost: tCost,
+              sale: tSaleRaw && tSaleRaw > 0 ? tSaleRaw : null,
+            };
+          })
           .sort((a, b) => b.min_miles - a.min_miles)
       : [];
 
@@ -150,6 +174,7 @@ export default function VendedorMilhas() {
       sale_per_thousand: sale,
       has_variable_pricing: !!form.has_variable_pricing,
       variable_tiers: tiers,
+      stock_status: form.stock_status || "supplier",
       updated_date: new Date().toISOString(),
     };
 
@@ -338,6 +363,36 @@ export default function VendedorMilhas() {
               </div>
             </div>
 
+            <div className="space-y-1.5">
+              <Label>Status de estoque</Label>
+              <Select
+                value={form.stock_status || "supplier"}
+                onValueChange={(v) => setForm((p) => ({ ...p, stock_status: v }))}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="own">
+                    <span className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
+                      Estoque próprio
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="supplier">
+                    <span className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-yellow-500 inline-block" />
+                      Fornecedor
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="unavailable">
+                    <span className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />
+                      Em falta
+                    </span>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Preview */}
             <Card className="bg-muted/40 border-border">
               <CardContent className="p-3 flex items-center justify-between gap-3 text-sm">
@@ -392,11 +447,14 @@ export default function VendedorMilhas() {
                     </div>
                   )}
                   {form.variable_tiers.map((t, idx) => {
-                    const tierSale = Number(t.cost || 0) + baseMargin;
+                    const tCost = Number(t.cost) || 0;
+                    const hasOwnSale = t.sale != null && t.sale !== "" && Number(t.sale) > 0;
+                    const tierSale = hasOwnSale ? Number(t.sale) : tCost + baseMargin;
+                    const tierMarginAbs = tierSale - tCost;
                     return (
                       <div
                         key={idx}
-                        className="grid grid-cols-1 md:grid-cols-[1fr_1fr_2fr_1fr_1fr_auto] gap-2 items-center p-3 rounded-lg border border-border bg-muted/20"
+                        className="grid grid-cols-1 md:grid-cols-[1fr_1fr_2fr_1fr_1fr_auto] gap-2 items-end p-3 rounded-lg border border-border bg-muted/20"
                       >
                         <div className="space-y-1">
                           <Label className="text-[10px] uppercase tracking-wider">Mín milhas</Label>
@@ -439,15 +497,23 @@ export default function VendedorMilhas() {
                         </div>
                         <div className="space-y-1">
                           <Label className="text-[10px] uppercase tracking-wider">Venda/mil</Label>
-                          <div className="h-8 flex items-center text-sm font-medium">
-                            {fmt(tierSale)}
-                          </div>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={t.sale ?? ""}
+                            placeholder="Auto"
+                            onChange={(e) => handleUpdateTier(idx, "sale", e.target.value)}
+                            className="h-8"
+                          />
+                          <p className="text-[10px] text-muted-foreground">
+                            Margem: {tCost && tierSale ? `${fmt(tierMarginAbs)}/mil` : "—"}
+                          </p>
                         </div>
                         <Button
                           size="icon"
                           variant="ghost"
                           onClick={() => handleRemoveTier(idx)}
-                          className="text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                          className="text-red-500 hover:text-red-600 hover:bg-red-500/10 self-start mt-5"
                         >
                           <X className="h-4 w-4" />
                         </Button>
@@ -532,8 +598,21 @@ function ProgramRow({ item, isAdmin, expanded, onToggleExpand, onEdit, onEditTie
     <>
       <tr className="border-b border-border/50 hover:bg-muted/20 transition-colors">
         <td className="px-6 py-3">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-semibold">{item.program}</span>
+            {(() => {
+              const stock = STOCK_CONFIG[item.stock_status] || STOCK_CONFIG.supplier;
+              return (
+                <span
+                  className={cn(
+                    "text-[10px] px-2 py-0.5 rounded-full border font-medium",
+                    stock.color
+                  )}
+                >
+                  {stock.label}
+                </span>
+              );
+            })()}
             {item.has_variable_pricing && (
               <Badge className="bg-purple-100 text-purple-700 border-purple-200 hover:bg-purple-100 text-[10px] gap-1 border">
                 <Layers className="h-3 w-3" /> Preço variável
@@ -640,13 +719,19 @@ function ProgramRow({ item, isAdmin, expanded, onToggleExpand, onEdit, onEditTie
                 <tbody>
                   {item.variable_tiers.map((t, idx) => {
                     const baseM = (item.sale_per_thousand || 0) - (item.cost_per_thousand || 0);
-                    const tierSale = Number(t.cost) + baseM;
+                    const hasOwnSale = t.sale != null && Number(t.sale) > 0;
+                    const tierSale = hasOwnSale ? Number(t.sale) : Number(t.cost) + baseM;
                     const tierMarginPct = getMarginPercent(t.cost, tierSale);
                     return (
                       <tr key={idx} className="border-b border-border/50 last:border-0">
                         <td className="px-4 py-2 font-medium">{t.label}</td>
                         <td className="px-4 py-2">{fmt(t.cost)}</td>
-                        <td className="px-4 py-2 font-semibold text-primary">{fmt(tierSale)}</td>
+                        <td className="px-4 py-2 font-semibold text-primary">
+                          {fmt(tierSale)}
+                          {!hasOwnSale && (
+                            <span className="ml-1 text-[10px] text-muted-foreground">(auto)</span>
+                          )}
+                        </td>
                         <td className="px-4 py-2"><MarginBadge pct={tierMarginPct} /></td>
                       </tr>
                     );

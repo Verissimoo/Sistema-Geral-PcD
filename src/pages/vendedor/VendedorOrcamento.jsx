@@ -1307,8 +1307,25 @@ function BlocoPrecificacao({ formData, setFormData }) {
                     </SelectTrigger>
                     <SelectContent>
                       {milesTable.map((m) => (
-                        <SelectItem key={m.id} value={m.id}>
-                          {m.program} — {formatBRL(m.cost_per_thousand)}/mil
+                        <SelectItem
+                          key={m.id}
+                          value={m.id}
+                          disabled={m.stock_status === "unavailable"}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={cn(
+                                "w-2 h-2 rounded-full",
+                                m.stock_status === "own" && "bg-green-500",
+                                m.stock_status === "unavailable" && "bg-red-500",
+                                (!m.stock_status || m.stock_status === "supplier") && "bg-yellow-500"
+                              )}
+                            />
+                            {m.program} — {formatBRL(m.cost_per_thousand)}/mil
+                            {m.stock_status === "unavailable" && (
+                              <span className="text-red-500 text-xs">(em falta)</span>
+                            )}
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -1868,8 +1885,25 @@ function TrechoPricingCard({ trecho, index, milesTable, onChange }) {
                   </SelectTrigger>
                   <SelectContent>
                     {milesTable.map((m) => (
-                      <SelectItem key={m.id} value={m.id}>
-                        {m.program} — {formatBRL(m.cost_per_thousand)}/mil
+                      <SelectItem
+                        key={m.id}
+                        value={m.id}
+                        disabled={m.stock_status === "unavailable"}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={cn(
+                              "w-2 h-2 rounded-full",
+                              m.stock_status === "own" && "bg-green-500",
+                              m.stock_status === "unavailable" && "bg-red-500",
+                              (!m.stock_status || m.stock_status === "supplier") && "bg-yellow-500"
+                            )}
+                          />
+                          {m.program} — {formatBRL(m.cost_per_thousand)}/mil
+                          {m.stock_status === "unavailable" && (
+                            <span className="text-red-500 text-xs">(em falta)</span>
+                          )}
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>

@@ -26,9 +26,24 @@ export function getTierForMiles(program, milesQty) {
 
 export function getSaleForMiles(program, milesQty) {
   if (!program) return 0;
-  const cost = getCostForMiles(program, milesQty);
+  if (!program.has_variable_pricing || !program.variable_tiers?.length) {
+    return program.sale_per_thousand || 0;
+  }
+
+  const qty = Number(milesQty) || 0;
+  const tier = program.variable_tiers.find((t) => {
+    const aboveMin = qty >= t.min_miles;
+    const belowMax = t.max_miles === null || t.max_miles === undefined || qty <= t.max_miles;
+    return aboveMin && belowMax;
+  });
+
+  if (!tier) return program.sale_per_thousand || 0;
+
+  if (tier.sale != null && tier.sale > 0) {
+    return tier.sale;
+  }
   const baseMargin = (program.sale_per_thousand || 0) - (program.cost_per_thousand || 0);
-  return cost + baseMargin;
+  return (tier.cost || 0) + baseMargin;
 }
 
 export function getMarginPercent(cost, sale) {
