@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Wrench, Calculator, CreditCard, DollarSign, Percent, RefreshCw } from "lucide-react";
+import { Wrench, Calculator, CreditCard, DollarSign, Percent, RefreshCw, Plane } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { getCostForMiles, getSaleForMiles, getTierForMiles } from "@/lib/milesHelper";
 import { localClient } from "@/api/localClient";
+import { parseBR, sanitizeBRInput } from "@/lib/parseBR";
 
 // ─── Dados de Plataformas de Pagamento ─────────────────────────────
 const PLATFORMS = [
@@ -509,6 +510,142 @@ function TaxaJurosTab() {
   );
 }
 
+// ─── Componente: Calculadora de Milhas ────────────────────────────
+function CalculadoraMilhasTab() {
+  const [milesTable, setMilesTable] = useState([]);
+  const [programId, setProgramId] = useState("");
+  const [milesQty, setMilesQty] = useState("");
+  const [tax, setTax] = useState("");
+
+  useEffect(() => {
+    (async () => {
+      const data = await localClient.entities.MilesTable.list();
+      setMilesTable(data || []);
+    })();
+  }, []);
+
+  const program = milesTable.find((m) => m.id === programId);
+  const qty = parseBR(milesQty);
+  const taxNum = parseBR(tax);
+
+  const costPerThousand = program && qty > 0 ? getCostForMiles(program, qty) : 0;
+  const salePerThousand = program && qty > 0 ? getSaleForMiles(program, qty) : 0;
+  const appliedTier = program && qty > 0 ? getTierForMiles(program, qty) : null;
+
+  const custoBase = (qty / 1000) * costPerThousand;
+  const valorVenda = (qty / 1000) * salePerThousand;
+  const custoTotal = custoBase + taxNum;
+  const vendaTotal = valorVenda + taxNum;
+  const lucro = vendaTotal - custoTotal;
+  const margemPct = custoTotal > 0 ? ((lucro / custoTotal) * 100).toFixed(1) : "0.0";
+
+  const ready = !!program && qty > 0;
+
+  return (
+    <div className="grid md:grid-cols-2 gap-6">
+      <Card className="border-border/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Plane className="h-4 w-4 text-primary" /> Entradas
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Programa de milhas</Label>
+            <Select value={programId} onValueChange={setProgramId}>
+              <SelectTrigger>
+                <SelectValue placeholder={milesTable.length === 0 ? "Sem programas cadastrados" : "Selecione..."} />
+              </SelectTrigger>
+              <SelectContent>
+                {milesTable.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {m.program} — venda {fmt(m.sale_per_thousand)}/mil
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Quantidade de milhas</Label>
+            <Input
+              type="text"
+              inputMode="decimal"
+              placeholder="Ex: 80.000 ou 80000"
+              value={milesQty}
+              onChange={(e) => setMilesQty(sanitizeBRInput(e.target.value))}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Taxa de embarque (R$, opcional)</Label>
+            <Input
+              type="text"
+              inputMode="decimal"
+              placeholder="Ex: 320,50"
+              value={tax}
+              onChange={(e) => setTax(sanitizeBRInput(e.target.value))}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className={ready ? "border-amber-300 bg-amber-50/40 dark:bg-amber-500/5" : "border-border/50"}>
+        <CardHeader>
+          <CardTitle className="text-base">Resultado</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {!ready ? (
+            <p className="text-sm text-muted-foreground text-center py-8">
+              Selecione o programa e informe a quantidade de milhas para ver o cálculo.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {appliedTier && (
+                <div className="rounded-lg border border-purple-300 bg-purple-100/60 dark:bg-purple-500/10 p-2 text-xs">
+                  <strong>Faixa aplicada:</strong> {appliedTier.label}
+                </div>
+              )}
+
+              <div className="space-y-1 pb-3 border-b">
+                <div className="text-[11px] uppercase tracking-widest text-muted-foreground">
+                  Valor de venda
+                </div>
+                <div className="text-3xl font-black text-amber-600">{fmt(vendaTotal)}</div>
+                <div className="text-xs text-muted-foreground">
+                  ({(qty / 1000).toFixed(qty % 1000 === 0 ? 0 : 2)}k milhas × {fmt(salePerThousand)}/mil
+                  {taxNum > 0 ? ` + ${fmt(taxNum)} taxa` : ""})
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <div className="text-[11px] text-muted-foreground uppercase tracking-wider">Custo</div>
+                  <div className="font-semibold">{fmt(custoTotal)}</div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-muted-foreground uppercase tracking-wider">Lucro</div>
+                  <div className={`font-semibold ${lucro >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                    {fmt(lucro)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-muted-foreground uppercase tracking-wider">Custo/mil</div>
+                  <div>{fmt(costPerThousand)}</div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-muted-foreground uppercase tracking-wider">Margem</div>
+                  <div className="font-semibold">{margemPct}%</div>
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // ─── Página Principal ──────────────────────────────────────────────
 export default function VendedorFerramentas() {
   return (
@@ -524,7 +661,7 @@ export default function VendedorFerramentas() {
       </div>
 
       <Tabs defaultValue="comissao" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 max-w-md">
+        <TabsList className="grid w-full grid-cols-3 max-w-2xl">
           <TabsTrigger value="comissao" className="gap-2">
             <Calculator className="h-4 w-4" />
             Cálculo de Comissão
@@ -532,6 +669,10 @@ export default function VendedorFerramentas() {
           <TabsTrigger value="taxas" className="gap-2">
             <CreditCard className="h-4 w-4" />
             Taxa de Juros
+          </TabsTrigger>
+          <TabsTrigger value="milhas" className="gap-2">
+            <Plane className="h-4 w-4" />
+            Calculadora de Milhas
           </TabsTrigger>
         </TabsList>
 
@@ -541,6 +682,10 @@ export default function VendedorFerramentas() {
 
         <TabsContent value="taxas">
           <TaxaJurosTab />
+        </TabsContent>
+
+        <TabsContent value="milhas">
+          <CalculadoraMilhasTab />
         </TabsContent>
       </Tabs>
     </div>

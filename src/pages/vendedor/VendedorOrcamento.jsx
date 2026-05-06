@@ -104,6 +104,7 @@ const initialFormData = {
     is_azul: false,
     nipon_value: 0,
     sale_value: "",
+    sale_per: "pessoa", // 'pessoa' (multiplica pelo nº de pax) | 'total' (já é o valor total)
   },
   additional: { active: false, value: "", description: "" },
   competitor: { active: false, name: "", value: "", fare_type: "Econômica" },
@@ -171,13 +172,16 @@ function BlocoCliente({ formData, setFormData }) {
   const [clients, setClients] = useState([]);
   const [newClient, setNewClient] = useState({ name: "", phone: "", lead_origin: "" });
   const { toast } = useToast();
+  const { user, isAdmin } = useAuth();
 
   useEffect(() => {
     (async () => {
-      const list = await localClient.entities.Clients.list();
-      setClients(list || []);
+      const list = (await localClient.entities.Clients.list()) || [];
+      // Vendedor enxerga apenas os próprios clientes; admin vê todos.
+      const visible = isAdmin ? list : list.filter((c) => c.created_by === user?.id);
+      setClients(visible);
     })();
-  }, []);
+  }, [user?.id, isAdmin]);
 
   const filtered = useMemo(
     () => clients.filter((c) => c.name?.toLowerCase().includes(search.toLowerCase())),
@@ -197,6 +201,8 @@ function BlocoCliente({ formData, setFormData }) {
       name: newClient.name.trim(),
       phone: newClient.phone,
       lead_origin: newClient.lead_origin || "Outro",
+      created_by: user?.id || null,
+      created_by_name: user?.name || null,
     });
     if (!created) {
       toast({ title: "Erro ao salvar cliente", variant: "destructive" });
@@ -494,11 +500,19 @@ Se houver dois trechos visíveis (ida e volta), retorne ambos no array. Se houve
       const raw = data.content[0].text.trim();
       const jsonText = raw.replace(/^```json\s*/i, "").replace(/```$/i, "").trim();
       const parsed = JSON.parse(jsonText);
-      setFormData((p) => ({
-        ...p,
-        itinerary: { trechos: parsed.trechos || [] },
-        itinerary_reviewed: false,
-      }));
+      setFormData((p) => {
+        const baseBag = p.baggage || { personal: 1, carry_on: 1, checked: 0 };
+        const trechos = (parsed.trechos || []).map((t) => ({
+          ...t,
+          classe: t.classe || "Econômica",
+          baggage: t.baggage || {
+            personal: baseBag.personal ?? 1,
+            carry_on: baseBag.carry_on ?? 0,
+            checked: baseBag.checked ?? 0,
+          },
+        }));
+        return { ...p, itinerary: { trechos }, itinerary_reviewed: false };
+      });
       toast({ title: "Itinerário extraído", description: `${parsed.trechos?.length || 0} trecho(s) detectado(s)` });
     } catch (e) {
       console.error(e);
@@ -543,24 +557,32 @@ Se houver dois trechos visíveis (ida e volta), retorne ambos no array. Se houve
   }, [trechosTimeKey]);
 
   const addTrechoManual = () => {
-    setFormData((p) => ({
-      ...p,
-      itinerary: {
-        trechos: [
-          ...p.itinerary.trechos,
-          {
-            tipo: p.itinerary.trechos.length === 0 ? "ida" : "volta",
-            companhia: "", numero_voo: "",
-            origem_iata: "", origem_cidade: "",
-            destino_iata: "", destino_cidade: "",
-            horario_saida: "", horario_chegada: "",
-            duracao: "", escalas: 0,
-            aeroporto_escala: "", tempo_escala: "",
-            classe: "Econômica",
-          },
-        ],
-      },
-    }));
+    setFormData((p) => {
+      const baseBag = p.baggage || { personal: 1, carry_on: 1, checked: 0 };
+      return {
+        ...p,
+        itinerary: {
+          trechos: [
+            ...p.itinerary.trechos,
+            {
+              tipo: p.itinerary.trechos.length === 0 ? "ida" : "volta",
+              companhia: "", numero_voo: "",
+              origem_iata: "", origem_cidade: "",
+              destino_iata: "", destino_cidade: "",
+              horario_saida: "", horario_chegada: "",
+              duracao: "", escalas: 0,
+              aeroporto_escala: "", tempo_escala: "",
+              classe: "Econômica",
+              baggage: {
+                personal: baseBag.personal ?? 1,
+                carry_on: baseBag.carry_on ?? 0,
+                checked: baseBag.checked ?? 0,
+              },
+            },
+          ],
+        },
+      };
+    });
   };
 
   const removeTrecho = (idx) => {
@@ -568,6 +590,24 @@ Se houver dois trechos visíveis (ida e volta), retorne ambos no array. Se houve
       ...p,
       itinerary: { trechos: p.itinerary.trechos.filter((_, i) => i !== idx) },
     }));
+  };
+
+  const updateTrechoBaggage = (idx, field, value) => {
+    setFormData((p) => {
+      const trechos = [...p.itinerary.trechos];
+      const cur = trechos[idx] || {};
+      const baseBag = p.baggage || { personal: 1, carry_on: 1, checked: 0 };
+      trechos[idx] = {
+        ...cur,
+        baggage: {
+          personal: cur.baggage?.personal ?? baseBag.personal ?? 1,
+          carry_on: cur.baggage?.carry_on ?? baseBag.carry_on ?? 0,
+          checked: cur.baggage?.checked ?? baseBag.checked ?? 0,
+          [field]: value,
+        },
+      };
+      return { ...p, itinerary: { ...p.itinerary, trechos }, itinerary_reviewed: false };
+    });
   };
 
   return (
@@ -942,6 +982,78 @@ Se houver dois trechos visíveis (ida e volta), retorne ambos no array. Se houve
                     />
                   </div>
                 )}
+
+                {formData.ticket_type === "Quebra de Trecho" && (
+                  <>
+                    <div className="space-y-2 pt-3 border-t border-border">
+                      <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                        Classe
+                      </Label>
+                      <Select
+                        value={t.classe || "Econômica"}
+                        onValueChange={(v) => updateTrecho(idx, "classe", v)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Econômica">Econômica</SelectItem>
+                          <SelectItem value="Premium Economy">Premium Economy</SelectItem>
+                          <SelectItem value="Executiva">Executiva</SelectItem>
+                          <SelectItem value="Primeira">Primeira</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2 pt-3 border-t border-border">
+                      <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                        Franquia de bagagem deste trecho
+                      </Label>
+                      <div className="grid grid-cols-3 gap-3">
+                        {[
+                          { key: "personal", label: "🎒 Artigo pessoal", max: 1 },
+                          { key: "carry_on", label: "🎒 Mão (10kg)", max: 5 },
+                          { key: "checked", label: "🧳 Despachada (23kg)", max: 5 },
+                        ].map((b) => {
+                          const val = Number(t.baggage?.[b.key]) || 0;
+                          return (
+                            <div
+                              key={b.key}
+                              className="rounded-lg border border-border bg-muted/30 p-3"
+                            >
+                              <div className="text-[11px] text-muted-foreground mb-2">{b.label}</div>
+                              <div className="flex items-center justify-between">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => updateTrechoBaggage(idx, b.key, Math.max(0, val - 1))}
+                                  disabled={val <= 0}
+                                >
+                                  −
+                                </Button>
+                                <span className="font-bold tabular-nums">
+                                  {String(val).padStart(2, "0")}
+                                </span>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => updateTrechoBaggage(idx, b.key, Math.min(b.max, val + 1))}
+                                  disabled={val >= b.max}
+                                >
+                                  +
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             ))}
 
@@ -1064,75 +1176,86 @@ function BlocoPrecificacao({ formData, setFormData }) {
     return getSaleForMiles(selectedProgram, milesQtyParsed);
   }, [selectedProgram, milesQtyParsed, formData.pricing.miles_value_per_thousand]);
 
-  // Cálculos
+  // Cálculos — campos preenchidos pelo vendedor representam 1 emissão (1 pax).
+  // Nipon e custo "por pessoa" são multiplicados por formData.passengers nos totais.
   const calc = useMemo(() => {
     const pr = formData.pricing;
-    let cost_brl = 0;       // custo real interno (cost_per_thousand × milhas) — sem taxa
-    let venda_base = 0;     // valor de venda das milhas (sale_per_thousand)
-    let nipon = 0;
+    let cost_brl = 0;       // custo real interno por pessoa (sem taxa)
+    let venda_base = 0;     // valor de venda das milhas por pessoa (sale_per_thousand)
+    let niponPorPessoa = 0;
     let acrescimo = 0;
-    let custoTotal = 0;
+    let custoPorPessoa = 0;
 
     if (pr.is_split) {
-      // Em modo split, custo e nipon vêm dos totais consolidados (já incluem taxas).
-      nipon = Number(pr.total_nipon) || 0;
-      custoTotal = Number(pr.total_cost) || 0;
-      cost_brl = custoTotal;
+      // Em modo split, total_nipon/total_cost já são a soma POR PESSOA dos trechos.
+      niponPorPessoa = Number(pr.total_nipon) || 0;
+      custoPorPessoa = Number(pr.total_cost) || 0;
+      cost_brl = custoPorPessoa;
     } else {
       const tax = parseBR(pr.tax);
       if (pr.type === "milhas") {
         const milhas = parseBR(pr.miles_qty);
         cost_brl = (milhas / 1000) * appliedCostPerThousand;
         venda_base = (milhas / 1000) * appliedSalePerThousand;
-        // Nipon (preço mínimo de venda) usa o preço de VENDA da milha, não o custo
-        nipon = venda_base + tax;
+        niponPorPessoa = venda_base + tax;
       } else {
         const cost = parseBR(pr.cost_brl);
         const base = cost + tax;
         acrescimo = pr.is_azul ? 0 : base * 0.10;
-        nipon = base + acrescimo;
+        niponPorPessoa = base + acrescimo;
         cost_brl = cost;
       }
-      custoTotal = cost_brl + tax;
+      custoPorPessoa = cost_brl + tax;
     }
 
-    const sale = parseBR(pr.sale_value);
-    // Comissão base = 25% do lucro Nipon (nipon - custo total).
-    const lucroNipon = Math.max(0, nipon - custoTotal);
+    const passengers = Math.max(1, Number(formData.passengers) || 1);
+    const niponTotal = niponPorPessoa * passengers;
+    const custoTotal = custoPorPessoa * passengers;
+
+    const saleInput = parseBR(pr.sale_value);
+    const isPerPerson = pr.sale_per !== "total";
+    const saleTotal = isPerPerson ? saleInput * passengers : saleInput;
+
+    // Comissão sempre sobre os totais.
+    const lucroNipon = Math.max(0, niponTotal - custoTotal);
     const comissaoBase = lucroNipon * 0.25;
-    // Excedente: só conta o que passou do Nipon (nunca negativo).
-    const excedente = Math.max(0, sale - nipon);
+    const excedente = Math.max(0, saleTotal - niponTotal);
     const comissaoExtra = excedente * 0.45;
     const comissaoTotal = comissaoBase + comissaoExtra;
-    // Lucro bruto real (mantido para exibição)
-    const lucroBruto = sale - custoTotal;
+    const lucroBruto = saleTotal - custoTotal;
 
     const total =
-      sale +
+      saleTotal +
       (formData.additional.active ? parseBR(formData.additional.value) : 0) +
       (formData.services.insurance.active ? parseBR(formData.services.insurance.value) : 0) +
       (formData.services.transfer.active ? parseBR(formData.services.transfer.value) : 0);
 
     return {
-      cost_brl, venda_base, nipon, acrescimo,
-      lucroNipon, lucroBruto, custoTotal,
+      cost_brl, venda_base, acrescimo,
+      // Mantemos nomes antigos apontando aos totais para compatibilidade da UI:
+      nipon: niponTotal,
+      niponPorPessoa,
+      custoTotal,
+      custoPorPessoa,
+      saleInput, saleTotal, isPerPerson, passengers,
+      lucroNipon, lucroBruto,
       comissaoBase, excedente, comissaoExtra, comissaoTotal,
       total,
     };
   }, [formData, appliedCostPerThousand, appliedSalePerThousand]);
 
-  // Mantém nipon_value/cost_brl_calc sincronizados (apenas no modo single).
+  // Mantém nipon_value (POR PESSOA) e cost_brl_calc sincronizados (modo single).
   useEffect(() => {
     if (formData.pricing.is_split) return;
     setFormData((p) => ({
       ...p,
-      pricing: { ...p.pricing, nipon_value: calc.nipon, cost_brl_calc: calc.cost_brl },
+      pricing: { ...p.pricing, nipon_value: calc.niponPorPessoa, cost_brl_calc: calc.cost_brl },
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [calc.nipon, calc.cost_brl, formData.pricing.is_split]);
+  }, [calc.niponPorPessoa, calc.cost_brl, formData.pricing.is_split]);
 
-  const sale = parseBR(formData.pricing.sale_value);
-  const aboveNipon = sale >= calc.nipon && sale > 0;
+  const aboveNipon = calc.saleTotal >= calc.nipon && calc.saleTotal > 0;
+  const passengers = calc.passengers;
 
   return (
     <div className="space-y-6">
@@ -1152,6 +1275,7 @@ function BlocoPrecificacao({ formData, setFormData }) {
             trechos={formData.pricing?.trechos || []}
             milesTable={milesTable}
             onChange={updateTrechoPricing}
+            passengers={passengers}
           />
         ) : (
           <Tabs
@@ -1225,18 +1349,18 @@ function BlocoPrecificacao({ formData, setFormData }) {
                   )}
                   <Row label="Venda do milheiro" value={formatBRL(appliedSalePerThousand)} />
                   <Row label="Custo real (interno)" value={formatBRL(appliedCostPerThousand)} muted />
-                  <Row label="Valor das milhas (venda)" value={formatBRL(calc.venda_base)} />
-                  <Row label="Taxa de embarque" value={formatBRL(parseBR(formData.pricing.tax))} />
+                  <Row label={`Valor das milhas (venda${passengers >= 2 ? " · por pessoa" : ""})`} value={formatBRL(calc.venda_base)} />
+                  <Row label={`Taxa de embarque${passengers >= 2 ? " · por pessoa" : ""}`} value={formatBRL(parseBR(formData.pricing.tax))} />
                   <Separator className="my-2" />
-                  <Row label="VALOR NIPON (venda mínima)" value={formatBRL(calc.nipon)} bold accent />
+                  <Row label={`VALOR NIPON${passengers >= 2 ? " (por pessoa)" : " (venda mínima)"}`} value={formatBRL(calc.niponPorPessoa)} bold accent />
                   <Row
-                    label="Custo real total"
-                    value={formatBRL(calc.cost_brl + parseBR(formData.pricing.tax))}
+                    label={`Custo real total${passengers >= 2 ? " · por pessoa" : ""}`}
+                    value={formatBRL(calc.custoPorPessoa)}
                     muted
                   />
                   <Row
-                    label="Margem bruta"
-                    value={formatBRL(calc.nipon - calc.cost_brl - parseBR(formData.pricing.tax))}
+                    label={`Margem bruta${passengers >= 2 ? " · por pessoa" : ""}`}
+                    value={formatBRL(calc.niponPorPessoa - calc.custoPorPessoa)}
                     bold
                   />
                 </CardContent>
@@ -1278,14 +1402,14 @@ function BlocoPrecificacao({ formData, setFormData }) {
               </div>
               <Card className="bg-muted/40 border-border/50">
                 <CardContent className="p-4 space-y-1.5 text-sm">
-                  <Row label="Custo base" value={formatBRL(parseBR(formData.pricing.cost_brl))} />
-                  <Row label="Taxa de embarque" value={formatBRL(parseBR(formData.pricing.tax))} />
+                  <Row label={`Custo base${passengers >= 2 ? " · por pessoa" : ""}`} value={formatBRL(parseBR(formData.pricing.cost_brl))} />
+                  <Row label={`Taxa de embarque${passengers >= 2 ? " · por pessoa" : ""}`} value={formatBRL(parseBR(formData.pricing.tax))} />
                   <Row
                     label="Acréscimo 10%"
                     value={formData.pricing.is_azul ? "Isento — Azul" : formatBRL(calc.acrescimo)}
                   />
                   <Separator className="my-2" />
-                  <Row label="VALOR NIPON (venda mínima)" value={formatBRL(calc.nipon)} bold accent />
+                  <Row label={`VALOR NIPON${passengers >= 2 ? " (por pessoa)" : " (venda mínima)"}`} value={formatBRL(calc.niponPorPessoa)} bold accent />
                 </CardContent>
               </Card>
             </TabsContent>
@@ -1302,26 +1426,65 @@ function BlocoPrecificacao({ formData, setFormData }) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2 max-w-xs">
-            <Label>Valor de venda ao cliente (R$) *</Label>
-            <Input
-              type="text"
-              inputMode="decimal"
-              placeholder="Ex: 1.234,56"
-              value={formData.pricing.sale_value}
-              onChange={(e) => setPricing({ sale_value: sanitizeBRInput(e.target.value) })}
-            />
+          {passengers >= 2 && (
+            <Card className="bg-blue-500/5 border-blue-500/30">
+              <CardContent className="p-3 space-y-1.5 text-sm">
+                <div className="text-[11px] uppercase tracking-widest text-muted-foreground">
+                  Resumo por passageiro × {passengers} pax
+                </div>
+                <Row label="Custo por pessoa" value={formatBRL(calc.custoPorPessoa)} muted />
+                <Row label="Nipon por pessoa" value={formatBRL(calc.niponPorPessoa)} />
+                <Separator className="my-2" />
+                <Row label="Custo total" value={formatBRL(calc.custoTotal)} muted />
+                <Row label="VALOR NIPON TOTAL" value={formatBRL(calc.nipon)} bold accent />
+              </CardContent>
+            </Card>
+          )}
+
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px] items-end">
+            <div className="space-y-2">
+              <Label>Valor de venda ao cliente (R$) *</Label>
+              <Input
+                type="text"
+                inputMode="decimal"
+                placeholder="Ex: 1.234,56"
+                value={formData.pricing.sale_value}
+                onChange={(e) => setPricing({ sale_value: sanitizeBRInput(e.target.value) })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs">Cobrado por</Label>
+              <Select
+                value={formData.pricing.sale_per || "pessoa"}
+                onValueChange={(v) => setPricing({ sale_per: v })}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pessoa">Por pessoa</SelectItem>
+                  <SelectItem value="total">Total da viagem</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          {sale > 0 && !aboveNipon && (
+
+          {passengers >= 2 && calc.saleInput > 0 && (
+            <div className="text-xs text-muted-foreground">
+              {calc.isPerPerson
+                ? <>Total da venda: <strong>{formatBRL(calc.saleTotal)}</strong> ({formatBRL(calc.saleInput)} × {passengers} pax)</>
+                : <>Por pessoa: <strong>{formatBRL(calc.saleTotal / passengers)}</strong> ({formatBRL(calc.saleTotal)} ÷ {passengers})</>}
+            </div>
+          )}
+
+          {calc.saleTotal > 0 && !aboveNipon && (
             <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-sm">
               <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
               <span className="text-amber-700 dark:text-amber-400">
-                Valor de venda ({formatBRL(sale)}) está abaixo do Nipon ({formatBRL(calc.nipon)}).
+                Valor de venda total ({formatBRL(calc.saleTotal)}) está abaixo do Nipon total ({formatBRL(calc.nipon)}).
                 Sem comissão extra — comissão base calculada sobre o lucro mínimo do Nipon.
               </span>
             </div>
           )}
-          {sale > 0 && (
+          {calc.saleTotal > 0 && (
             <Card className={cn(
               aboveNipon
                 ? "bg-emerald-500/5 border-emerald-500/30"
@@ -1450,13 +1613,13 @@ function BlocoPrecificacao({ formData, setFormData }) {
                 </Select>
               </div>
             </div>
-            {parseBR(formData.competitor.value) > 0 && sale > 0 && (
+            {parseBR(formData.competitor.value) > 0 && calc.saleTotal > 0 && (
               <div className="p-3 rounded-lg bg-muted/40 border text-sm">
-                Nosso preço: <strong>{formatBRL(sale)}</strong> vs Concorrência:{" "}
+                Nosso preço: <strong>{formatBRL(calc.saleTotal)}</strong> vs Concorrência:{" "}
                 <strong>{formatBRL(parseBR(formData.competitor.value))}</strong> →{" "}
                 <span className="text-emerald-700">
-                  Economia de {formatBRL(parseBR(formData.competitor.value) - sale)} (
-                  {(((parseBR(formData.competitor.value) - sale) / parseBR(formData.competitor.value)) * 100).toFixed(1)}%)
+                  Economia de {formatBRL(parseBR(formData.competitor.value) - calc.saleTotal)} (
+                  {(((parseBR(formData.competitor.value) - calc.saleTotal) / parseBR(formData.competitor.value)) * 100).toFixed(1)}%)
                 </span>
               </div>
             )}
@@ -1539,9 +1702,11 @@ function Row({ label, value, bold, accent, muted, className }) {
 }
 
 // ─── Quebra de Trecho — múltiplas emissões ─────────────────────────
-function SplitPricing({ trechos, milesTable, onChange }) {
-  const totalNipon = trechos.reduce((s, t) => s + (Number(t.nipon_value) || 0), 0);
-  const totalCost = trechos.reduce((s, t) => s + (Number(t.cost_total) || 0), 0);
+function SplitPricing({ trechos, milesTable, onChange, passengers = 1 }) {
+  const niponPorPessoa = trechos.reduce((s, t) => s + (Number(t.nipon_value) || 0), 0);
+  const custoPorPessoa = trechos.reduce((s, t) => s + (Number(t.cost_total) || 0), 0);
+  const totalNipon = niponPorPessoa * passengers;
+  const totalCost = custoPorPessoa * passengers;
   const totalMargin = totalNipon - totalCost;
 
   if (trechos.length === 0) {
@@ -1576,8 +1741,21 @@ function SplitPricing({ trechos, milesTable, onChange }) {
       <Card className="bg-slate-900 text-white border-slate-800">
         <CardContent className="p-5 space-y-2">
           <div className="text-[10px] uppercase tracking-widest text-slate-400">
-            Totais consolidados
+            Totais consolidados {passengers >= 2 ? `· soma trechos × ${passengers} pax` : ""}
           </div>
+          {passengers >= 2 && (
+            <>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-300">Custo por pessoa:</span>
+                <span className="font-semibold">{formatBRL(custoPorPessoa)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-300">Nipon por pessoa:</span>
+                <span className="font-semibold text-amber-400">{formatBRL(niponPorPessoa)}</span>
+              </div>
+              <Separator className="my-2 bg-slate-700" />
+            </>
+          )}
           <div className="flex justify-between text-sm">
             <span className="text-slate-300">Custo total:</span>
             <span className="font-semibold">{formatBRL(totalCost)}</span>
@@ -1792,6 +1970,7 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
     const trechos = t.itinerary.trechos || [];
     let texto = `✈️ PassagensComDesconto\n📌 CADASTUR: 62830477000151\n\n`;
     texto += `Olá ${t.client?.name || ""}! Segue sua cotação personalizada com todo suporte da nossa agência.\n\n`;
+    const isSplit = t.ticket_type === "Quebra de Trecho";
     texto += `🛫 ITINERÁRIO:\n`;
     trechos.forEach((tr) => {
       const escalaInfo =
@@ -1800,7 +1979,17 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
           : "Voo direto";
       texto += `${tr.tipo === "volta" ? "↩️ VOLTA: " : ""}${tr.origem_cidade} (${tr.origem_iata}) ➝ ${tr.destino_cidade} (${tr.destino_iata})\n`;
       texto += `✈️ ${escalaInfo} operado por ${tr.companhia}${tr.numero_voo ? ` (${tr.numero_voo})` : ""}\n`;
-      texto += `🕒 Saída: ${tr.horario_saida}\n🕒 Chegada: ${tr.horario_chegada}\n⏱️ Duração: ${tr.duracao}\n\n`;
+      texto += `🕒 Saída: ${tr.horario_saida}\n🕒 Chegada: ${tr.horario_chegada}\n⏱️ Duração: ${tr.duracao}\n`;
+      if (isSplit) {
+        const cls = tr.classe || "Econômica";
+        const bg = tr.baggage || {};
+        const bagPieces = [];
+        if (Number(bg.personal) > 0) bagPieces.push("🎒 artigo pessoal");
+        if (Number(bg.carry_on) > 0) bagPieces.push(`🎒 ${bg.carry_on}× mão`);
+        if (Number(bg.checked) > 0) bagPieces.push(`🧳 ${bg.checked}× despachada`);
+        texto += `🎫 Classe: ${cls}${bagPieces.length ? ` · ${bagPieces.join(" · ")}` : ""}\n`;
+      }
+      texto += `\n`;
     });
 
     texto += `📅 DATAS:\n`;
@@ -1812,19 +2001,21 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
 
     texto += `👤 PASSAGEIROS:\n${t.passengers} ${t.passengers > 1 ? "Adultos" : "Adulto"}\n\n`;
 
-    const bagList = [];
-    const pad2 = (n) => String(n).padStart(2, "0");
-    const personalQty = Number(t.baggage.personal) || 0;
-    const carryQty = Number(t.baggage.carry_on) || 0;
-    const checkedQty = Number(t.baggage.checked) || 0;
-    if (personalQty > 0)
-      bagList.push(`🎒 ${pad2(personalQty)} ${personalQty > 1 ? "artigos pessoais" : "artigo pessoal"} (mochila/bolsa)`);
-    if (carryQty > 0)
-      bagList.push(`🎒 ${pad2(carryQty)} ${carryQty > 1 ? "bagagens de mão" : "bagagem de mão"} (10kg)`);
-    if (checkedQty > 0)
-      bagList.push(`🧳 ${pad2(checkedQty)} ${checkedQty > 1 ? "bagagens despachadas" : "bagagem despachada"} (23kg)`);
-    if (bagList.length === 0) bagList.push("🎒 Bagagem não inclusa");
-    texto += `${bagList.join("\n")}\n\n`;
+    if (!isSplit) {
+      const bagList = [];
+      const pad2 = (n) => String(n).padStart(2, "0");
+      const personalQty = Number(t.baggage.personal) || 0;
+      const carryQty = Number(t.baggage.carry_on) || 0;
+      const checkedQty = Number(t.baggage.checked) || 0;
+      if (personalQty > 0)
+        bagList.push(`🎒 ${pad2(personalQty)} ${personalQty > 1 ? "artigos pessoais" : "artigo pessoal"} (mochila/bolsa)`);
+      if (carryQty > 0)
+        bagList.push(`🎒 ${pad2(carryQty)} ${carryQty > 1 ? "bagagens de mão" : "bagagem de mão"} (10kg)`);
+      if (checkedQty > 0)
+        bagList.push(`🧳 ${pad2(checkedQty)} ${checkedQty > 1 ? "bagagens despachadas" : "bagagem despachada"} (23kg)`);
+      if (bagList.length === 0) bagList.push("🎒 Bagagem não inclusa");
+      texto += `${bagList.join("\n")}\n\n`;
+    }
 
     if (t.services.insurance.active) texto += `🛡️ Seguro Viagem incluso (${formatBRL(parseBR(t.services.insurance.value))})\n`;
     if (t.services.transfer.active) texto += `🚗 Transfer incluso (${formatBRL(parseBR(t.services.transfer.value))})\n`;
@@ -2072,11 +2263,14 @@ export default function VendedorOrcamento() {
 
   const apiKeyMissing = !import.meta.env.VITE_ANTHROPIC_API_KEY;
 
-  // Cálculos derivados
+  // Cálculos derivados — considera nº de passageiros e modo "Cobrado por: pessoa | total".
   const totalValue = useMemo(() => {
-    const sale = parseBR(formData.pricing.sale_value);
+    const pr = formData.pricing;
+    const pax = Math.max(1, Number(formData.passengers) || 1);
+    const saleInput = parseBR(pr.sale_value);
+    const saleTotal = pr.sale_per === "total" ? saleInput : saleInput * pax;
     return (
-      sale +
+      saleTotal +
       (formData.additional.active ? parseBR(formData.additional.value) : 0) +
       (formData.services.insurance.active ? parseBR(formData.services.insurance.value) : 0) +
       (formData.services.transfer.active ? parseBR(formData.services.transfer.value) : 0)
@@ -2085,29 +2279,36 @@ export default function VendedorOrcamento() {
 
   const commission = useMemo(() => {
     const pr = formData.pricing;
-    let custoTotal = 0;
-    let nipon = 0;
+    const pax = Math.max(1, Number(formData.passengers) || 1);
+
+    // Custo e Nipon POR PESSOA — multiplicamos por pax para os totais.
+    let custoPorPessoa = 0;
+    let niponPorPessoa = 0;
 
     if (pr.is_split) {
-      custoTotal = Number(pr.total_cost) || 0;
-      nipon = Number(pr.total_nipon) || 0;
+      custoPorPessoa = Number(pr.total_cost) || 0;
+      niponPorPessoa = Number(pr.total_nipon) || 0;
     } else {
-      // Usa cost_brl_calc (calculado em BlocoPrecificacao com faixa variável aplicada se houver)
       const cost_brl = pr.type === "milhas"
         ? Number(pr.cost_brl_calc) || (parseBR(pr.miles_qty) / 1000) * (Number(pr.miles_value_per_thousand) || 0)
         : parseBR(pr.cost_brl);
       const tax = parseBR(pr.tax);
-      custoTotal = cost_brl + tax;
-      nipon = Number(pr.nipon_value) || 0;
+      custoPorPessoa = cost_brl + tax;
+      niponPorPessoa = Number(pr.nipon_value) || 0;
     }
 
-    const sale = parseBR(pr.sale_value);
-    const lucroNipon = Math.max(0, nipon - custoTotal);
+    const custoTotal = custoPorPessoa * pax;
+    const niponTotal = niponPorPessoa * pax;
+
+    const saleInput = parseBR(pr.sale_value);
+    const saleTotal = pr.sale_per === "total" ? saleInput : saleInput * pax;
+
+    const lucroNipon = Math.max(0, niponTotal - custoTotal);
     const base = lucroNipon * 0.25;
-    const excedente = Math.max(0, sale - nipon);
+    const excedente = Math.max(0, saleTotal - niponTotal);
     const extra = excedente * 0.45;
     return { base, extra, total: base + extra };
-  }, [formData.pricing]);
+  }, [formData.pricing, formData.passengers]);
 
   // Validação por bloco
   const canAdvance = useMemo(() => {

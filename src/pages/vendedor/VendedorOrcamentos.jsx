@@ -25,6 +25,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import { localClient } from "@/api/localClient";
 import { openQuoteInNewTab } from "@/lib/generateQuoteHTML";
+import { useAuth } from "@/lib/AuthContext";
 
 const STATUSES = ["Enviado", "Aprovado", "Recusado", "Emitido", "Cancelado"];
 
@@ -63,6 +64,7 @@ const timeAgo = (iso) => {
 export default function VendedorOrcamentos() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, isAdmin } = useAuth();
   const [quotes, setQuotes] = useState([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("Todos");
@@ -75,11 +77,13 @@ export default function VendedorOrcamentos() {
   const [copied, setCopied] = useState(false);
 
   const reload = async () => {
-    const list = await localClient.entities.Quotes.list();
-    setQuotes(list || []);
+    const list = (await localClient.entities.Quotes.list()) || [];
+    // Vendedor enxerga apenas as próprias cotações; admin vê todas.
+    const visible = isAdmin ? list : list.filter((q) => q.seller_id === user?.id);
+    setQuotes(visible);
   };
 
-  useEffect(() => { reload(); }, []);
+  useEffect(() => { if (user?.id) reload(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [user?.id, isAdmin]);
 
   const filtered = useMemo(() => {
     let list = [...quotes];

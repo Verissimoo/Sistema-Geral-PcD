@@ -90,6 +90,28 @@ function buildSummaryCards(data, trechoIda, trechoVolta) {
   return cards.join("");
 }
 
+function buildPerTrechoExtras(trecho, data) {
+  if (data.ticket_type !== "Quebra de Trecho") return "";
+  const bag = trecho.baggage || {};
+  const qty = (v) => (typeof v === "number" ? v : Number(v) || 0);
+  const personalQ = qty(bag.personal);
+  const carryQ = qty(bag.carry_on);
+  const checkedQ = qty(bag.checked);
+  const bagItems = [];
+  if (personalQ > 0) bagItems.push(`🎒 Artigo pessoal`);
+  if (carryQ > 0) bagItems.push(`🎒 ${carryQ}× mão (10kg)`);
+  if (checkedQ > 0) bagItems.push(`🧳 ${checkedQ}× despachada (23kg)`);
+  if (bagItems.length === 0) bagItems.push(`Sem bagagem inclusa`);
+
+  const classe = trecho.classe || "Econômica";
+
+  return `
+    <div style="display:flex;flex-wrap:wrap;gap:6px;padding:10px 14px;border-top:1px solid #eef0f4;background:#fafbfd;font-size:11.5px;color:#334;">
+      <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:999px;background:#0B1E3D;color:#fff;font-weight:600;">${esc(classe)}</span>
+      <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:999px;background:#fff;border:1px solid #d8dde6;">${bagItems.join(" · ")}</span>
+    </div>`;
+}
+
 function buildFlightCard(trecho, data) {
   const isOut = trecho.tipo !== "volta";
   const dateStr = isOut ? data.dates?.departure : data.dates?.return;
@@ -132,6 +154,7 @@ function buildFlightCard(trecho, data) {
         </div>
       </div>
       <div class="fbody"><div class="tl">${stopsHtml}</div></div>
+      ${buildPerTrechoExtras(trecho, data)}
     </div>`;
 }
 
@@ -616,10 +639,11 @@ ${SVG_ICONS}
   ${flightsHtml}
 </section>
 
+${data.ticket_type === "Quebra de Trecho" ? "" : `
 <section class="sec" style="padding-top:0">
   <div class="sec-hd"><div class="sec-tag"><svg><use href="#ic-bag"/></svg> Franquia de Bagagem</div><div class="sec-line"></div></div>
   ${bagHtml}
-</section>
+</section>`}
 
 <section class="sec" style="padding-top:0">
   <div class="sec-hd"><div class="sec-tag"><svg><use href="#ic-money"/></svg> ${data.competitor ? "Comparativo de Preços" : "Valor da Proposta"}</div><div class="sec-line"></div></div>
