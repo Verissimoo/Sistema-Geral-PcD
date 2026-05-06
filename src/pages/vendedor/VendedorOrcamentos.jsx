@@ -2,8 +2,9 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FileStack, Search, Plus, Eye, Calendar, DollarSign,
-  CheckCircle2, Send, FileText, Copy, Check, MoreVertical,
+  CheckCircle2, Send, FileText, Copy, Check, MoreVertical, Download,
 } from "lucide-react";
+import { EmissionDialog } from "@/components/EmissionDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,8 +35,9 @@ const STATUSES = [
   "FollowUp 2 Enviado",
   "FollowUp 3 Enviado",
   "Aprovado",
-  "Recusado",
+  "Aguardando Emissão",
   "Emitido",
+  "Recusado",
   "Cancelado",
 ];
 
@@ -46,8 +48,9 @@ const STATUS_LABELS = {
   "FollowUp 2 Enviado": "Follow-up 2 ✓",
   "FollowUp 3 Enviado": "Follow-up 3 ✓",
   Aprovado: "Aprovado",
+  "Aguardando Emissão": "⏳ Aguardando Emissão",
+  Emitido: "✓ Emitido",
   Recusado: "Recusado",
-  Emitido: "Emitido",
   Cancelado: "Cancelado",
 };
 
@@ -58,8 +61,9 @@ const STATUS_STYLES = {
   "FollowUp 2 Enviado": "bg-blue-100 text-blue-800 border-blue-300 hover:bg-blue-100",
   "FollowUp 3 Enviado": "bg-indigo-100 text-indigo-800 border-indigo-300 hover:bg-indigo-100",
   Aprovado: "bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100",
+  "Aguardando Emissão": "bg-amber-100 text-amber-800 border-amber-400 hover:bg-amber-100",
+  Emitido: "bg-purple-100 text-purple-800 border-purple-300 hover:bg-purple-100",
   Recusado: "bg-red-100 text-red-700 border-red-200 hover:bg-red-100",
-  Emitido: "bg-purple-100 text-purple-700 border-purple-200 hover:bg-purple-100",
   Cancelado: "bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-100",
 };
 
@@ -101,6 +105,7 @@ export default function VendedorOrcamentos() {
   const [statusChangeTo, setStatusChangeTo] = useState(null);
   const [statusExtra, setStatusExtra] = useState({ emission_date: "", reject_reason: "" });
   const [copied, setCopied] = useState(false);
+  const [emissionDialogQuote, setEmissionDialogQuote] = useState(null);
 
   const reload = async () => {
     const list = (await localClient.entities.Quotes.list()) || [];
@@ -318,6 +323,7 @@ export default function VendedorOrcamentos() {
               quote={q}
               onView={() => setDetailQuote(q)}
               onChangeStatus={(s) => openStatusChange(q, s)}
+              onSendToEmission={() => setEmissionDialogQuote(q)}
             />
           ))}
         </div>
@@ -347,6 +353,17 @@ export default function VendedorOrcamentos() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Dialog enviar para emissão */}
+      <EmissionDialog
+        quote={emissionDialogQuote}
+        open={!!emissionDialogQuote}
+        onClose={() => setEmissionDialogQuote(null)}
+        onSuccess={() => {
+          toast({ title: "Enviado para emissão", description: "A equipe de suporte foi notificada." });
+          reload();
+        }}
+      />
 
       {/* Confirmação alteração de status */}
       <Dialog
@@ -415,7 +432,7 @@ function MetricCard({ icon, label, value, color = "text-foreground", isText }) {
   );
 }
 
-function QuoteRow({ quote, onView, onChangeStatus }) {
+function QuoteRow({ quote, onView, onChangeStatus, onSendToEmission }) {
   const ida = quote.itinerary?.trechos?.find((t) => t.tipo === "ida")
     || quote.itinerary?.trechos?.[0];
   const route = ida ? `${ida.origem_iata} → ${ida.destino_iata}` : "—";
@@ -456,7 +473,26 @@ function QuoteRow({ quote, onView, onChangeStatus }) {
             {timeAgo(quote.created_date)}
           </span>
 
-          <div className="flex items-center gap-1 justify-end">
+          <div className="flex items-center gap-1 justify-end flex-wrap">
+            {quote.status === "Aprovado" && (
+              <Button
+                size="sm"
+                onClick={onSendToEmission}
+                className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5"
+              >
+                <Send className="h-3.5 w-3.5" /> Enviar para Emissão
+              </Button>
+            )}
+            {quote.status === "Emitido" && quote.emission_voucher_url && (
+              <a
+                href={quote.emission_voucher_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-semibold text-purple-700 hover:text-purple-900 hover:bg-purple-50 transition-colors"
+              >
+                <Download className="h-3.5 w-3.5" /> Baixar Voucher
+              </a>
+            )}
             <Button size="sm" variant="ghost" onClick={onView} className="gap-1.5">
               <Eye className="h-3.5 w-3.5" /> Detalhes
             </Button>

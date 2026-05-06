@@ -5,6 +5,7 @@ import {
   Settings, X, Briefcase, Calendar,
   Store, ChevronDown, Wrench, Star, Info, Target, Kanban, FileStack, BookOpen,
   LogOut, Trophy, BarChart3, UserSearch, Shield, Handshake,
+  Headset, Send, CheckCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,11 @@ const parceiroSubItems = [
   { label: "Meus Clientes", icon: Users, path: "/parceiro/clientes" },
 ];
 
+const suporteSubItems = [
+  { label: "Emissões Pendentes", icon: Send, path: "/suporte/emissoes" },
+  { label: "Histórico Emitido", icon: CheckCircle, path: "/suporte/historico" },
+];
+
 const usuariosItem = { label: "Usuários", icon: Shield, path: "/usuarios" };
 const settingsItem = { label: "Configurações", icon: Settings, path: "/configuracoes" };
 
@@ -57,11 +63,12 @@ const initials = (name = "") =>
 export default function Sidebar({ open, onClose }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout, isAdmin, isVendedor, isParceiro } = useAuth();
+  const { user, logout, isAdmin, isVendedor, isParceiro, isSuporte } = useAuth();
 
   const isVendedorRoute = location.pathname.startsWith("/vendedor");
   const isGerenteRoute = location.pathname.startsWith("/gerente");
   const isParceiroRoute = location.pathname.startsWith("/parceiro");
+  const isSuporteRoute = location.pathname.startsWith("/suporte");
   const isContratosRoute =
     location.pathname.startsWith("/contratos") ||
     location.pathname.startsWith("/projetos") ||
@@ -71,14 +78,17 @@ export default function Sidebar({ open, onClose }) {
   const [vendedorOpen, setVendedorOpen] = useState(isVendedorRoute || isVendedor);
   const [gerenteOpen, setGerenteOpen] = useState(isGerenteRoute);
   const [parceiroOpen, setParceiroOpen] = useState(isParceiroRoute || isParceiro);
+  const [suporteOpen, setSuporteOpen] = useState(isSuporteRoute || isSuporte);
   const [contratosOpen, setContratosOpen] = useState(isContratosRoute);
 
   useEffect(() => { if (isVendedorRoute) setVendedorOpen(true); }, [isVendedorRoute]);
   useEffect(() => { if (isGerenteRoute) setGerenteOpen(true); }, [isGerenteRoute]);
   useEffect(() => { if (isParceiroRoute) setParceiroOpen(true); }, [isParceiroRoute]);
+  useEffect(() => { if (isSuporteRoute) setSuporteOpen(true); }, [isSuporteRoute]);
   useEffect(() => { if (isContratosRoute) setContratosOpen(true); }, [isContratosRoute]);
   useEffect(() => { if (isVendedor) setVendedorOpen(true); }, [isVendedor]);
   useEffect(() => { if (isParceiro) setParceiroOpen(true); }, [isParceiro]);
+  useEffect(() => { if (isSuporte) setSuporteOpen(true); }, [isSuporte]);
 
   const handleLogout = () => {
     logout();
@@ -164,7 +174,9 @@ export default function Sidebar({ open, onClose }) {
     ? { label: "Administrador", className: "bg-[#0B1E3D] text-white hover:bg-[#0B1E3D]" }
     : isParceiro
       ? { label: "Parceiro", className: "bg-purple-600 text-white hover:bg-purple-600" }
-      : { label: "Vendedor", className: "bg-amber-500 text-white hover:bg-amber-500" };
+      : isSuporte
+        ? { label: "Suporte", className: "bg-emerald-600 text-white hover:bg-emerald-600" }
+        : { label: "Vendedor", className: "bg-amber-500 text-white hover:bg-amber-500" };
 
   return (
     <>
@@ -210,8 +222,31 @@ export default function Sidebar({ open, onClose }) {
             parceiroSubItems
           )}
 
+          {/* Suporte — Portal do Suporte + Portal do Vendedor */}
+          {isSuporte && (
+            <>
+              {renderGroup(
+                "Portal do Suporte",
+                Headset,
+                isSuporteRoute,
+                suporteOpen,
+                setSuporteOpen,
+                suporteSubItems
+              )}
+              {renderGroup(
+                "Portal do Vendedor",
+                Store,
+                isVendedorRoute,
+                vendedorOpen,
+                setVendedorOpen,
+                vendedorSubItems,
+                true
+              )}
+            </>
+          )}
+
           {/* Demais portais — admin / vendedor */}
-          {!isParceiro && (
+          {!isParceiro && !isSuporte && (
             <>
               {/* Dashboard — admin */}
               {isAdmin && renderNavItem(inicioItem)}
@@ -225,6 +260,17 @@ export default function Sidebar({ open, onClose }) {
                   gerenteOpen,
                   setGerenteOpen,
                   gerenteSubItems
+                )}
+
+              {/* Portal do Suporte — admin */}
+              {isAdmin &&
+                renderGroup(
+                  "Portal do Suporte",
+                  Headset,
+                  isSuporteRoute,
+                  suporteOpen,
+                  setSuporteOpen,
+                  suporteSubItems
                 )}
 
               {/* Portal de Contratos — admin */}

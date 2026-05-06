@@ -41,7 +41,7 @@ export default function UserManagement() {
   const [users, setUsers] = useState([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ name: "", username: "", password: "", confirm: "", status: "Ativo", career_level: "N0" });
+  const [form, setForm] = useState({ name: "", username: "", password: "", confirm: "", status: "Ativo", career_level: "N0", role: "vendedor" });
   const [showPwd, setShowPwd] = useState(false);
   const [formError, setFormError] = useState("");
 
@@ -60,7 +60,7 @@ export default function UserManagement() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ name: "", username: "", password: "", confirm: "", status: "Ativo", career_level: "N0" });
+    setForm({ name: "", username: "", password: "", confirm: "", status: "Ativo", career_level: "N0", role: "vendedor" });
     setFormError("");
     setShowPwd(false);
     setDialogOpen(true);
@@ -75,6 +75,7 @@ export default function UserManagement() {
       confirm: "",
       status: u.status,
       career_level: u.career_level || "N0",
+      role: u.role || "vendedor",
     });
     setFormError("");
     setShowPwd(false);
@@ -116,7 +117,10 @@ export default function UserManagement() {
           username,
           status: form.status,
         };
-        if (editing.role !== "admin") updates.career_level = form.career_level;
+        if (editing.role !== "admin") {
+          updates.career_level = form.career_level;
+          updates.role = form.role;
+        }
         if (form.password) updates.password = form.password;
         const updated = await localClient.entities.Users.update(editing.id, updates);
         if (!updated) {
@@ -130,7 +134,7 @@ export default function UserManagement() {
           name: form.name.trim(),
           username,
           password: form.password,
-          role: "vendedor",
+          role: form.role || "vendedor",
           status: form.status || "Ativo",
           career_level: form.career_level,
           created_date: new Date().toISOString(),
@@ -141,8 +145,8 @@ export default function UserManagement() {
           return;
         }
         toast({
-          title: "Vendedor criado",
-          description: `Usuário "${created.username}" salvo no banco. Pode fazer login de qualquer computador.`,
+          title: "Usuário criado",
+          description: `${created.role === "suporte" ? "Suporte" : "Vendedor"} "${created.username}" salvo no banco. Pode fazer login de qualquer computador.`,
         });
       }
       setDialogOpen(false);
@@ -180,7 +184,7 @@ export default function UserManagement() {
           </p>
         </div>
         <Button onClick={openCreate} className="gap-2">
-          <UserPlus className="h-4 w-4" /> Novo Vendedor
+          <UserPlus className="h-4 w-4" /> Novo Usuário
         </Button>
       </div>
 
@@ -227,10 +231,12 @@ export default function UserManagement() {
                     "border",
                     u.role === "admin"
                       ? "bg-[#0B1E3D] text-white border-transparent hover:bg-[#0B1E3D]"
-                      : "bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100"
+                      : u.role === "suporte"
+                        ? "bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
+                        : "bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100"
                   )}
                 >
-                  {u.role === "admin" ? "Admin" : "Vendedor"}
+                  {u.role === "admin" ? "Admin" : u.role === "suporte" ? "Suporte" : "Vendedor"}
                 </Badge>
                 <Badge
                   className={cn(
@@ -283,7 +289,7 @@ export default function UserManagement() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editing ? "Editar vendedor" : "Novo vendedor"}</DialogTitle>
+            <DialogTitle>{editing ? "Editar usuário" : "Novo usuário"}</DialogTitle>
             <DialogDescription>
               {editing
                 ? "Atualize os dados do vendedor. Deixe a senha em branco para manter a atual."
@@ -346,27 +352,46 @@ export default function UserManagement() {
               </div>
             </div>
             {(!editing || editing.role !== "admin") && (
-              <div className="space-y-1.5">
-                <Label htmlFor="u-career">Nível de Carreira</Label>
-                <Select
-                  value={form.career_level}
-                  onValueChange={(v) => setForm((p) => ({ ...p, career_level: v }))}
-                >
-                  <SelectTrigger id="u-career">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CAREER_LEVELS.map((l) => (
-                      <SelectItem key={l.level} value={l.level}>
-                        {l.level} — {l.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  Use para promover manualmente o vendedor conforme avaliação.
-                </p>
-              </div>
+              <>
+                <div className="space-y-1.5">
+                  <Label htmlFor="u-role">Tipo de acesso</Label>
+                  <Select
+                    value={form.role}
+                    onValueChange={(v) => setForm((p) => ({ ...p, role: v }))}
+                  >
+                    <SelectTrigger id="u-role">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="vendedor">Vendedor</SelectItem>
+                      <SelectItem value="suporte">Suporte</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {form.role === "vendedor" && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="u-career">Nível de Carreira</Label>
+                    <Select
+                      value={form.career_level}
+                      onValueChange={(v) => setForm((p) => ({ ...p, career_level: v }))}
+                    >
+                      <SelectTrigger id="u-career">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CAREER_LEVELS.map((l) => (
+                          <SelectItem key={l.level} value={l.level}>
+                            {l.level} — {l.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Use para promover manualmente o vendedor conforme avaliação.
+                    </p>
+                  </div>
+                )}
+              </>
             )}
 
             <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">

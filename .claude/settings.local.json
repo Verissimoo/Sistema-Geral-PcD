@@ -12,7 +12,9 @@
       "mcp__claude_ai_Supabase__execute_sql",
       "Bash(git commit *)",
       "mcp__claude_ai_Supabase__apply_migration",
-      "Bash(node -e \"require\\('fs'\\).readFileSync\\('./src/pages/vendedor/VendedorOrcamento.jsx','utf8'\\).split\\('\\\\n'\\).forEach\\(\\(l,i\\)=>{ if\\(l.includes\\('TabsContent value=\\\\\"new\\\\\"'\\)\\) console.log\\(i+1, l\\) }\\)\")"
+      "Bash(node -e \"require\\('fs'\\).readFileSync\\('./src/pages/vendedor/VendedorOrcamento.jsx','utf8'\\).split\\('\\\\n'\\).forEach\\(\\(l,i\\)=>{ if\\(l.includes\\('TabsContent value=\\\\\"new\\\\\"'\\)\\) console.log\\(i+1, l\\) }\\)\")",
+      "Bash(npx --no-install eslint src/pages/vendedor/VendedorFerramentas.jsx src/lib/config.js)",
+      "Bash(echo \"---exit $?---\")"
     ]
   }
 }

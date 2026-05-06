@@ -1,16 +1,19 @@
 import { useState, useEffect, useMemo } from "react";
-import { Wrench, Calculator, CreditCard, DollarSign, Percent, RefreshCw, Plane } from "lucide-react";
+import { Wrench, Calculator, CreditCard, DollarSign, Percent, RefreshCw, Plane, MessageCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { getCostForMiles, getSaleForMiles, getTierForMiles } from "@/lib/milesHelper";
 import { localClient } from "@/api/localClient";
 import { parseBR, sanitizeBRInput } from "@/lib/parseBR";
+import { FINANCEIRO_WHATSAPP } from "@/lib/config";
+import { useAuth } from "@/lib/AuthContext";
 
 // ─── Dados de Plataformas de Pagamento ─────────────────────────────
 const PLATFORMS = [
@@ -363,10 +366,12 @@ function ComissaoTab() {
 
 // ─── Componente: Taxa de Juros do Cartão ────────────────────────────
 function TaxaJurosTab() {
+  const { user } = useAuth();
   const [platform, setPlatform] = useState('');
   const [modality, setModality] = useState('');
   const [valorVenda, setValorVenda] = useState('');
   const [parcela, setParcela] = useState('');
+  const [isUrgente, setIsUrgente] = useState(false);
 
   const selectedPlatform = PLATFORMS.find(p => p.name === platform);
   const modalities = selectedPlatform?.modalities || [];
@@ -412,7 +417,35 @@ function TaxaJurosTab() {
     };
   }, [selectedRate, valorVenda, selectedModality]);
 
+  const gerarMensagem = () => {
+    if (!resultado) return '';
+    const nomeVendedor = user?.name || 'Vendedor';
+    let mensagem = `*Solicitação de link de pagamento*\n\n`;
+    mensagem += `👤 *Vendedor:* ${nomeVendedor}\n`;
+    mensagem += `💰 *Valor base:* ${fmt(resultado.venda)}\n`;
+    mensagem += `📊 *Parcelas:* ${resultado.parcelaLabel}\n`;
+    mensagem += `🏷️ *Taxa aplicada:* ${resultado.taxaPct.toFixed(2)}%\n`;
+    if (resultado.hasFixedFee) {
+      mensagem += `➕ *Taxa fixa:* ${fmt(resultado.fixedFee)}\n`;
+    }
+    mensagem += `💳 *Valor total ao cliente:* ${fmt(resultado.totalComTaxa)}\n`;
+    mensagem += `📦 *Cada parcela:* ${resultado.numParcelas}x de ${fmt(resultado.valorParcela)}\n`;
+    if (isUrgente) {
+      mensagem += `\n🔥 *URGENTE* — cliente aguardando para fechar`;
+    }
+    mensagem += `\n\nPor favor, gere o link de pagamento. Obrigado!`;
+    return mensagem;
+  };
+
+  const enviarParaFinanceiro = () => {
+    const mensagem = gerarMensagem();
+    if (!mensagem) return;
+    const url = `https://wa.me/${FINANCEIRO_WHATSAPP}?text=${encodeURIComponent(mensagem)}`;
+    window.open(url, '_blank');
+  };
+
   return (
+    <div className="space-y-6">
     <div className="grid gap-6 md:grid-cols-2">
       {/* Campos */}
       <Card className="border-border/50">
@@ -549,6 +582,50 @@ function TaxaJurosTab() {
           )}
         </CardContent>
       </Card>
+    </div>
+
+    {resultado && (
+      <Card className="border-2 border-green-200 bg-green-50/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <MessageCircle className="w-5 h-5 text-green-600" />
+            Solicitar link de pagamento ao financeiro
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="urgente"
+              checked={isUrgente}
+              onCheckedChange={(v) => setIsUrgente(!!v)}
+            />
+            <Label htmlFor="urgente" className="cursor-pointer flex items-center gap-2">
+              <span className="text-sm font-medium">🔥 Marcar como urgente</span>
+              <span className="text-xs text-muted-foreground">
+                (cliente esperando para fechar)
+              </span>
+            </Label>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-lg p-3 text-xs font-mono text-slate-700 whitespace-pre-line">
+            {gerarMensagem()}
+          </div>
+
+          <Button
+            onClick={enviarParaFinanceiro}
+            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold"
+            size="lg"
+          >
+            <MessageCircle className="w-5 h-5 mr-2" />
+            Enviar via WhatsApp ao financeiro
+          </Button>
+
+          <p className="text-xs text-muted-foreground text-center">
+            O WhatsApp abrirá com a mensagem pronta. Basta confirmar o envio.
+          </p>
+        </CardContent>
+      </Card>
+    )}
     </div>
   );
 }

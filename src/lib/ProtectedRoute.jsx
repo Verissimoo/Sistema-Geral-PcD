@@ -20,6 +20,9 @@ export function ProtectedRoute({ children, allowedRoles }) {
     if (user.role === "vendedor") {
       return <Navigate to="/vendedor/ferramentas" replace />;
     }
+    if (user.role === "suporte") {
+      return <Navigate to="/suporte/emissoes" replace />;
+    }
     if (user.role === "parceiro") {
       return <Navigate to="/parceiro/orcamentos" replace />;
     }

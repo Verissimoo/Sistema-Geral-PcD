@@ -32,8 +32,9 @@ const STATUSES = [
   "FollowUp 2 Enviado",
   "FollowUp 3 Enviado",
   "Aprovado",
-  "Recusado",
+  "Aguardando Emissão",
   "Emitido",
+  "Recusado",
   "Cancelado",
 ];
 
@@ -44,8 +45,9 @@ const STATUS_LABELS = {
   "FollowUp 2 Enviado": "Follow-up 2 ✓",
   "FollowUp 3 Enviado": "Follow-up 3 ✓",
   Aprovado: "Aprovado",
+  "Aguardando Emissão": "⏳ Aguardando Emissão",
+  Emitido: "✓ Emitido",
   Recusado: "Recusado",
-  Emitido: "Emitido",
   Cancelado: "Cancelado",
 };
 
@@ -56,8 +58,9 @@ const STATUS_STYLES = {
   "FollowUp 2 Enviado": "bg-blue-100 text-blue-800 border-blue-300 hover:bg-blue-100",
   "FollowUp 3 Enviado": "bg-indigo-100 text-indigo-800 border-indigo-300 hover:bg-indigo-100",
   Aprovado: "bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100",
+  "Aguardando Emissão": "bg-amber-100 text-amber-800 border-amber-400 hover:bg-amber-100",
+  Emitido: "bg-purple-100 text-purple-800 border-purple-300 hover:bg-purple-100",
   Recusado: "bg-red-100 text-red-700 border-red-200 hover:bg-red-100",
-  Emitido: "bg-purple-100 text-purple-700 border-purple-200 hover:bg-purple-100",
   Cancelado: "bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-100",
 };
 const TICKET_TYPES = ["Normal", "Hidden City", "Quebra de Trecho", "Imigração"];

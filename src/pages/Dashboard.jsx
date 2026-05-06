@@ -66,6 +66,7 @@ const STATUS_CONFIG = {
     matches: AGUARDANDO_FECHAMENTO_STATUSES,
   },
   Aprovado: { color: "emerald", icon: CheckCircle2, label: "Aprovados", matches: ["Aprovado"] },
+  "Aguardando Emissão": { color: "amber", icon: Send, label: "⏳ Aguardando Emissão", matches: ["Aguardando Emissão"] },
   Emitido: { color: "purple", icon: FileStack, label: "Emitidos", matches: ["Emitido"] },
   Recusado: { color: "red", icon: X, label: "Recusados", matches: ["Recusado"] },
   Cancelado: { color: "gray", icon: Ban, label: "Cancelados", matches: ["Cancelado"] },
@@ -74,7 +75,8 @@ const STATUS_CONFIG = {
 const COLOR_CLASSES = {
   blue: "bg-blue-100 text-blue-700 border-blue-200",
   emerald: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  purple: "bg-purple-100 text-purple-700 border-purple-200",
+  amber: "bg-amber-100 text-amber-800 border-amber-400",
+  purple: "bg-purple-100 text-purple-800 border-purple-300",
   red: "bg-red-100 text-red-700 border-red-200",
   gray: "bg-gray-100 text-gray-600 border-gray-200",
 };
@@ -182,9 +184,12 @@ export default function Dashboard() {
     const end = new Date(periodRange.end);
     end.setHours(23, 59, 59, 999);
     const totalDays = Math.max(1, Math.ceil((end - start) / 86400000));
-
-    // Agrupa por semana se > 30 dias, senão por dia
     const groupByWeek = totalDays > 30;
+    const isSale = (q) =>
+      q.status === "Aprovado" ||
+      q.status === "Emitido" ||
+      q.status === "Aguardando Emissão";
+
     const buckets = [];
 
     if (groupByWeek) {
@@ -196,42 +201,45 @@ export default function Dashboard() {
         bEnd.setDate(bEnd.getDate() + 6);
         bEnd.setHours(23, 59, 59, 999);
         if (bStart > end) break;
-        const cot = filteredQuotes.filter((q) => {
-          const d = new Date(q.created_date);
-          return d >= bStart && d <= bEnd;
-        }).length;
-        const sales = filteredQuotes.filter((q) => {
-          const d = new Date(q.created_date);
-          return (
-            d >= bStart && d <= bEnd &&
-            (q.status === "Aprovado" || q.status === "Emitido")
-          );
-        }).length;
         buckets.push({
+          start: bStart,
+          end: bEnd,
           label: `${bStart.getDate()}/${bStart.getMonth() + 1}`,
-          cot, sales,
+          cotacoes: 0,
+          vendas: 0,
         });
+      }
+      for (const q of filteredQuotes) {
+        if (!q.created_date) continue;
+        const d = new Date(q.created_date);
+        const bucket = buckets.find((b) => d >= b.start && d <= b.end);
+        if (!bucket) continue;
+        bucket.cotacoes += 1;
+        if (isSale(q)) bucket.vendas += 1;
       }
     } else {
       for (let i = 0; i < totalDays; i++) {
         const d = new Date(start);
         d.setDate(d.getDate() + i);
         if (d > end) break;
-        const cot = filteredQuotes.filter((q) => isSameDay(new Date(q.created_date), d)).length;
-        const sales = filteredQuotes.filter((q) => {
-          const qd = new Date(q.created_date);
-          return isSameDay(qd, d) && (q.status === "Aprovado" || q.status === "Emitido");
-        }).length;
-        buckets.push({
-          label: fmtDayShort(d),
-          cot, sales,
-        });
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        buckets.push({ key, label: fmtDayShort(d), cotacoes: 0, vendas: 0 });
+      }
+      const byKey = Object.fromEntries(buckets.map((b) => [b.key, b]));
+      for (const q of filteredQuotes) {
+        if (!q.created_date) continue;
+        const d = new Date(q.created_date);
+        const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        const bucket = byKey[k];
+        if (!bucket) continue;
+        bucket.cotacoes += 1;
+        if (isSale(q)) bucket.vendas += 1;
       }
     }
 
-    const max = Math.max(1, ...buckets.map((b) => Math.max(b.cot, b.sales)));
-    const totalCot = buckets.reduce((s, b) => s + b.cot, 0);
-    const totalSales = buckets.reduce((s, b) => s + b.sales, 0);
+    const max = Math.max(1, ...buckets.map((b) => Math.max(b.cotacoes, b.vendas)));
+    const totalCot = buckets.reduce((s, b) => s + b.cotacoes, 0);
+    const totalSales = buckets.reduce((s, b) => s + b.vendas, 0);
     const conv = totalCot > 0 ? Math.round((totalSales / totalCot) * 100) : 0;
     return { buckets, max, totalCot, totalSales, conv, groupByWeek };
   }, [filteredQuotes, periodRange]);
@@ -636,21 +644,27 @@ function BarChart({ data }) {
     <div className="space-y-3">
       <div className="flex items-end gap-1 md:gap-1.5 h-44">
         {data.buckets.map((b, i) => {
-          const cotH = (b.cot / data.max) * 100;
-          const salesH = (b.sales / data.max) * 100;
+          const cotH = (b.cotacoes / data.max) * 100;
+          const salesH = (b.vendas / data.max) * 100;
           const showLabel = showAllLabels || i % Math.ceil(data.buckets.length / 10) === 0;
           return (
-            <div key={i} className="flex-1 flex flex-col items-center gap-1">
+            <div key={i} className="flex-1 flex flex-col items-center gap-1 min-w-0">
               <div className="w-full h-full flex items-end gap-0.5">
                 <div
-                  className="flex-1 rounded-t bg-blue-500/70 hover:bg-blue-500 transition-colors min-h-[2px]"
-                  style={{ height: `${cotH}%` }}
-                  title={`${b.label}: ${b.cot} cotações`}
+                  className="flex-1 rounded-t bg-blue-500/70 hover:bg-blue-500 transition-colors"
+                  style={{
+                    height: `${cotH}%`,
+                    minHeight: b.cotacoes > 0 ? "2px" : "0",
+                  }}
+                  title={`${b.label}: ${b.cotacoes} cotações`}
                 />
                 <div
-                  className="flex-1 rounded-t bg-emerald-500/70 hover:bg-emerald-500 transition-colors min-h-[2px]"
-                  style={{ height: `${salesH}%` }}
-                  title={`${b.label}: ${b.sales} vendas`}
+                  className="flex-1 rounded-t bg-emerald-500/70 hover:bg-emerald-500 transition-colors"
+                  style={{
+                    height: `${salesH}%`,
+                    minHeight: b.vendas > 0 ? "2px" : "0",
+                  }}
+                  title={`${b.label}: ${b.vendas} vendas`}
                 />
               </div>
               <div className="text-[9px] text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis max-w-full">

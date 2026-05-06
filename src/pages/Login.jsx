@@ -26,6 +26,7 @@ export default function Login() {
     if (user) {
       if (user.role === "admin") navigate("/", { replace: true });
       else if (user.role === "vendedor") navigate("/vendedor/ferramentas", { replace: true });
+      else if (user.role === "suporte") navigate("/suporte/emissoes", { replace: true });
       else if (user.role === "parceiro") navigate("/parceiro/orcamentos", { replace: true });
     }
   }, [user, navigate]);
