@@ -378,6 +378,13 @@ function TaxaJurosTab() {
   useEffect(() => { setModality(''); setParcela(''); }, [platform]);
   useEffect(() => { setParcela(''); }, [modality]);
 
+  const parseParcelas = (label) => {
+    if (!label) return 1;
+    if (label === 'Débito' || label === 'À vista') return 1;
+    const m = label.match(/^(\d+)x$/);
+    return m ? parseInt(m[1], 10) : 1;
+  };
+
   const resultado = useMemo(() => {
     if (!selectedRate || !valorVenda) return null;
     const venda = parseFloat(valorVenda);
@@ -388,8 +395,21 @@ function TaxaJurosTab() {
     const fixedFee = selectedModality.has_fixed_fee ? selectedModality.fixed_fee_value : 0;
     const totalComTaxa = venda + valorTaxa + fixedFee;
     const liquidoRecebido = venda - valorTaxa - fixedFee;
+    const numParcelas = parseParcelas(selectedRate.label);
+    const valorParcela = totalComTaxa / numParcelas;
 
-    return { taxaPct, valorTaxa, fixedFee, totalComTaxa, liquidoRecebido, hasFixedFee: selectedModality.has_fixed_fee };
+    return {
+      venda,
+      taxaPct,
+      valorTaxa,
+      fixedFee,
+      totalComTaxa,
+      liquidoRecebido,
+      numParcelas,
+      valorParcela,
+      parcelaLabel: selectedRate.label,
+      hasFixedFee: selectedModality.has_fixed_fee,
+    };
   }, [selectedRate, valorVenda, selectedModality]);
 
   return (
@@ -471,31 +491,54 @@ function TaxaJurosTab() {
         </CardHeader>
         <CardContent>
           {resultado ? (
-            <div className="space-y-3">
-              <div className="flex justify-between items-center py-2">
-                <span className="text-sm text-muted-foreground">Taxa aplicada</span>
-                <Badge variant="outline" className="font-mono">{resultado.taxaPct.toFixed(2)}%</Badge>
+            <div className="space-y-4">
+              {/* DESTAQUE PRINCIPAL — valor total com taxa */}
+              <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-5">
+                <p className="text-xs uppercase tracking-wider text-amber-700 mb-1">
+                  Valor total a cobrar do cliente
+                </p>
+                <p className="text-4xl font-black text-amber-600">
+                  {fmt(resultado.totalComTaxa)}
+                </p>
+                <p className="text-xs text-amber-700 mt-2">
+                  Inclui taxa de {resultado.taxaPct.toFixed(2)}%
+                  {resultado.hasFixedFee ? ` + ${fmt(resultado.fixedFee)} fixo` : ''} repassada ao cliente
+                </p>
               </div>
-              {resultado.hasFixedFee && (
-                <div className="flex justify-between items-center py-2">
-                  <span className="text-sm text-muted-foreground">Taxa fixa adicional</span>
-                  <span className="text-sm font-medium">{fmt(resultado.fixedFee)}</span>
+
+              {/* DESTAQUE SECUNDÁRIO — parcelas */}
+              <div className="bg-slate-900 text-white rounded-xl p-5">
+                <p className="text-xs uppercase tracking-wider text-slate-400 mb-1">
+                  Valor das parcelas
+                </p>
+                <p className="text-3xl font-bold">
+                  {resultado.numParcelas}x de <span className="text-amber-400">{fmt(resultado.valorParcela)}</span>
+                </p>
+                <p className="text-xs text-slate-400 mt-2">
+                  {resultado.parcelaLabel} no cartão de crédito
+                </p>
+              </div>
+
+              {/* Detalhamento — valores menores */}
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="bg-slate-50 rounded-lg p-3">
+                  <p className="text-xs text-muted-foreground">Valor base</p>
+                  <p className="font-semibold">{fmt(resultado.venda)}</p>
                 </div>
-              )}
-              <div className="flex justify-between items-center py-2">
-                <span className="text-sm text-muted-foreground">Valor da taxa</span>
-                <span className="text-sm font-medium text-red-500">{fmt(resultado.valorTaxa)}</span>
-              </div>
-              <div className="h-px bg-border" />
-              <div className="flex justify-between items-center py-2">
-                <span className="text-sm text-muted-foreground">Valor total com taxa</span>
-                <span className="text-sm font-semibold">{fmt(resultado.totalComTaxa)}</span>
-              </div>
-              <div className="flex justify-between items-center py-3 px-4 -mx-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">Valor líquido recebido</span>
-                <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
-                  {fmt(resultado.liquidoRecebido)}
-                </span>
+                <div className="bg-slate-50 rounded-lg p-3">
+                  <p className="text-xs text-muted-foreground">Taxa ({resultado.taxaPct.toFixed(2)}%)</p>
+                  <p className="font-semibold text-red-600">+ {fmt(resultado.valorTaxa)}</p>
+                </div>
+                {resultado.hasFixedFee && (
+                  <div className="bg-slate-50 rounded-lg p-3 col-span-2">
+                    <p className="text-xs text-muted-foreground">Taxa fixa adicional</p>
+                    <p className="font-semibold text-red-600">+ {fmt(resultado.fixedFee)}</p>
+                  </div>
+                )}
+                <div className="bg-emerald-50 rounded-lg p-3 col-span-2">
+                  <p className="text-xs text-emerald-700">Valor líquido recebido (vendedor)</p>
+                  <p className="font-semibold text-emerald-700">{fmt(resultado.liquidoRecebido)}</p>
+                </div>
               </div>
             </div>
           ) : (
