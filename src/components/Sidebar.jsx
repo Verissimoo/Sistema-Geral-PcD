@@ -5,7 +5,7 @@ import {
   Settings, X, Briefcase, Calendar,
   Store, ChevronDown, Wrench, Star, Info, Target, Kanban, FileStack, BookOpen,
   LogOut, Trophy, BarChart3, UserSearch, Shield, Handshake,
-  Headset, Send, CheckCircle, Building2,
+  Headset, Send, CheckCircle, Building2, Home,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,7 @@ const contratosSubItems = [
 ];
 
 const vendedorSubItems = [
+  { label: "Início", icon: Home, path: "/vendedor", exact: true },
   { label: "Ferramentas", icon: Wrench, path: "/vendedor/ferramentas" },
   { label: "Manual do Vendedor", icon: BookOpen, path: "/vendedor/cotacao" },
   { label: "Gerador de Orçamento", icon: FileText, path: "/vendedor/orcamento" },
@@ -148,7 +149,8 @@ export default function Sidebar({ open, onClose }) {
         <div className="pl-4 space-y-0.5">
           {subItems.map((sub) => {
             const SubIcon = sub.icon;
-            const isSubActive = matchExact
+            const useExact = sub.exact || matchExact;
+            const isSubActive = useExact
               ? location.pathname === sub.path
               : location.pathname.startsWith(sub.path);
             return (

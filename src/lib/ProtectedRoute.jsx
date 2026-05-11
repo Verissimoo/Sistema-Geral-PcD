@@ -18,7 +18,7 @@ export function ProtectedRoute({ children, allowedRoles }) {
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     if (user.role === "vendedor") {
-      return <Navigate to="/vendedor/ferramentas" replace />;
+      return <Navigate to="/vendedor" replace />;
     }
     if (user.role === "suporte") {
       return <Navigate to="/suporte/emissoes" replace />;

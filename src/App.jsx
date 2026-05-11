@@ -24,6 +24,7 @@ import { AuthProvider } from './lib/AuthContext';
 import { ProtectedRoute } from './lib/ProtectedRoute';
 
 // Portal do Vendedor
+import VendedorHome from './pages/vendedor/VendedorHome';
 import VendedorFerramentas from './pages/vendedor/VendedorFerramentas';
 import VendedorCotacao from './pages/vendedor/VendedorCotacao';
 import VendedorOrcamento from './pages/vendedor/VendedorOrcamento';
@@ -138,6 +139,9 @@ function App() {
               } />
 
               {/* === PORTAL DO VENDEDOR (admin + vendedor + suporte) === */}
+              <Route path="/vendedor" element={
+                <ProtectedRoute allowedRoles={['admin', 'gerente', 'vendedor', 'suporte']}><VendedorHome /></ProtectedRoute>
+              } />
               <Route path="/vendedor/ferramentas" element={
                 <ProtectedRoute allowedRoles={['admin', 'gerente', 'vendedor', 'suporte']}><VendedorFerramentas /></ProtectedRoute>
               } />
