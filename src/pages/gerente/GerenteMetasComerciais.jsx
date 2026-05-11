@@ -18,6 +18,7 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import { localClient, seedCommercialGoals } from "@/api/localClient";
+import { filterCommercialQuotes } from "@/lib/commercialFilter";
 
 const formatBRL = (v) =>
   Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -71,6 +72,7 @@ export default function GerenteMetasComerciais() {
   const { toast } = useToast();
   const [goals, setGoals] = useState([]);
   const [quotes, setQuotes] = useState([]);
+  const [users, setUsers] = useState([]);
   const [editOpen, setEditOpen] = useState(false);
 
   // Mês real do calendário (independente do status "Ativa" das metas seedadas)
@@ -100,15 +102,17 @@ export default function GerenteMetasComerciais() {
     if (pendingUpdates.length > 0) await Promise.all(pendingUpdates);
 
     // Re-lê após eventuais updates e ordena cronologicamente
-    const [fresh, quotesList] = await Promise.all([
+    const [fresh, quotesList, usersList] = await Promise.all([
       localClient.entities.CommercialGoals.list(),
       localClient.entities.Quotes.list(),
+      localClient.entities.Users.list(),
     ]);
     const sorted = (fresh || []).sort((a, b) =>
       (a.month || "").localeCompare(b.month || "")
     );
     setGoals(sorted);
     setQuotes(quotesList || []);
+    setUsers(usersList || []);
   };
 
   useEffect(() => { reload(); }, []);
@@ -124,8 +128,14 @@ export default function GerenteMetasComerciais() {
     [sortedGoals]
   );
 
+  // Apenas quotes de vendedor/gerente contam para metas comerciais.
+  const commercialQuotes = useMemo(
+    () => filterCommercialQuotes(quotes, users),
+    [quotes, users]
+  );
+
   const goalRevenue = (g) =>
-    quotes
+    commercialQuotes
       .filter(
         (q) =>
           (q.status === "Aprovado" || q.status === "Emitido") &&
@@ -312,7 +322,7 @@ export default function GerenteMetasComerciais() {
       {currentMonthGoal ? (
         <ActiveMonthCard
           goal={currentMonthGoal}
-          quotes={quotes}
+          quotes={commercialQuotes}
           isCurrentMonth={true}
         />
       ) : (

@@ -2,26 +2,25 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   UserSearch, Search, MessageCircle, Users, ShoppingCart,
-  DollarSign, TrendingUp, Eye, Phone,
+  DollarSign, TrendingUp, Eye, Phone, Tag, Plus, Trash2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
+import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import { localClient } from "@/api/localClient";
-
-const ORIGINS = [
-  { value: "Marketing (Zenvia)", color: "bg-blue-100 text-blue-700 border-blue-200" },
-  { value: "Carteira própria", color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
-  { value: "Indicação", color: "bg-amber-100 text-amber-700 border-amber-200" },
-  { value: "Instagram", color: "bg-purple-100 text-purple-700 border-purple-200" },
-  { value: "Google", color: "bg-red-100 text-red-700 border-red-200" },
-  { value: "Outro", color: "bg-gray-100 text-gray-700 border-gray-200" },
-];
+import { useAuth } from "@/lib/AuthContext";
+import { useClientOrigins, invalidateClientOrigins } from "@/lib/useClientOrigins";
+import { ClientOriginBadge } from "@/components/ClientOriginBadge";
 
 const formatBRL = (v) =>
   Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -49,11 +48,14 @@ const timeAgo = (iso) => {
 
 export default function GerenteClientes() {
   const navigate = useNavigate();
+  const { isAdmin, isGerente } = useAuth();
+  const origins = useClientOrigins();
   const [clients, setClients] = useState([]);
   const [quotes, setQuotes] = useState([]);
   const [search, setSearch] = useState("");
   const [originFilter, setOriginFilter] = useState("Todas");
   const [statusFilter, setStatusFilter] = useState("Todos");
+  const [manageOriginsOpen, setManageOriginsOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -138,6 +140,11 @@ export default function GerenteClientes() {
             Todos os clientes cadastrados e seu histórico de compras
           </p>
         </div>
+        {(isAdmin || isGerente) && (
+          <Button variant="outline" onClick={() => setManageOriginsOpen(true)} className="gap-2">
+            <Tag className="h-4 w-4" /> Gerenciar tipos
+          </Button>
+        )}
       </div>
 
       {/* Métricas */}
@@ -181,8 +188,16 @@ export default function GerenteClientes() {
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="Todas">Todas as origens</SelectItem>
-                {ORIGINS.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>{o.value}</SelectItem>
+                {origins.map((o) => (
+                  <SelectItem key={o.id} value={o.label}>
+                    <span className="flex items-center gap-2">
+                      <span
+                        className="w-2 h-2 rounded-full"
+                        style={{ background: o.color || "#94A3B8" }}
+                      />
+                      {o.label}
+                    </span>
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -235,12 +250,156 @@ export default function GerenteClientes() {
           </div>
         </Card>
       )}
+
+      <ManageOriginsDialog
+        open={manageOriginsOpen}
+        onOpenChange={setManageOriginsOpen}
+      />
     </div>
   );
 }
 
+function ManageOriginsDialog({ open, onOpenChange }) {
+  const { toast } = useToast();
+  const [origins, setOrigins] = useState([]);
+  const [newLabel, setNewLabel] = useState("");
+  const [newColor, setNewColor] = useState("#64748B");
+  const [newScope, setNewScope] = useState("geral");
+  const [saving, setSaving] = useState(false);
+
+  const load = async () => {
+    const list = (await localClient.entities.ClientOrigins.list()) || [];
+    setOrigins(list);
+    await invalidateClientOrigins();
+  };
+
+  useEffect(() => {
+    if (open) load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const handleCreate = async () => {
+    if (!newLabel.trim() || saving) return;
+    setSaving(true);
+    try {
+      const created = await localClient.entities.ClientOrigins.create({
+        label: newLabel.trim(),
+        color: newColor,
+        scope: newScope,
+      });
+      if (!created) {
+        toast({ title: "Erro ao criar tipo", variant: "destructive" });
+        return;
+      }
+      setNewLabel("");
+      setNewColor("#64748B");
+      setNewScope("geral");
+      await load();
+      toast({ title: "Tipo criado" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm("Excluir este tipo? Clientes já cadastrados com ele não serão alterados.")) return;
+    await localClient.entities.ClientOrigins.delete(id);
+    await load();
+    toast({ title: "Tipo excluído" });
+  };
+
+  const handleUpdateColor = async (id, color) => {
+    await localClient.entities.ClientOrigins.update(id, { color });
+    await load();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Gerenciar Tipos de Cliente</DialogTitle>
+          <DialogDescription>
+            Carteiras e origens de leads. Tipos com escopo "suporte" aparecem apenas para o time de suporte, admin e gerente.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-2 max-h-80 overflow-y-auto">
+          {origins.length === 0 && (
+            <div className="text-center text-sm text-muted-foreground py-6">
+              Nenhum tipo cadastrado.
+            </div>
+          )}
+          {origins.map((o) => (
+            <div
+              key={o.id}
+              className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
+            >
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <input
+                  type="color"
+                  value={o.color || "#64748B"}
+                  onChange={(e) => handleUpdateColor(o.id, e.target.value)}
+                  className="w-8 h-8 rounded cursor-pointer border-0 shrink-0"
+                  title="Alterar cor"
+                />
+                <span className="font-medium truncate">{o.label}</span>
+                <Badge variant="outline" className="text-xs shrink-0">
+                  {o.scope === "suporte" ? "🔒 Suporte" : "Geral"}
+                </Badge>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleDelete(o.id)}
+                className="text-red-500 hover:text-red-700 p-1 shrink-0"
+                title="Excluir tipo"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <div className="border-t pt-4 space-y-3">
+          <p className="text-sm font-semibold">Novo tipo</p>
+          <div className="flex items-end gap-2 flex-wrap">
+            <div className="flex-1 min-w-[180px]">
+              <Label className="text-xs">Nome</Label>
+              <Input
+                value={newLabel}
+                onChange={(e) => setNewLabel(e.target.value)}
+                placeholder="Ex: Carteira do João"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Cor</Label>
+              <input
+                type="color"
+                value={newColor}
+                onChange={(e) => setNewColor(e.target.value)}
+                className="block w-10 h-10 rounded cursor-pointer border"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Escopo</Label>
+              <Select value={newScope} onValueChange={setNewScope}>
+                <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="geral">Geral</SelectItem>
+                  <SelectItem value="suporte">Suporte</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button onClick={handleCreate} disabled={!newLabel.trim() || saving} className="gap-1.5">
+              <Plus className="w-4 h-4" /> Criar
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ClientRow({ client, onView }) {
-  const origin = ORIGINS.find((o) => o.value === (client.lead_origin || "Outro"));
   const phoneDigits = onlyDigits(client.phone || "");
   const wa = phoneDigits ? `https://wa.me/${phoneDigits.startsWith("55") ? phoneDigits : "55" + phoneDigits}` : null;
 
@@ -278,9 +437,7 @@ function ClientRow({ client, onView }) {
         )}
       </td>
       <td className="px-4 py-3">
-        <Badge className={cn("border", origin?.color)}>
-          {client.lead_origin || "Outro"}
-        </Badge>
+        <ClientOriginBadge origin={client.lead_origin || "Outro"} />
       </td>
       <td className="px-4 py-3 text-sm font-medium">{client.quotesCount}</td>
       <td className="px-4 py-3 text-sm font-bold">

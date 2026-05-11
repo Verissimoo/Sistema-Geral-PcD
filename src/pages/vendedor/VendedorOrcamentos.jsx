@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FileStack, Search, Plus, Eye, Calendar, DollarSign,
-  CheckCircle2, Send, FileText, Copy, Check, MoreVertical, Download,
+  CheckCircle2, Send, FileText, Copy, Check, Download,
+  Clock, XCircle, PlusCircle,
 } from "lucide-react";
 import { EmissionDialog } from "@/components/EmissionDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,9 +20,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
+  Popover, PopoverContent, PopoverTrigger,
+} from "@/components/ui/popover";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import { localClient } from "@/api/localClient";
@@ -322,7 +322,7 @@ export default function VendedorOrcamentos() {
               key={q.id}
               quote={q}
               onView={() => setDetailQuote(q)}
-              onChangeStatus={(s) => openStatusChange(q, s)}
+              onMarkRejected={() => openStatusChange(q, "Recusado")}
               onSendToEmission={() => setEmissionDialogQuote(q)}
             />
           ))}
@@ -349,6 +349,10 @@ export default function VendedorOrcamentos() {
               onCopyWhatsapp={() => copyWhatsapp(detailQuote.whatsapp_text)}
               copied={copied}
               onPDF={() => regeneratePDF(detailQuote)}
+              onNewQuoteForClient={() => {
+                setDetailQuote(null);
+                navigate(`/vendedor/orcamento?from=${detailQuote.id}`);
+              }}
             />
           )}
         </DialogContent>
@@ -432,7 +436,94 @@ function MetricCard({ icon, label, value, color = "text-foreground", isText }) {
   );
 }
 
-function QuoteRow({ quote, onView, onChangeStatus, onSendToEmission }) {
+const FOLLOWUP_STATUSES = [
+  "Enviado",
+  "FollowUp Pendente",
+  "FollowUp 1 Enviado",
+  "FollowUp 2 Enviado",
+  "FollowUp 3 Enviado",
+];
+
+function StatusActionMenu({ quote, onMarkRejected, onSendToEmission }) {
+  const isEnviadoOuFollowUp = FOLLOWUP_STATUSES.includes(quote.status);
+  const isAprovado = quote.status === "Aprovado";
+
+  const followupTime = useMemo(() => {
+    if (!isEnviadoOuFollowUp) return null;
+    const refDate = quote.last_followup_date
+      ? new Date(quote.last_followup_date)
+      : new Date(quote.created_date);
+    const hoursSince = (Date.now() - refDate.getTime()) / (1000 * 60 * 60);
+    const hoursLeft = Math.max(0, 24 - hoursSince);
+    if (hoursLeft === 0) return "Follow-up pendente agora";
+    const h = Math.floor(hoursLeft);
+    const m = Math.floor((hoursLeft - h) * 60);
+    return `Próximo follow-up em ${h}h ${m}min`;
+  }, [isEnviadoOuFollowUp, quote.status, quote.last_followup_date, quote.created_date]);
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button type="button" className="inline-flex" title="Ações de status">
+          <Badge
+            className={cn(
+              "font-medium border cursor-pointer",
+              STATUS_STYLES[quote.status] || STATUS_STYLES.Enviado,
+            )}
+          >
+            {STATUS_LABELS[quote.status] || quote.status || "Enviado"}
+          </Badge>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-72 p-2">
+        <div className="space-y-1">
+          {followupTime && (
+            <div className="px-3 py-2 text-xs bg-amber-50 border border-amber-200 rounded-md text-amber-800 flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5 shrink-0" /> {followupTime}
+            </div>
+          )}
+
+          {isEnviadoOuFollowUp && (
+            <>
+              <button
+                type="button"
+                onClick={() => onSendToEmission(quote)}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 rounded-md flex items-center gap-2 text-blue-700"
+              >
+                <Send className="h-4 w-4" /> Enviar para Emissão (cliente aprovou)
+              </button>
+              <button
+                type="button"
+                onClick={() => onMarkRejected(quote)}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-red-50 rounded-md flex items-center gap-2 text-red-600"
+              >
+                <XCircle className="h-4 w-4" /> Marcar como Recusado
+              </button>
+            </>
+          )}
+
+          {isAprovado && (
+            <button
+              type="button"
+              onClick={() => onSendToEmission(quote)}
+              className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 rounded-md flex items-center gap-2 text-blue-700 font-medium"
+            >
+              <Send className="h-4 w-4" /> Enviar para Emissão
+            </button>
+          )}
+
+          {["Aguardando Emissão", "Emitido", "Recusado", "Cancelado"].includes(quote.status) && (
+            <div className="px-3 py-2 text-xs text-muted-foreground">
+              Sem ações disponíveis neste status
+            </div>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function QuoteRow({ quote, onView, onMarkRejected, onSendToEmission }) {
   const ida = quote.itinerary?.trechos?.find((t) => t.tipo === "ida")
     || quote.itinerary?.trechos?.[0];
   const route = ida ? `${ida.origem_iata} → ${ida.destino_iata}` : "—";
@@ -465,24 +556,17 @@ function QuoteRow({ quote, onView, onChangeStatus, onSendToEmission }) {
             <div className="font-bold text-base">{formatBRL(quote.total_value)}</div>
           </div>
 
-          <Badge className={cn("font-medium border", STATUS_STYLES[quote.status] || STATUS_STYLES.Enviado)}>
-            {STATUS_LABELS[quote.status] || quote.status || "Enviado"}
-          </Badge>
+          <StatusActionMenu
+            quote={quote}
+            onMarkRejected={onMarkRejected}
+            onSendToEmission={onSendToEmission}
+          />
 
           <span className="text-xs text-muted-foreground whitespace-nowrap">
             {timeAgo(quote.created_date)}
           </span>
 
           <div className="flex items-center gap-1 justify-end flex-wrap">
-            {quote.status === "Aprovado" && (
-              <Button
-                size="sm"
-                onClick={onSendToEmission}
-                className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5"
-              >
-                <Send className="h-3.5 w-3.5" /> Enviar para Emissão
-              </Button>
-            )}
             {quote.status === "Emitido" && quote.emission_voucher_url && (
               <a
                 href={quote.emission_voucher_url}
@@ -496,22 +580,6 @@ function QuoteRow({ quote, onView, onChangeStatus, onSendToEmission }) {
             <Button size="sm" variant="ghost" onClick={onView} className="gap-1.5">
               <Eye className="h-3.5 w-3.5" /> Detalhes
             </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="icon" variant="ghost">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Alterar status</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {STATUSES.filter((s) => s !== quote.status).map((s) => (
-                  <DropdownMenuItem key={s} onClick={() => onChangeStatus(s)}>
-                    {STATUS_LABELS[s] || s}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
         </div>
       </CardContent>
@@ -519,7 +587,8 @@ function QuoteRow({ quote, onView, onChangeStatus, onSendToEmission }) {
   );
 }
 
-function QuoteDetail({ quote, onCopyWhatsapp, copied, onPDF }) {
+function QuoteDetail({ quote, onCopyWhatsapp, copied, onPDF, onNewQuoteForClient }) {
+  const isParceiroQuote = quote.recipient_type === "parceiro";
   return (
     <div className="space-y-4 text-sm">
       {/* Cliente */}
@@ -528,6 +597,17 @@ function QuoteDetail({ quote, onCopyWhatsapp, copied, onPDF }) {
         <Field label="Telefone" value={quote.client?.phone || "—"} />
         <Field label="Origem do lead" value={quote.client?.lead_origin || "—"} />
       </Section>
+
+      {/* Nova cotação para o mesmo cliente */}
+      {!isParceiroQuote && onNewQuoteForClient && (
+        <Button
+          onClick={onNewQuoteForClient}
+          variant="outline"
+          className="w-full gap-2 border-amber-300 text-amber-700 hover:bg-amber-50 hover:text-amber-800"
+        >
+          <PlusCircle className="h-4 w-4" /> Nova cotação para este cliente
+        </Button>
+      )}
 
       {/* Itinerário */}
       <Section title="Itinerário">

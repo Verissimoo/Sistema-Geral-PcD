@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   FileText, Plane, Palmtree, User, UserPlus, Search, Lock,
   ImagePlus, X, Check, Loader2, AlertTriangle, Info,
@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 import { localClient } from "@/api/localClient";
 import { openQuoteInNewTab } from "@/lib/generateQuoteHTML";
 import { useAuth } from "@/lib/AuthContext";
+import { useClientOrigins } from "@/lib/useClientOrigins";
 import { getCostForMiles, getSaleForMiles, getTierForMiles } from "@/lib/milesHelper";
 import { parseBR, sanitizeBRInput } from "@/lib/parseBR";
 
@@ -64,15 +65,6 @@ const calculateDuration = (departure, arrival) => {
   const minutes = diff % 60;
   return `${hours}h ${String(minutes).padStart(2, "0")}min`;
 };
-
-const LEAD_ORIGINS = [
-  "Marketing (Zenvia)",
-  "Carteira própria",
-  "Indicação",
-  "Instagram",
-  "Google",
-  "Outro",
-];
 
 const TICKET_TYPES = [
   { value: "Normal", help: "Bilhete padrão ponto a ponto" },
@@ -115,6 +107,9 @@ const initialFormData = {
     insurance: { active: false, value: "" },
     transfer: { active: false, value: "" },
   },
+  // Cotação derivada (mesmo cliente)
+  parent_quote_id: null,
+  quote_sequence: 1,
 };
 
 // ─── Stepper ────────────────────────────────────────────────────────
@@ -177,6 +172,7 @@ function BlocoCliente({ formData, setFormData }) {
   const [newClient, setNewClient] = useState({ name: "", phone: "", lead_origin: "" });
   const { toast } = useToast();
   const { user, isAdmin } = useAuth();
+  const clientOrigins = useClientOrigins();
 
   useEffect(() => {
     (async () => {
@@ -374,8 +370,16 @@ function BlocoCliente({ formData, setFormData }) {
                 <SelectValue placeholder="Selecione..." />
               </SelectTrigger>
               <SelectContent>
-                {LEAD_ORIGINS.map((o) => (
-                  <SelectItem key={o} value={o}>{o}</SelectItem>
+                {clientOrigins.map((o) => (
+                  <SelectItem key={o.id} value={o.label}>
+                    <span className="flex items-center gap-2">
+                      <span
+                        className="w-2 h-2 rounded-full"
+                        style={{ background: o.color || "#94A3B8" }}
+                      />
+                      {o.label}
+                    </span>
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -2258,6 +2262,8 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
       seller_id: user?.id || null,
       status: "Enviado",
       whatsapp_text: text,
+      parent_quote_id: isParceiroMode ? null : (formData.parent_quote_id || null),
+      quote_sequence: formData.quote_sequence || 1,
     });
     if (!quote) {
       toast({ title: "Erro ao salvar orçamento no servidor", variant: "destructive" });
@@ -2462,8 +2468,82 @@ export default function VendedorOrcamento() {
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState([]);
   const [formData, setFormData] = useState(initialFormData);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const fromQuoteId = searchParams.get("from");
+  const { toast: orcamentoToast } = useToast();
 
   const apiKeyMissing = !import.meta.env.VITE_ANTHROPIC_API_KEY;
+
+  // Pré-preenche o gerador a partir de uma cotação existente (mesmo cliente, novos voos)
+  useEffect(() => {
+    if (!fromQuoteId) return;
+    let cancelled = false;
+    (async () => {
+      const parent = await localClient.entities.Quotes.get(fromQuoteId);
+      if (!parent || cancelled) return;
+      // Apenas para destinatário "cliente"
+      if (parent.recipient_type === "parceiro") {
+        orcamentoToast({
+          title: "Cotação derivada não disponível",
+          description: "Cotações de parceiro não suportam derivação.",
+          variant: "destructive",
+        });
+        return;
+      }
+      const all = (await localClient.entities.Quotes.list()) || [];
+      // Conta head + filhos da mesma família para gerar a sequence
+      const headId = parent.parent_quote_id || parent.id;
+      const siblings = all.filter(
+        (q) => q.id === headId || q.parent_quote_id === headId
+      );
+      const nextSequence = siblings.length + 1;
+
+      setFormData((prev) => ({
+        ...prev,
+        recipient_type: "cliente",
+        partner_id: null,
+        partner_name: null,
+        client: parent.client || null,
+        passengers: parent.passengers || 1,
+        baggage: parent.baggage || prev.baggage,
+        product: parent.product || prev.product,
+        ticket_type: parent.ticket_type || prev.ticket_type,
+        parent_quote_id: headId,
+        quote_sequence: nextSequence,
+        // Limpa os dados que devem ser preenchidos novamente
+        flight_images: [],
+        itinerary: { trechos: [] },
+        itinerary_reviewed: false,
+        departure_date: "",
+        return_date: "",
+        one_way: false,
+        pricing: { ...initialFormData.pricing },
+        additional: { ...initialFormData.additional },
+        competitor: { ...initialFormData.competitor },
+        services: { ...initialFormData.services },
+      }));
+      // Pula o Bloco 1 (Cliente) já preenchido
+      setCompletedSteps((p) => Array.from(new Set([...p, 1])));
+      setCurrentStep(2);
+      orcamentoToast({
+        title: "Nova cotação para o mesmo cliente",
+        description: `Cotação #${nextSequence} para ${parent.client?.name || "este cliente"}. Preencha os novos voos e valores.`,
+      });
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromQuoteId]);
+
+  const unlinkParent = () => {
+    setFormData((p) => ({ ...p, parent_quote_id: null, quote_sequence: 1 }));
+    const next = new URLSearchParams(searchParams);
+    next.delete("from");
+    setSearchParams(next, { replace: true });
+    orcamentoToast({
+      title: "Vínculo removido",
+      description: "Esta cotação não estará mais vinculada ao cliente anterior.",
+    });
+  };
 
   // Cálculos derivados — considera nº de passageiros e modo "Cobrado por: pessoa | total".
   const totalValue = useMemo(() => {
@@ -2567,6 +2647,29 @@ export default function VendedorOrcamento() {
           <span className="text-amber-700 dark:text-amber-400">
             Configure VITE_ANTHROPIC_API_KEY no .env para usar a extração automática de itinerário.
           </span>
+        </div>
+      )}
+
+      {formData.parent_quote_id && (
+        <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-4 flex items-start gap-3">
+          <div className="w-10 h-10 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold flex-shrink-0">
+            #{formData.quote_sequence}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-amber-900">
+              Nova cotação para {formData.client?.name || formData.partner_name || "este cliente"}
+            </p>
+            <p className="text-sm text-amber-700 mt-1">
+              Cotação #{formData.quote_sequence} para este cliente. Os dados de cliente, passageiros e bagagem foram mantidos. Preencha os novos voos e valores.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={unlinkParent}
+            className="text-amber-700 hover:text-amber-900 text-sm underline shrink-0"
+          >
+            Desvincular
+          </button>
         </div>
       )}
 

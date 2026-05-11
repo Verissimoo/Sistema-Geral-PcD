@@ -78,6 +78,8 @@ export const localClient = {
     Contractors: supabaseStore('pcd_contractors'),
     Projects: supabaseStore('pcd_projects'),
     Partners: supabaseStore('pcd_partners'),
+    PartnerCompanies: supabaseStore('pcd_partner_companies'),
+    ClientOrigins: supabaseStore('pcd_client_origins'),
   },
 };
 

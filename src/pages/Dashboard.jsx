@@ -16,6 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import { localClient } from "@/api/localClient";
 import { CAREER_LEVELS } from "@/lib/careerPlan";
+import { filterCommercialQuotes } from "@/lib/commercialFilter";
 
 const formatBRL = (v) =>
   Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -121,12 +122,19 @@ export default function Dashboard() {
     return { start, end: now };
   }, [periodo, periodoCustom]);
 
+  // Apenas vendas feitas por vendedor/gerente contam para métricas comerciais.
+  // Suporte e parceiro são excluídos das metas.
+  const commercialQuotes = useMemo(
+    () => filterCommercialQuotes(quotes, users),
+    [quotes, users]
+  );
+
   const filteredQuotes = useMemo(() => {
-    return quotes.filter((q) => {
+    return commercialQuotes.filter((q) => {
       const d = new Date(q.created_date);
       return d >= periodRange.start && d <= periodRange.end;
     });
-  }, [quotes, periodRange]);
+  }, [commercialQuotes, periodRange]);
 
   // ── Métricas ──────────────────────────────────────────────────────
   const today = useMemo(() => new Date(), []);
@@ -137,11 +145,12 @@ export default function Dashboard() {
   }, []);
 
   const metrics = useMemo(() => {
-    // "Cotações Hoje / Ontem" são sempre referentes ao dia (independente do filtro)
-    const cotacoesHoje = quotes.filter((q) =>
+    // "Cotações Hoje / Ontem" são sempre referentes ao dia (independente do filtro).
+    // Apenas cotações de vendedor/gerente contam para métricas comerciais.
+    const cotacoesHoje = commercialQuotes.filter((q) =>
       isSameDay(new Date(q.created_date), today)
     ).length;
-    const cotacoesOntem = quotes.filter((q) =>
+    const cotacoesOntem = commercialQuotes.filter((q) =>
       isSameDay(new Date(q.created_date), yesterday)
     ).length;
 
@@ -175,7 +184,7 @@ export default function Dashboard() {
       vendedoresAtivos: vendedoresAtivos.length,
       emFormacao,
     };
-  }, [quotes, filteredQuotes, users, today, yesterday]);
+  }, [commercialQuotes, filteredQuotes, users, today, yesterday]);
 
   // ── Série de barras adaptativa ao período ─────────────────────────
   const chartData = useMemo(() => {
@@ -273,7 +282,7 @@ export default function Dashboard() {
       : 0;
     const remainingDays = Math.max(0, totalDays - elapsedDays);
 
-    const sold = quotes
+    const sold = commercialQuotes
       .filter((q) => {
         const d = new Date(q.created_date);
         return (
@@ -289,7 +298,7 @@ export default function Dashboard() {
     const dailyNeeded = remainingDays > 0 ? missing / remainingDays : 0;
 
     return { sold, target, pct, missing, dailyAvg, dailyNeeded };
-  }, [activeGoal, quotes]);
+  }, [activeGoal, commercialQuotes]);
 
   // ── Status counts (no período) ────────────────────────────────────
   const statusCounts = useMemo(() => {

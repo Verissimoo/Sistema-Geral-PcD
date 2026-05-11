@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   FileStack, Search, Eye, FileText, Download,
   AlertTriangle, Clock, ShoppingCart, DollarSign, TrendingUp, Handshake,
+  PlusCircle,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -462,7 +463,17 @@ export default function GerenteOrcamentos() {
               </Badge>
             </DialogDescription>
           </DialogHeader>
-          {detailQuote && <QuoteDetail quote={detailQuote} onPDF={() => exportPDF(detailQuote)} />}
+          {detailQuote && (
+            <QuoteDetail
+              quote={detailQuote}
+              onPDF={() => exportPDF(detailQuote)}
+              onNewQuoteForClient={() => {
+                const target = detailQuote;
+                setDetailQuote(null);
+                navigate(`/vendedor/orcamento?from=${target.id}`);
+              }}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>
@@ -603,10 +614,19 @@ function QuoteRow({ quote, seller, onView, onChangeStatus, onPDF, onClickClient 
   );
 }
 
-function QuoteDetail({ quote, onPDF }) {
+function QuoteDetail({ quote, onPDF, onNewQuoteForClient }) {
   const isParceiro = quote.recipient_type === "parceiro";
   return (
     <div className="space-y-4 text-sm">
+      {!isParceiro && onNewQuoteForClient && (
+        <Button
+          onClick={onNewQuoteForClient}
+          variant="outline"
+          className="w-full gap-2 border-amber-300 text-amber-700 hover:bg-amber-50 hover:text-amber-800"
+        >
+          <PlusCircle className="h-4 w-4" /> Nova cotação para este cliente
+        </Button>
+      )}
       {isParceiro ? (
         <>
           <DetailSection title="Parceiro">

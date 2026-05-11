@@ -5,7 +5,7 @@ import {
   Settings, X, Briefcase, Calendar,
   Store, ChevronDown, Wrench, Star, Info, Target, Kanban, FileStack, BookOpen,
   LogOut, Trophy, BarChart3, UserSearch, Shield, Handshake,
-  Headset, Send, CheckCircle,
+  Headset, Send, CheckCircle, Building2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -42,11 +42,13 @@ const vendedorSubItems = [
 const parceiroSubItems = [
   { label: "Meus Orçamentos", icon: FileStack, path: "/parceiro/orcamentos" },
   { label: "Meus Clientes", icon: Users, path: "/parceiro/clientes" },
+  { label: "Minha Empresa", icon: Building2, path: "/parceiro/empresa" },
 ];
 
 const suporteSubItems = [
   { label: "Emissões Pendentes", icon: Send, path: "/suporte/emissoes" },
   { label: "Histórico Emitido", icon: CheckCircle, path: "/suporte/historico" },
+  { label: "Contatos", icon: Users, path: "/suporte/contatos" },
 ];
 
 const usuariosItem = { label: "Usuários", icon: Shield, path: "/usuarios" };
@@ -63,7 +65,8 @@ const initials = (name = "") =>
 export default function Sidebar({ open, onClose }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout, isAdmin, isVendedor, isParceiro, isSuporte } = useAuth();
+  const { user, logout, isAdmin, isVendedor, isParceiro, isSuporte, isGerente } = useAuth();
+  const isAdminOrGerente = isAdmin || isGerente;
 
   const isVendedorRoute = location.pathname.startsWith("/vendedor");
   const isGerenteRoute = location.pathname.startsWith("/gerente");
@@ -172,11 +175,13 @@ export default function Sidebar({ open, onClose }) {
 
   const roleBadge = isAdmin
     ? { label: "Administrador", className: "bg-[#0B1E3D] text-white hover:bg-[#0B1E3D]" }
-    : isParceiro
-      ? { label: "Parceiro", className: "bg-purple-600 text-white hover:bg-purple-600" }
-      : isSuporte
-        ? { label: "Suporte", className: "bg-emerald-600 text-white hover:bg-emerald-600" }
-        : { label: "Vendedor", className: "bg-amber-500 text-white hover:bg-amber-500" };
+    : isGerente
+      ? { label: "Gerente", className: "bg-purple-600 text-white hover:bg-purple-600" }
+      : isParceiro
+        ? { label: "Parceiro", className: "bg-purple-600 text-white hover:bg-purple-600" }
+        : isSuporte
+          ? { label: "Suporte", className: "bg-emerald-600 text-white hover:bg-emerald-600" }
+          : { label: "Vendedor", className: "bg-amber-500 text-white hover:bg-amber-500" };
 
   return (
     <>
@@ -245,14 +250,14 @@ export default function Sidebar({ open, onClose }) {
             </>
           )}
 
-          {/* Demais portais — admin / vendedor */}
+          {/* Demais portais — admin / gerente / vendedor */}
           {!isParceiro && !isSuporte && (
             <>
-              {/* Dashboard — admin */}
-              {isAdmin && renderNavItem(inicioItem)}
+              {/* Dashboard — admin + gerente */}
+              {isAdminOrGerente && renderNavItem(inicioItem)}
 
-              {/* Portal do Gerente — admin */}
-              {isAdmin &&
+              {/* Portal do Gerente — admin + gerente */}
+              {isAdminOrGerente &&
                 renderGroup(
                   "Portal do Gerente",
                   BarChart3,
@@ -262,8 +267,8 @@ export default function Sidebar({ open, onClose }) {
                   gerenteSubItems
                 )}
 
-              {/* Portal do Suporte — admin */}
-              {isAdmin &&
+              {/* Portal do Suporte — admin + gerente */}
+              {isAdminOrGerente &&
                 renderGroup(
                   "Portal do Suporte",
                   Headset,
@@ -273,8 +278,8 @@ export default function Sidebar({ open, onClose }) {
                   suporteSubItems
                 )}
 
-              {/* Portal de Contratos — admin */}
-              {isAdmin &&
+              {/* Portal de Contratos — admin + gerente */}
+              {isAdminOrGerente &&
                 renderGroup(
                   "Portal de Contratos",
                   Briefcase,
@@ -284,7 +289,7 @@ export default function Sidebar({ open, onClose }) {
                   contratosSubItems
                 )}
 
-              {/* Portal do Vendedor — admin + vendedor */}
+              {/* Portal do Vendedor — admin + gerente + vendedor */}
               {renderGroup(
                 "Portal do Vendedor",
                 Store,
@@ -295,9 +300,9 @@ export default function Sidebar({ open, onClose }) {
                 true
               )}
 
-              {/* Usuários + Configurações — admin */}
-              {isAdmin && renderNavItem(usuariosItem)}
-              {isAdmin && renderNavItem(settingsItem)}
+              {/* Usuários + Configurações — admin + gerente */}
+              {isAdminOrGerente && renderNavItem(usuariosItem)}
+              {isAdminOrGerente && renderNavItem(settingsItem)}
             </>
           )}
         </nav>

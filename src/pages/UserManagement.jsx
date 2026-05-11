@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import {
   Users, UserPlus, Pencil, ShieldCheck, ShieldOff, Lock,
-  Crown, AlertCircle, Eye, EyeOff,
+  Crown, AlertCircle, Eye, EyeOff, Trash2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,10 +14,15 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import { localClient } from "@/api/localClient";
 import { CAREER_LEVELS } from "@/lib/careerPlan";
+import { useAuth } from "@/lib/AuthContext";
 
 const ADMIN_USERNAME = "admin";
 
@@ -38,12 +43,15 @@ const fmtDate = (iso) => {
 
 export default function UserManagement() {
   const { toast } = useToast();
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ name: "", username: "", password: "", confirm: "", status: "Ativo", career_level: "N0", role: "vendedor" });
   const [showPwd, setShowPwd] = useState(false);
   const [formError, setFormError] = useState("");
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const reload = async () => {
     const list = await localClient.entities.Users.list();
@@ -144,9 +152,14 @@ export default function UserManagement() {
           setSaving(false);
           return;
         }
+        const roleLabel = created.role === "suporte"
+          ? "Suporte"
+          : created.role === "gerente"
+            ? "Gerente"
+            : "Vendedor";
         toast({
           title: "Usuário criado",
-          description: `${created.role === "suporte" ? "Suporte" : "Vendedor"} "${created.username}" salvo no banco. Pode fazer login de qualquer computador.`,
+          description: `${roleLabel} "${created.username}" salvo no banco. Pode fazer login de qualquer computador.`,
         });
       }
       setDialogOpen(false);
@@ -166,6 +179,49 @@ export default function UserManagement() {
     }
     toast({ title: `Usuário ${next.toLowerCase()}`, description: u.name });
     await reload();
+  };
+
+  const handleDelete = async (u) => {
+    if (!u) return;
+    if (u.username === ADMIN_USERNAME) {
+      toast({
+        title: "Não permitido",
+        description: "O admin do sistema não pode ser excluído.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (u.id === currentUser?.id) {
+      toast({
+        title: "Não permitido",
+        description: "Você não pode excluir sua própria conta.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (deleting) return;
+    setDeleting(true);
+    try {
+      const result = await localClient.entities.Users.delete(u.id);
+      if (!result) {
+        toast({ title: "Erro ao excluir usuário", variant: "destructive" });
+        return;
+      }
+      toast({
+        title: "Usuário excluído",
+        description: `${u.name} foi removido do sistema. Cotações anteriores preservam o nome no histórico.`,
+      });
+      setUserToDelete(null);
+      await reload();
+    } catch (err) {
+      toast({
+        title: "Erro ao excluir",
+        description: err.message || "Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -231,12 +287,20 @@ export default function UserManagement() {
                     "border",
                     u.role === "admin"
                       ? "bg-[#0B1E3D] text-white border-transparent hover:bg-[#0B1E3D]"
-                      : u.role === "suporte"
-                        ? "bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
-                        : "bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100"
+                      : u.role === "gerente"
+                        ? "bg-purple-600 text-white border-transparent hover:bg-purple-600"
+                        : u.role === "suporte"
+                          ? "bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
+                          : "bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100"
                   )}
                 >
-                  {u.role === "admin" ? "Admin" : u.role === "suporte" ? "Suporte" : "Vendedor"}
+                  {u.role === "admin"
+                    ? "Admin"
+                    : u.role === "gerente"
+                      ? "Gerente"
+                      : u.role === "suporte"
+                        ? "Suporte"
+                        : "Vendedor"}
                 </Badge>
                 <Badge
                   className={cn(
@@ -270,6 +334,22 @@ export default function UserManagement() {
                   >
                     {u.status === "Ativo" ? <ShieldOff className="h-3.5 w-3.5" /> : <ShieldCheck className="h-3.5 w-3.5" />}
                     {u.status === "Ativo" ? "Desativar" : "Ativar"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setUserToDelete(u)}
+                    disabled={isSystemAdmin || u.id === currentUser?.id}
+                    title={
+                      isSystemAdmin
+                        ? "Admin do sistema não pode ser excluído"
+                        : u.id === currentUser?.id
+                          ? "Você não pode excluir sua própria conta"
+                          : "Excluir usuário"
+                    }
+                    className="gap-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 disabled:opacity-30"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> Excluir
                   </Button>
                 </div>
               </CardContent>
@@ -365,6 +445,7 @@ export default function UserManagement() {
                     <SelectContent>
                       <SelectItem value="vendedor">Vendedor</SelectItem>
                       <SelectItem value="suporte">Suporte</SelectItem>
+                      <SelectItem value="gerente">Gerente</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -437,6 +518,44 @@ export default function UserManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Confirmação de exclusão permanente */}
+      <AlertDialog
+        open={!!userToDelete}
+        onOpenChange={(open) => !open && !deleting && setUserToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Excluir {userToDelete?.name}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. O usuário será permanentemente removido do sistema.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-3 text-sm">
+            <div className="text-amber-800 bg-amber-50 border border-amber-200 rounded p-3">
+              ⚠️ Cotações criadas por este usuário <strong>permanecem no sistema</strong> com o nome dele preservado no histórico, mas ele não poderá mais fazer login.
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Se você só quer impedir o acesso temporariamente, use a opção <strong>Desativar</strong> em vez de excluir.
+            </p>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleDelete(userToDelete);
+              }}
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {deleting ? "Excluindo..." : "Sim, excluir permanentemente"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

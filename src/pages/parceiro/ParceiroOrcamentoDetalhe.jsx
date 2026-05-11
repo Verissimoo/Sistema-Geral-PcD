@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft, Plane, Calendar, User, Phone, Mail, DollarSign,
   Save, FileText, AlertCircle, TrendingUp, Loader2, CheckCircle2,
+  Briefcase, Sparkles,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import { localClient } from "@/api/localClient";
@@ -41,6 +43,9 @@ export default function ParceiroOrcamentoDetalhe() {
   const [clientName, setClientName] = useState("");
   const [clientPhone, setClientPhone] = useState("");
   const [clientEmail, setClientEmail] = useState("");
+  const [partnerInfo, setPartnerInfo] = useState({ name: "", phone: "", email: "" });
+  const [coBranding, setCoBranding] = useState(false);
+  const [company, setCompany] = useState(null);
 
   useEffect(() => {
     const load = async () => {
@@ -66,11 +71,31 @@ export default function ParceiroOrcamentoDetalhe() {
         setClientName(q.partner_client_data.name || "");
         setClientPhone(q.partner_client_data.phone || "");
         setClientEmail(q.partner_client_data.email || "");
+        setPartnerInfo({
+          name: q.partner_client_data.partner_name || user?.name || "",
+          phone: q.partner_client_data.partner_phone || user?.phone || "",
+          email: q.partner_client_data.partner_email || user?.email || "",
+        });
+      } else {
+        setPartnerInfo({
+          name: user?.name || "",
+          phone: user?.phone || "",
+          email: user?.email || "",
+        });
       }
+      setCoBranding(q.partner_co_branding === true);
+
+      // Carrega empresa do parceiro (para o PDF)
+      const partner = await localClient.entities.Partners.get(user.id);
+      if (partner?.company_id) {
+        const c = await localClient.entities.PartnerCompanies.get(partner.company_id);
+        if (c) setCompany(c);
+      }
+
       setLoading(false);
     };
     if (user?.id) load();
-  }, [id, user?.id, navigate, toast]);
+  }, [id, user?.id, user?.name, user?.phone, user?.email, navigate, toast]);
 
   const niponBase = useMemo(() => {
     if (!quote) return 0;
@@ -92,6 +117,14 @@ export default function ParceiroOrcamentoDetalhe() {
       toast({ title: "Informe um valor de venda válido", variant: "destructive" });
       return;
     }
+    if (!partnerInfo.name?.trim() || !partnerInfo.phone?.trim()) {
+      toast({
+        title: "Seus dados de parceiro são obrigatórios",
+        description: "Preencha pelo menos nome e telefone.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (!clientName.trim()) {
       toast({ title: "Nome do cliente é obrigatório", variant: "destructive" });
       return;
@@ -104,7 +137,11 @@ export default function ParceiroOrcamentoDetalhe() {
           name: clientName.trim(),
           phone: clientPhone.trim(),
           email: clientEmail.trim(),
+          partner_name: partnerInfo.name.trim(),
+          partner_phone: partnerInfo.phone.trim(),
+          partner_email: partnerInfo.email.trim(),
         },
+        partner_co_branding: coBranding,
         total_value: saleValueNumber,
         pricing: {
           ...(quote.pricing || {}),
@@ -123,9 +160,28 @@ export default function ParceiroOrcamentoDetalhe() {
     }
   };
 
-  const handleViewPDF = () => {
+  const handleViewPDF = async () => {
     if (!quote) return;
     const finalSale = saleValueNumber > 0 ? saleValueNumber : (quote.partner_sale_value || niponBase);
+
+    // Persiste a preferência de co-branding antes de gerar
+    if (quote.partner_co_branding !== coBranding) {
+      try {
+        await localClient.entities.Quotes.update(quote.id, { partner_co_branding: coBranding });
+      } catch {
+        /* não bloqueia geração */
+      }
+    }
+
+    // Recarrega empresa em caso de alteração recente
+    let companyForPDF = company;
+    if (!companyForPDF) {
+      const partner = await localClient.entities.Partners.get(user.id);
+      if (partner?.company_id) {
+        companyForPDF = await localClient.entities.PartnerCompanies.get(partner.company_id);
+      }
+    }
+
     openQuoteInNewTab({
       quote_number: quote.quote_number || `PCD-${quote.id?.slice(0, 5).toUpperCase()}`,
       client: {
@@ -145,8 +201,20 @@ export default function ParceiroOrcamentoDetalhe() {
       services: { insurance: { active: false, value: 0 }, transfer: { active: false, value: 0 } },
       total_value: finalSale,
       commission: { base: 0, extra: 0, total: 0 },
-      seller_name: user?.name || "Parceiro",
+      seller_name: partnerInfo.name || user?.name || "Parceiro",
       created_date: quote.created_date,
+      // Dados de co-branding e empresa do parceiro
+      recipient_type: "parceiro",
+      partner_co_branding: coBranding,
+      company: companyForPDF,
+      partner_client_data: {
+        name: clientName,
+        phone: clientPhone,
+        email: clientEmail,
+        partner_name: partnerInfo.name,
+        partner_phone: partnerInfo.phone,
+        partner_email: partnerInfo.email,
+      },
     });
   };
 
@@ -285,6 +353,52 @@ export default function ParceiroOrcamentoDetalhe() {
         </CardContent>
       </Card>
 
+      {/* Dados do parceiro (você) */}
+      <Card className="border-amber-200 bg-amber-50/40">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm flex items-center gap-2 text-amber-900">
+            <Briefcase className="h-4 w-4" /> Seus dados (Parceiro)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="p-name">Seu nome *</Label>
+            <Input
+              id="p-name"
+              value={partnerInfo.name}
+              onChange={(e) => setPartnerInfo((p) => ({ ...p, name: e.target.value }))}
+              placeholder="Como aparecerá no orçamento"
+            />
+          </div>
+          <div className="grid md:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="p-phone" className="flex items-center gap-1">
+                <Phone className="h-3.5 w-3.5" /> Seu telefone *
+              </Label>
+              <Input
+                id="p-phone"
+                value={partnerInfo.phone}
+                onChange={(e) => setPartnerInfo((p) => ({ ...p, phone: e.target.value }))}
+                placeholder="(00) 00000-0000"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="p-email" className="flex items-center gap-1">
+                <Mail className="h-3.5 w-3.5" /> Seu email{" "}
+                <span className="text-xs text-muted-foreground">(opcional)</span>
+              </Label>
+              <Input
+                id="p-email"
+                type="email"
+                value={partnerInfo.email}
+                onChange={(e) => setPartnerInfo((p) => ({ ...p, email: e.target.value }))}
+                placeholder="voce@email.com"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Dados do cliente */}
       <Card className="border-border/50">
         <CardHeader className="pb-3">
@@ -337,11 +451,39 @@ export default function ParceiroOrcamentoDetalhe() {
         </div>
       )}
 
+      {/* Co-branding */}
+      <Card className="border-border/50">
+        <CardContent className="p-4">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <Checkbox
+              checked={coBranding}
+              onCheckedChange={(v) => setCoBranding(v === true)}
+              className="mt-0.5"
+            />
+            <div>
+              <p className="font-medium text-sm flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                Mostrar parceria com PassagensComDesconto
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Adiciona a tag "em parceria com PassagensComDesconto" no rodapé do PDF, junto da logo.
+              </p>
+            </div>
+          </label>
+        </CardContent>
+      </Card>
+
       {/* Ações */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
         <Button
           onClick={handleSave}
-          disabled={saving || saleValueNumber <= 0 || !clientName.trim()}
+          disabled={
+            saving ||
+            saleValueNumber <= 0 ||
+            !clientName.trim() ||
+            !partnerInfo.name.trim() ||
+            !partnerInfo.phone.trim()
+          }
           className="bg-purple-600 hover:bg-purple-700 text-white gap-2 h-12"
         >
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}

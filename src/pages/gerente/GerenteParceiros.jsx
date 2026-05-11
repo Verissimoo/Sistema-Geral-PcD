@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import {
   Handshake, UserPlus, Pencil, ShieldCheck, ShieldOff,
-  AlertCircle, Eye, EyeOff, Building2, Phone, Mail,
+  AlertCircle, Eye, EyeOff, Building2, Phone, Mail, Trash2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,10 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import { localClient } from "@/api/localClient";
@@ -50,6 +54,8 @@ export default function GerenteParceiros() {
   const [showPwd, setShowPwd] = useState(false);
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [partnerToDelete, setPartnerToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const reload = async () => {
     const list = await localClient.entities.Partners.list();
@@ -169,6 +175,40 @@ export default function GerenteParceiros() {
     await reload();
   };
 
+  const handleDelete = async (p) => {
+    if (!p || deleting) return;
+    setDeleting(true);
+    try {
+      // Desvincula empresa do parceiro (mantém o registro da empresa)
+      if (p.company_id) {
+        try {
+          await localClient.entities.PartnerCompanies.update(p.company_id, { partner_id: null });
+        } catch (err) {
+          console.warn("Falha ao desvincular empresa do parceiro:", err);
+        }
+      }
+      const result = await localClient.entities.Partners.delete(p.id);
+      if (!result) {
+        toast({ title: "Erro ao excluir parceiro", variant: "destructive" });
+        return;
+      }
+      toast({
+        title: "Parceiro excluído",
+        description: `${p.name} foi removido. Orçamentos anteriores permanecem no histórico.`,
+      });
+      setPartnerToDelete(null);
+      await reload();
+    } catch (err) {
+      toast({
+        title: "Erro ao excluir",
+        description: err.message || "Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-12">
       {/* Header */}
@@ -258,6 +298,15 @@ export default function GerenteParceiros() {
                 >
                   {p.status === "Ativo" ? <ShieldOff className="h-3.5 w-3.5" /> : <ShieldCheck className="h-3.5 w-3.5" />}
                   {p.status === "Ativo" ? "Desativar" : "Ativar"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setPartnerToDelete(p)}
+                  title="Excluir parceiro"
+                  className="gap-1.5 text-red-600 hover:text-red-700 hover:bg-red-50"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Excluir
                 </Button>
               </div>
             </CardContent>
@@ -416,6 +465,49 @@ export default function GerenteParceiros() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Confirmação de exclusão permanente */}
+      <AlertDialog
+        open={!!partnerToDelete}
+        onOpenChange={(open) => !open && !deleting && setPartnerToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Excluir {partnerToDelete?.name}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. O parceiro será permanentemente removido do sistema.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-3 text-sm">
+            <div className="text-amber-800 bg-amber-50 border border-amber-200 rounded p-3">
+              ⚠️ Orçamentos vinculados a este parceiro <strong>permanecem no sistema</strong> com o nome dele preservado no histórico. Ele não poderá mais acessar o portal.
+            </div>
+            {partnerToDelete?.company_id && (
+              <div className="text-sm text-muted-foreground bg-slate-50 border border-slate-200 rounded p-3">
+                A empresa vinculada (cadastrada em "Minha Empresa") será <strong>desvinculada</strong>, mas o registro da empresa não é apagado.
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Se você só quer impedir o acesso temporariamente, use <strong>Desativar</strong> em vez de excluir.
+            </p>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleDelete(partnerToDelete);
+              }}
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {deleting ? "Excluindo..." : "Sim, excluir permanentemente"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

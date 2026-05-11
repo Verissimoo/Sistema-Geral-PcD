@@ -212,8 +212,9 @@ function buildBaggage(data) {
     </div>`;
 }
 
-function buildPriceSection(data, dataFormatada) {
+function buildPriceSection(data, dataFormatada, brandName = "PassagensComDesconto") {
   const total = Number(data.total_value) || 0;
+  const safeBrand = esc(brandName);
 
   if (data.competitor && Number(data.competitor.value) > 0) {
     const compValue = Number(data.competitor.value);
@@ -223,7 +224,7 @@ function buildPriceSection(data, dataFormatada) {
     return `
     <div class="price-highlight">
       <div class="ph-left">
-        <div class="ph-label">Valor total — PassagensComDesconto</div>
+        <div class="ph-label">Valor total — ${safeBrand}</div>
         <div class="ph-price"><span>R$</span>${total.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
         <div class="ph-per">Total da proposta</div>
       </div>
@@ -255,7 +256,7 @@ function buildPriceSection(data, dataFormatada) {
         </div>
         <div class="cmp-col best">
           <div class="best-tag">Melhor Oferta</div>
-          <div class="cmp-src">PassagensComDesconto</div>
+          <div class="cmp-src">${safeBrand}</div>
           <div class="cmp-price featured">${esc(formatBRL(total))}</div>
           <div class="cmp-per">com todos os serviços</div>
           ${economia > 0 ? `<div class="cmp-badge best-p">Economia de ${esc(formatBRL(economia))}</div>` : ""}
@@ -270,7 +271,7 @@ function buildPriceSection(data, dataFormatada) {
           <div class="feat"><svg class="no"><use href="#ic-x"/></svg> Suporte em viagem 24h</div>
         </div>
         <div class="fc mid">
-          <div class="fc-src">PassagensComDesconto</div>
+          <div class="fc-src">${safeBrand}</div>
           <div class="feat"><svg class="ok"><use href="#ic-check"/></svg> Passagem aérea</div>
           <div class="feat"><svg class="ok"><use href="#ic-check"/></svg> Suporte personalizado</div>
           <div class="feat"><svg class="ok"><use href="#ic-check"/></svg> Assessoria de check-in</div>
@@ -284,7 +285,7 @@ function buildPriceSection(data, dataFormatada) {
   return `
     <div class="price-highlight">
       <div class="ph-left">
-        <div class="ph-label">Valor total — PassagensComDesconto</div>
+        <div class="ph-label">Valor total — ${safeBrand}</div>
         <div class="ph-price"><span>R$</span>${total.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
         <div class="ph-per">Total da proposta</div>
       </div>
@@ -555,6 +556,17 @@ export function generateQuoteHTML(data) {
     .toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })
     .toUpperCase();
 
+  // ── Branding (PCD padrão x empresa do parceiro) ────────────────────
+  const company = data.company || null;
+  const isCustomBrand = data.recipient_type === "parceiro" && !!company;
+  const showCoBranding = data.partner_co_branding === true;
+  const navyColor = isCustomBrand ? (company.primary_color || "#0B1E3D") : "#0B1E3D";
+  const goldColor = isCustomBrand ? (company.secondary_color || "#A0722A") : "#A0722A";
+  const brandName = isCustomBrand ? (company.name || "") : "PassagensComDesconto";
+  const brandLogoUrl = isCustomBrand ? (company.logo_url || null) : null;
+  const coverImageUrl = isCustomBrand ? (company.cover_image_url || null) : null;
+  const partnerContact = data.partner_client_data || {};
+
   const trechos = data.itinerary?.trechos || [];
   const trechoIda = trechos.find((t) => t.tipo === "ida") || trechos[0] || {};
   const trechoVolta = trechos.find((t) => t.tipo === "volta");
@@ -579,7 +591,7 @@ export function generateQuoteHTML(data) {
   const flightsHtml = trechos.map((t) => buildFlightCard(t, data)).join("");
   const summaryCardsHtml = buildSummaryCards(data, trechoIda, trechoVolta);
   const bagHtml = buildBaggage(data);
-  const priceHtml = buildPriceSection(data, dataFormatada);
+  const priceHtml = buildPriceSection(data, dataFormatada, brandName);
   const inclusoHtml = buildIncluso(data, tipoViagem, companhia);
   const specialWarnHtml = buildSpecialWarning(data.ticket_type);
 
@@ -588,32 +600,38 @@ export function generateQuoteHTML(data) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cotação ${esc(data.quote_number)} — PassagensComDesconto</title>
+<title>Cotação ${esc(data.quote_number)} — ${esc(brandName)}</title>
 <style>${CSS}</style>
 </head>
 <body>
 ${SVG_ICONS}
 
-<div class="pbar">
-  <span class="pbar-l">PassagensComDesconto · Cotação de Viagem</span>
+<div class="pbar" style="background:${navyColor};">
+  <span class="pbar-l">${esc(brandName)} · Cotação de Viagem</span>
   <button class="pbar-btn" onclick="window.print()"><svg><use href="#ic-dl"/></svg> Salvar como PDF</button>
 </div>
 
 <div class="doc">
 
-<header class="hd">
+<header class="hd" style="${coverImageUrl
+    ? `background: linear-gradient(135deg, ${navyColor}cc, ${navyColor}99), url('${esc(coverImageUrl)}') center/cover;`
+    : `background: ${navyColor};`}">
   <div class="hd-partner">
-    <div>
-      <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:20px;font-weight:900;color:#fff;letter-spacing:-.3px;line-height:1;">Passagens<span style="color:#CC1B1B;">Com</span>Desconto</div>
-      <div class="hd-le-sub">passagenscomdesconto.com.br</div>
-    </div>
+    ${isCustomBrand
+      ? (brandLogoUrl
+        ? `<img src="${esc(brandLogoUrl)}" alt="${esc(brandName)}" style="max-height:50px;max-width:220px;object-fit:contain;background:rgba(255,255,255,.95);padding:8px 12px;border-radius:8px;" />`
+        : `<div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:22px;font-weight:900;color:#fff;letter-spacing:-.3px;line-height:1;">${esc(brandName)}</div>`)
+      : `<div>
+          <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:20px;font-weight:900;color:#fff;letter-spacing:-.3px;line-height:1;">Passagens<span style="color:#CC1B1B;">Com</span>Desconto</div>
+          <div class="hd-le-sub">passagenscomdesconto.com.br</div>
+        </div>`}
   </div>
   <div class="hd-meta-row">
     <div class="hd-metas">
       <div><div class="hd-meta-lbl">Cotação Nº</div><div class="hd-meta-val">${esc(data.quote_number)}</div></div>
       <div><div class="hd-meta-lbl">Emitida em</div><div class="hd-meta-val">${esc(dataFormatada)}</div></div>
       <div><div class="hd-meta-lbl">Válida até</div><div class="hd-meta-val">${esc(validoAte)}</div></div>
-      <div><div class="hd-meta-lbl">Vendedor</div><div class="hd-meta-val">${esc(data.seller_name || "Equipe PCD")}</div></div>
+      <div><div class="hd-meta-lbl">${isCustomBrand ? "Consultor" : "Vendedor"}</div><div class="hd-meta-val">${esc(data.seller_name || (isCustomBrand ? "Parceiro" : "Equipe PCD"))}</div></div>
     </div>
     <div class="hd-status"><div class="hd-status-dot"></div> Disponível para fechamento</div>
   </div>
@@ -666,11 +684,38 @@ ${specialWarnHtml}
   </div>
 </section>
 
+${isCustomBrand ? `
+<footer class="ft" style="background:${navyColor};border-top:3px solid ${goldColor};">
+  <div class="ft-l">
+    <div class="ft-by">Operado por</div>
+    <div class="ft-name">${esc(brandName)}</div>
+    ${company.cnpj ? `<div class="ft-cnpj">CNPJ: ${esc(company.cnpj)}</div>` : ""}
+    ${showCoBranding ? `
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.15);display:flex;align-items:center;gap:8px;">
+        <span style="font-size:9px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:2px;">em parceria com</span>
+        <span style="font-size:13px;font-weight:800;color:#fff;">Passagens<span style="color:#CC1B1B;">Com</span>Desconto</span>
+      </div>
+    ` : ""}
+  </div>
+  <div class="ft-m">
+    <div class="ft-dl">Data da Cotação</div>
+    <div class="ft-dv">${esc(dataFormatada)}</div>
+  </div>
+  <div class="ft-r">
+    ${company.phone ? `<div><span class="ft-r-lbl">tel</span>${esc(company.phone)}</div>` : ""}
+    ${company.email ? `<div><span class="ft-r-lbl">email</span>${esc(company.email)}</div>` : ""}
+    ${company.city ? `<div><span class="ft-r-lbl">📍</span>${esc(company.city)}${company.state ? ` - ${esc(company.state)}` : ""}</div>` : ""}
+    ${partnerContact.partner_name ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.15);"><span class="ft-r-lbl">consultor</span>${esc(partnerContact.partner_name)}</div>` : ""}
+    ${partnerContact.partner_phone ? `<div><span class="ft-r-lbl">contato</span>${esc(partnerContact.partner_phone)}</div>` : ""}
+  </div>
+</footer>
+` : `
 <footer class="ft">
   <div><div class="ft-by">Operado por</div><div class="ft-name">PassagensComDesconto</div><div class="ft-cnpj">CADASTUR · CNPJ: 62.830.477/0001-51</div></div>
   <div class="ft-m"><div class="ft-dl">Data da Cotação</div><div class="ft-dv">${esc(dataFormatada)}</div></div>
   <div class="ft-r"><div><span class="ft-r-lbl">web</span><a href="https://passagenscomdesconto.com.br">passagenscomdesconto.com.br</a></div><div><span class="ft-r-lbl">ig</span><a href="#">@passagenscomdesconto</a></div></div>
 </footer>
+`}
 
 </div>
 </body>

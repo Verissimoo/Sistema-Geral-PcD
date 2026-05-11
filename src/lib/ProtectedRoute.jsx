@@ -26,6 +26,9 @@ export function ProtectedRoute({ children, allowedRoles }) {
     if (user.role === "parceiro") {
       return <Navigate to="/parceiro/orcamentos" replace />;
     }
+    if (user.role === "gerente") {
+      return <Navigate to="/" replace />;
+    }
     return <Navigate to="/" replace />;
   }
 

@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { localClient } from "@/api/localClient";
 import { CAREER_LEVELS } from "@/lib/careerPlan";
+import { filterCommercialQuotes, getCommercialUsers } from "@/lib/commercialFilter";
 
 const formatBRL = (v) =>
   Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -68,19 +69,23 @@ export default function GerenteVendedores() {
     return { start, end: now };
   }, [periodo, periodoCustom]);
 
+  // Métricas comerciais consideram apenas quotes de vendedor/gerente
+  const commercialQuotes = useMemo(
+    () => filterCommercialQuotes(quotes, users),
+    [quotes, users]
+  );
+
   const filteredQuotes = useMemo(
     () =>
-      quotes.filter((q) => {
+      commercialQuotes.filter((q) => {
         const d = new Date(q.created_date);
         return d >= periodRange.start && d <= periodRange.end;
       }),
-    [quotes, periodRange]
+    [commercialQuotes, periodRange]
   );
 
-  const sellers = useMemo(
-    () => users.filter((u) => u.role === "vendedor"),
-    [users]
-  );
+  // Time comercial = vendedores + gerentes
+  const sellers = useMemo(() => getCommercialUsers(users), [users]);
 
   const rows = useMemo(() => {
     return sellers.map((user) => {

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, MessageCircle, FileText, ShoppingCart, DollarSign,
   Clock, Eye, Calendar, Plane, CheckCircle2, XCircle, Send,
-  FileStack,
+  FileStack, GitBranch,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,15 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { localClient } from "@/api/localClient";
-
-const ORIGIN_COLORS = {
-  "Marketing (Zenvia)": "bg-blue-100 text-blue-700 border-blue-200",
-  "Carteira própria": "bg-emerald-100 text-emerald-700 border-emerald-200",
-  "Indicação": "bg-amber-100 text-amber-700 border-amber-200",
-  "Instagram": "bg-purple-100 text-purple-700 border-purple-200",
-  "Google": "bg-red-100 text-red-700 border-red-200",
-  "Outro": "bg-gray-100 text-gray-700 border-gray-200",
-};
+import { ClientOriginBadge } from "@/components/ClientOriginBadge";
 
 const STATUS_STYLES = {
   Enviado: "bg-blue-100 text-blue-700 border-blue-200",
@@ -118,6 +110,28 @@ export default function GerenteClienteDetalhe() {
     () => quotes.filter((q) => q.status !== "Aprovado" && q.status !== "Emitido"),
     [quotes]
   );
+
+  // Agrupa cotações em "famílias": uma cotação-raiz + suas derivadas (parent_quote_id apontando pra ela)
+  const families = useMemo(() => {
+    const map = new Map();
+    quotes.forEach((q) => {
+      const headId = q.parent_quote_id || q.id;
+      if (!map.has(headId)) map.set(headId, { headId, head: null, items: [] });
+      const entry = map.get(headId);
+      entry.items.push(q);
+      if (!q.parent_quote_id) entry.head = q;
+    });
+    return Array.from(map.values())
+      .filter((f) => f.items.length > 1) // só famílias com pelo menos 2 cotações
+      .map((f) => ({
+        ...f,
+        head: f.head || f.items[0],
+        items: [...f.items].sort(
+          (a, b) => new Date(a.created_date) - new Date(b.created_date)
+        ),
+      }))
+      .sort((a, b) => new Date(b.items[0].created_date) - new Date(a.items[0].created_date));
+  }, [quotes]);
 
   const totalSpent = sold.reduce((s, q) => s + (q.total_value || 0), 0);
   const avgTicket = sold.length > 0 ? totalSpent / sold.length : 0;
@@ -215,9 +229,7 @@ export default function GerenteClienteDetalhe() {
             <h1 className="text-2xl font-bold tracking-tight">{client.name}</h1>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               <span className="text-sm text-muted-foreground">{client.phone || "—"}</span>
-              <Badge className={cn("border", ORIGIN_COLORS[client.lead_origin || "Outro"])}>
-                {client.lead_origin || "Outro"}
-              </Badge>
+              <ClientOriginBadge origin={client.lead_origin || "Outro"} />
             </div>
           </div>
           {wa && (
@@ -261,6 +273,53 @@ export default function GerenteClienteDetalhe() {
           color="text-primary"
         />
       </div>
+
+      {/* Famílias de cotações (cotação derivada do mesmo cliente) */}
+      {families.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
+            Famílias de Cotações
+          </h2>
+          {families.map((family) => (
+            <Card key={family.headId} className="border-l-4 border-l-amber-400">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <GitBranch className="h-4 w-4 text-amber-600" />
+                  Histórico — {family.items.length} cotações
+                </CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Primeira em {fmtDateBR(family.head.created_date)}
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {family.items.map((q, i) => (
+                  <div
+                    key={q.id}
+                    className="flex items-center justify-between p-2 rounded hover:bg-slate-50 cursor-pointer transition-colors"
+                    onClick={() => setDetailQuote(q)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="w-7 h-7 rounded-full bg-amber-100 text-amber-700 text-xs font-bold flex items-center justify-center">
+                        #{i + 1}
+                      </span>
+                      <div>
+                        <p className="text-sm font-semibold">{q.quote_number}</p>
+                        <p className="text-xs text-muted-foreground">{fmtDateBR(q.created_date)}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold">{formatBRL(q.total_value)}</p>
+                      <Badge className={cn("text-[10px] border mt-1", STATUS_STYLES[q.status])}>
+                        {q.status}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Histórico */}
       <div className="space-y-4">
