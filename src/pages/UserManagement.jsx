@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import {
   Users, UserPlus, Pencil, ShieldCheck, ShieldOff, Lock,
-  Crown, AlertCircle, Eye, EyeOff, Trash2,
+  Crown, AlertCircle, Eye, EyeOff, Trash2, Phone, Mail, Handshake,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,15 +47,35 @@ export default function UserManagement() {
   const [users, setUsers] = useState([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ name: "", username: "", password: "", confirm: "", status: "Ativo", career_level: "N0", role: "vendedor" });
+  const [form, setForm] = useState({
+    name: "", username: "", password: "", confirm: "",
+    status: "Ativo", career_level: "N0", role: "vendedor",
+    phone: "", email: "",
+  });
   const [showPwd, setShowPwd] = useState(false);
   const [formError, setFormError] = useState("");
   const [userToDelete, setUserToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
   const reload = async () => {
-    const list = await localClient.entities.Users.list();
-    setUsers(list || []);
+    const [usersList, partnersList] = await Promise.all([
+      localClient.entities.Users.list(),
+      localClient.entities.Partners.list(),
+    ]);
+    const merged = [
+      ...(usersList || []).map((u) => ({ ...u, _source: "users" })),
+      ...(partnersList || []).map((p) => ({
+        ...p,
+        _source: "partners",
+        role: "parceiro",
+      })),
+    ];
+    merged.sort(
+      (a, b) =>
+        new Date(b.created_date || 0).getTime() -
+        new Date(a.created_date || 0).getTime()
+    );
+    setUsers(merged);
   };
   useEffect(() => { reload(); }, []);
 
@@ -68,7 +88,11 @@ export default function UserManagement() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ name: "", username: "", password: "", confirm: "", status: "Ativo", career_level: "N0", role: "vendedor" });
+    setForm({
+      name: "", username: "", password: "", confirm: "",
+      status: "Ativo", career_level: "N0", role: "vendedor",
+      phone: "", email: "",
+    });
     setFormError("");
     setShowPwd(false);
     setDialogOpen(true);
@@ -77,13 +101,15 @@ export default function UserManagement() {
   const openEdit = (u) => {
     setEditing(u);
     setForm({
-      name: u.name,
-      username: u.username,
+      name: u.name || "",
+      username: u.username || "",
       password: "",
       confirm: "",
-      status: u.status,
+      status: u.status || "Ativo",
       career_level: u.career_level || "N0",
       role: u.role || "vendedor",
+      phone: u.phone || "",
+      email: u.email || "",
     });
     setFormError("");
     setShowPwd(false);
@@ -98,12 +124,17 @@ export default function UserManagement() {
     if (username === ADMIN_USERNAME && (!editing || editing.username !== ADMIN_USERNAME)) {
       return "Username 'admin' é reservado";
     }
+    // Conflito de username em qualquer das tabelas (users ou partners)
     const conflict = users.find(
-      (u) => u.username === username && (!editing || u.id !== editing.id)
+      (u) => u.username === username && (!editing || u.id !== editing.id || u._source !== editing._source)
     );
-    if (conflict) return "Já existe um usuário com esse username";
+    if (conflict) return "Já existe um usuário (ou parceiro) com esse username";
     if (!editing && !form.password) return "Senha é obrigatória ao criar";
     if (form.password && form.password !== form.confirm) return "Senhas não conferem";
+    if (form.role === "parceiro") {
+      if (!form.phone.trim()) return "Telefone é obrigatório para parceiro";
+      if (!form.email.trim()) return "Email é obrigatório para parceiro";
+    }
     return null;
   };
 
@@ -119,48 +150,98 @@ export default function UserManagement() {
     setSaving(true);
     try {
       const username = form.username.trim().toLowerCase();
+      const isPartner = form.role === "parceiro";
+      const editingIsPartner = editing?._source === "partners";
+
       if (editing) {
-        const updates = {
-          name: form.name.trim(),
-          username,
-          status: form.status,
-        };
-        if (editing.role !== "admin") {
-          updates.career_level = form.career_level;
-          updates.role = form.role;
-        }
-        if (form.password) updates.password = form.password;
-        const updated = await localClient.entities.Users.update(editing.id, updates);
-        if (!updated) {
-          setFormError("Erro ao atualizar usuário. Tente novamente.");
+        // Não permitimos mudar entre parceiro ↔ usuário comum no edit
+        if (isPartner !== editingIsPartner) {
+          setFormError(
+            "Não é possível trocar o tipo entre parceiro e usuário comum. Exclua e crie novamente."
+          );
           setSaving(false);
           return;
         }
-        toast({ title: "Usuário atualizado", description: form.name });
+
+        if (isPartner) {
+          const updates = {
+            name: form.name.trim(),
+            username,
+            phone: form.phone.trim(),
+            email: form.email.trim(),
+            status: form.status,
+          };
+          if (form.password) updates.password = form.password;
+          const updated = await localClient.entities.Partners.update(editing.id, updates);
+          if (!updated) {
+            setFormError("Erro ao atualizar parceiro. Tente novamente.");
+            setSaving(false);
+            return;
+          }
+          toast({ title: "Parceiro atualizado", description: form.name });
+        } else {
+          const updates = {
+            name: form.name.trim(),
+            username,
+            status: form.status,
+          };
+          if (editing.role !== "admin") {
+            updates.career_level = form.role === "vendedor" ? form.career_level : null;
+            updates.role = form.role;
+          }
+          if (form.password) updates.password = form.password;
+          const updated = await localClient.entities.Users.update(editing.id, updates);
+          if (!updated) {
+            setFormError("Erro ao atualizar usuário. Tente novamente.");
+            setSaving(false);
+            return;
+          }
+          toast({ title: "Usuário atualizado", description: form.name });
+        }
       } else {
-        const created = await localClient.entities.Users.create({
-          name: form.name.trim(),
-          username,
-          password: form.password,
-          role: form.role || "vendedor",
-          status: form.status || "Ativo",
-          career_level: form.career_level,
-          created_date: new Date().toISOString(),
-        });
-        if (!created) {
-          setFormError("Erro ao criar usuário. Tente novamente.");
-          setSaving(false);
-          return;
+        if (isPartner) {
+          const created = await localClient.entities.Partners.create({
+            name: form.name.trim(),
+            username,
+            password: form.password,
+            phone: form.phone.trim(),
+            email: form.email.trim(),
+            status: form.status || "Ativo",
+          });
+          if (!created) {
+            setFormError("Erro ao criar parceiro. Tente novamente.");
+            setSaving(false);
+            return;
+          }
+          toast({
+            title: "Parceiro criado",
+            description: `${created.name} poderá configurar a empresa no primeiro acesso ao portal.`,
+          });
+        } else {
+          const created = await localClient.entities.Users.create({
+            name: form.name.trim(),
+            username,
+            password: form.password,
+            role: form.role || "vendedor",
+            status: form.status || "Ativo",
+            career_level: form.role === "vendedor" ? form.career_level : null,
+            created_date: new Date().toISOString(),
+          });
+          if (!created) {
+            setFormError("Erro ao criar usuário. Tente novamente.");
+            setSaving(false);
+            return;
+          }
+          const roleLabel = created.role === "suporte"
+            ? "Suporte"
+            : created.role === "gerente"
+              ? "Gerente"
+              : "Vendedor";
+          toast({
+            title: "Usuário criado",
+            description: `${roleLabel} "${created.username}" salvo no banco. Pode fazer login de qualquer computador.`,
+          });
         }
-        const roleLabel = created.role === "suporte"
-          ? "Suporte"
-          : created.role === "gerente"
-            ? "Gerente"
-            : "Vendedor";
-        toast({
-          title: "Usuário criado",
-          description: `${roleLabel} "${created.username}" salvo no banco. Pode fazer login de qualquer computador.`,
-        });
       }
       setDialogOpen(false);
       await reload();
@@ -169,15 +250,21 @@ export default function UserManagement() {
     }
   };
 
+  const entityFor = (u) =>
+    u?._source === "partners"
+      ? localClient.entities.Partners
+      : localClient.entities.Users;
+
   const toggleStatus = async (u) => {
     const next = u.status === "Ativo" ? "Inativo" : "Ativo";
     if (next === "Inativo" && !confirm(`Desativar ${u.name}?`)) return;
-    const updated = await localClient.entities.Users.update(u.id, { status: next });
+    const updated = await entityFor(u).update(u.id, { status: next });
     if (!updated) {
       toast({ title: "Erro ao atualizar status", variant: "destructive" });
       return;
     }
-    toast({ title: `Usuário ${next.toLowerCase()}`, description: u.name });
+    const label = u._source === "partners" ? "Parceiro" : "Usuário";
+    toast({ title: `${label} ${next.toLowerCase()}`, description: u.name });
     await reload();
   };
 
@@ -191,7 +278,7 @@ export default function UserManagement() {
       });
       return;
     }
-    if (u.id === currentUser?.id) {
+    if (u.id === currentUser?.id && u._source !== "partners") {
       toast({
         title: "Não permitido",
         description: "Você não pode excluir sua própria conta.",
@@ -202,14 +289,23 @@ export default function UserManagement() {
     if (deleting) return;
     setDeleting(true);
     try {
-      const result = await localClient.entities.Users.delete(u.id);
+      // Parceiro: desvincula empresa antes de excluir (mantém o registro da empresa)
+      if (u._source === "partners" && u.company_id) {
+        try {
+          await localClient.entities.PartnerCompanies.update(u.company_id, { partner_id: null });
+        } catch (err) {
+          console.warn("Falha ao desvincular empresa do parceiro:", err);
+        }
+      }
+
+      const result = await entityFor(u).delete(u.id);
       if (!result) {
-        toast({ title: "Erro ao excluir usuário", variant: "destructive" });
+        toast({ title: "Erro ao excluir", variant: "destructive" });
         return;
       }
       toast({
-        title: "Usuário excluído",
-        description: `${u.name} foi removido do sistema. Cotações anteriores preservam o nome no histórico.`,
+        title: u._source === "partners" ? "Parceiro excluído" : "Usuário excluído",
+        description: `${u.name} foi removido. Orçamentos/cotações anteriores preservam o nome no histórico.`,
       });
       setUserToDelete(null);
       await reload();
@@ -263,10 +359,19 @@ export default function UserManagement() {
       <div className="space-y-2">
         {users.map((u) => {
           const isSystemAdmin = u.username === ADMIN_USERNAME;
+          const isPartner = u._source === "partners";
+          const isSelf = !isPartner && u.id === currentUser?.id;
           return (
-            <Card key={u.id} className="border-border/50">
+            <Card key={`${u._source}-${u.id}`} className="border-border/50">
               <CardContent className="p-4 flex items-center gap-4 flex-wrap">
-                <div className="h-11 w-11 rounded-full bg-primary/10 flex items-center justify-center font-bold text-sm shrink-0 text-primary">
+                <div
+                  className={cn(
+                    "h-11 w-11 rounded-full flex items-center justify-center font-bold text-sm shrink-0",
+                    isPartner
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-primary/10 text-primary"
+                  )}
+                >
                   {initials(u.name)}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -278,8 +383,19 @@ export default function UserManagement() {
                       </Badge>
                     )}
                   </div>
-                  <div className="text-xs text-muted-foreground mt-0.5">
-                    @{u.username} · criado em {fmtDate(u.created_date)}
+                  <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-3 flex-wrap">
+                    <span>@{u.username}</span>
+                    {isPartner && u.phone && (
+                      <span className="flex items-center gap-1">
+                        <Phone className="h-3 w-3" /> {u.phone}
+                      </span>
+                    )}
+                    {isPartner && u.email && (
+                      <span className="flex items-center gap-1">
+                        <Mail className="h-3 w-3" /> {u.email}
+                      </span>
+                    )}
+                    <span>· criado em {fmtDate(u.created_date)}</span>
                   </div>
                 </div>
                 <Badge
@@ -289,18 +405,22 @@ export default function UserManagement() {
                       ? "bg-[#0B1E3D] text-white border-transparent hover:bg-[#0B1E3D]"
                       : u.role === "gerente"
                         ? "bg-purple-600 text-white border-transparent hover:bg-purple-600"
-                        : u.role === "suporte"
-                          ? "bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
-                          : "bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100"
+                        : u.role === "parceiro"
+                          ? "bg-emerald-600 text-white border-transparent hover:bg-emerald-600"
+                          : u.role === "suporte"
+                            ? "bg-sky-100 text-sky-800 border-sky-200 hover:bg-sky-100"
+                            : "bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100"
                   )}
                 >
                   {u.role === "admin"
                     ? "Admin"
                     : u.role === "gerente"
                       ? "Gerente"
-                      : u.role === "suporte"
-                        ? "Suporte"
-                        : "Vendedor"}
+                      : u.role === "parceiro"
+                        ? "Parceiro"
+                        : u.role === "suporte"
+                          ? "Suporte"
+                          : "Vendedor"}
                 </Badge>
                 <Badge
                   className={cn(
@@ -339,13 +459,15 @@ export default function UserManagement() {
                     size="sm"
                     variant="ghost"
                     onClick={() => setUserToDelete(u)}
-                    disabled={isSystemAdmin || u.id === currentUser?.id}
+                    disabled={isSystemAdmin || isSelf}
                     title={
                       isSystemAdmin
                         ? "Admin do sistema não pode ser excluído"
-                        : u.id === currentUser?.id
+                        : isSelf
                           ? "Você não pode excluir sua própria conta"
-                          : "Excluir usuário"
+                          : isPartner
+                            ? "Excluir parceiro"
+                            : "Excluir usuário"
                     }
                     className="gap-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 disabled:opacity-30"
                   >
@@ -438,17 +560,79 @@ export default function UserManagement() {
                   <Select
                     value={form.role}
                     onValueChange={(v) => setForm((p) => ({ ...p, role: v }))}
+                    disabled={!!editing /* não trocamos tipo no edit */}
                   >
                     <SelectTrigger id="u-role">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="vendedor">Vendedor</SelectItem>
-                      <SelectItem value="suporte">Suporte</SelectItem>
-                      <SelectItem value="gerente">Gerente</SelectItem>
+                      <SelectItem value="vendedor">
+                        <span className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-amber-500" />
+                          Vendedor
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="suporte">
+                        <span className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-sky-500" />
+                          Suporte
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="gerente">
+                        <span className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-purple-500" />
+                          Gerente
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="parceiro">
+                        <span className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                          Parceiro
+                        </span>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
+                  {editing && (
+                    <p className="text-[11px] text-muted-foreground">
+                      O tipo de acesso não pode ser alterado depois da criação.
+                    </p>
+                  )}
                 </div>
+
+                {form.role === "parceiro" && (
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="u-phone" className="flex items-center gap-1">
+                        <Phone className="h-3.5 w-3.5" /> Telefone *
+                      </Label>
+                      <Input
+                        id="u-phone"
+                        value={form.phone}
+                        onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
+                        placeholder="(61) 99999-9999"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="u-email" className="flex items-center gap-1">
+                        <Mail className="h-3.5 w-3.5" /> Email *
+                      </Label>
+                      <Input
+                        id="u-email"
+                        type="email"
+                        value={form.email}
+                        onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+                        placeholder="parceiro@email.com"
+                      />
+                    </div>
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-xs text-emerald-800 flex items-start gap-2">
+                      <Handshake className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                      <span>
+                        O parceiro configurará a empresa dele (logo, cores, dados) no primeiro acesso ao portal.
+                      </span>
+                    </div>
+                  </div>
+                )}
+
                 {form.role === "vendedor" && (
                   <div className="space-y-1.5">
                     <Label htmlFor="u-career">Nível de Carreira</Label>

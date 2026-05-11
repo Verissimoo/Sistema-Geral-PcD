@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FileStack, Search, Plane, DollarSign, Clock, CheckCircle2,
-  ArrowRight, Calendar,
+  ArrowRight, Calendar, Building2, Settings, Plus, Phone, Mail, MapPin,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,8 @@ export default function ParceiroOrcamentos() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
   const [loading, setLoading] = useState(true);
+  const [company, setCompany] = useState(null);
+  const [companyLoading, setCompanyLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
@@ -46,6 +48,26 @@ export default function ParceiroOrcamentos() {
       setLoading(false);
     };
     load();
+  }, [user?.id]);
+
+  useEffect(() => {
+    const loadCompany = async () => {
+      if (!user?.id) return;
+      setCompanyLoading(true);
+      const partner = await localClient.entities.Partners.get(user.id);
+      let c = null;
+      if (partner?.company_id) {
+        c = await localClient.entities.PartnerCompanies.get(partner.company_id);
+      }
+      // Fallback: tenta achar pela coluna partner_id
+      if (!c) {
+        const list = (await localClient.entities.PartnerCompanies.list()) || [];
+        c = list.find((x) => x.partner_id === user.id) || null;
+      }
+      setCompany(c);
+      setCompanyLoading(false);
+    };
+    loadCompany();
   }, [user?.id]);
 
   const metrics = useMemo(() => {
@@ -84,7 +106,95 @@ export default function ParceiroOrcamentos() {
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-12">
-      {/* Header */}
+      {/* Header da empresa do parceiro */}
+      {company ? (
+        <Card className="overflow-hidden border-0 shadow-lg">
+          <div
+            className="h-32 relative"
+            style={{
+              background: company.cover_image_url
+                ? `linear-gradient(135deg, ${company.primary_color || "#0B1E3D"}cc, ${company.primary_color || "#0B1E3D"}aa), url('${company.cover_image_url}') center/cover`
+                : `linear-gradient(135deg, ${company.primary_color || "#0B1E3D"}, ${company.secondary_color || "#F4A224"})`,
+            }}
+          >
+            <div className="absolute inset-0 flex items-center justify-between p-6 gap-4 flex-wrap">
+              <div className="flex items-center gap-4 min-w-0">
+                {company.logo_url ? (
+                  <img
+                    src={company.logo_url}
+                    alt={company.name}
+                    className="h-16 max-w-[200px] object-contain bg-white/95 rounded-lg p-2"
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-lg bg-white/90 flex items-center justify-center">
+                    <Building2 className="w-7 h-7 text-slate-700" />
+                  </div>
+                )}
+                <div className="text-white min-w-0">
+                  <h2 className="text-2xl font-bold drop-shadow truncate">{company.name}</h2>
+                  {company.cnpj && (
+                    <p className="text-sm opacity-90 drop-shadow">CNPJ: {company.cnpj}</p>
+                  )}
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                className="bg-white/95 hover:bg-white shrink-0"
+                onClick={() => navigate("/parceiro/empresa")}
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                Editar Empresa
+              </Button>
+            </div>
+          </div>
+
+          {(company.phone || company.email || company.city) && (
+            <div className="bg-white px-6 py-3 flex items-center gap-6 text-sm flex-wrap">
+              {company.phone && (
+                <span className="flex items-center gap-1.5 text-slate-600">
+                  <Phone className="w-3.5 h-3.5" />
+                  {company.phone}
+                </span>
+              )}
+              {company.email && (
+                <span className="flex items-center gap-1.5 text-slate-600">
+                  <Mail className="w-3.5 h-3.5" />
+                  {company.email}
+                </span>
+              )}
+              {company.city && (
+                <span className="flex items-center gap-1.5 text-slate-600">
+                  <MapPin className="w-3.5 h-3.5" />
+                  {company.city}{company.state && ` - ${company.state}`}
+                </span>
+              )}
+            </div>
+          )}
+        </Card>
+      ) : !companyLoading && (
+        <Card className="border-2 border-dashed border-amber-300 bg-amber-50">
+          <CardContent className="p-6 flex items-start gap-4 flex-wrap">
+            <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+              <Building2 className="w-6 h-6 text-amber-600" />
+            </div>
+            <div className="flex-1 min-w-[220px]">
+              <h3 className="font-bold text-amber-900">Configure sua empresa</h3>
+              <p className="text-sm text-amber-700 mt-1">
+                Antes de começar a precificar orçamentos, configure os dados da sua empresa. Eles aparecerão nos PDFs que você enviar aos seus clientes.
+              </p>
+            </div>
+            <Button
+              onClick={() => navigate("/parceiro/empresa")}
+              className="bg-amber-500 hover:bg-amber-600 text-white"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Configurar empresa
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Título da lista */}
       <div>
         <div className="flex items-center gap-3 mb-1">
           <div className="p-2 rounded-lg bg-purple-100 text-purple-700">

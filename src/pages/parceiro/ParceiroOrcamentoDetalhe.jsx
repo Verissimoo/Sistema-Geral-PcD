@@ -237,6 +237,23 @@ export default function ParceiroOrcamentoDetalhe() {
         <ArrowLeft className="h-4 w-4" /> Voltar
       </Button>
 
+      {/* Aviso: empresa não configurada */}
+      {!company && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+          <div className="text-sm text-amber-800">
+            Você ainda não configurou sua empresa. Você pode precificar normalmente, mas os PDFs gerados não terão sua identidade visual.
+            <button
+              type="button"
+              onClick={() => navigate("/parceiro/empresa")}
+              className="text-amber-700 font-semibold underline ml-1"
+            >
+              Configurar agora
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
