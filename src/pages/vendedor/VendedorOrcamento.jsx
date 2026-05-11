@@ -1,10 +1,11 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, Fragment } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   FileText, Plane, Palmtree, User, UserPlus, Search, Lock,
   ImagePlus, X, Check, Loader2, AlertTriangle, Info,
   ArrowLeft, ArrowRight, Copy, Sparkles, ChevronRight, ClipboardPaste,
-  DollarSign, Wallet, Plus, Trash2, MessageCircle, Handshake
+  DollarSign, Wallet, Plus, Trash2, MessageCircle, Handshake,
+  PlaneTakeoff, PlaneLanding, Clock, Hourglass,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,8 @@ import { useAuth } from "@/lib/AuthContext";
 import { useClientOrigins } from "@/lib/useClientOrigins";
 import { getCostForMiles, getSaleForMiles, getTierForMiles } from "@/lib/milesHelper";
 import { parseBR, sanitizeBRInput } from "@/lib/parseBR";
+import { normalizeItinerary } from "@/lib/normalizeItinerary";
+import { isNextDayArrival, calculateSegmentDuration } from "@/lib/timeParser";
 
 // ─── Helpers ────────────────────────────────────────────────────────
 const toBase64 = (file) =>
@@ -65,6 +68,63 @@ const calculateDuration = (departure, arrival) => {
   const minutes = diff % 60;
   return `${hours}h ${String(minutes).padStart(2, "0")}min`;
 };
+
+// ─── Segmentos: helpers ────────────────────────────────────────────
+// Constrói um "segmento" a partir dos campos legacy do trecho (quotes antigos).
+function createLegacySegment(trecho) {
+  if (!trecho) return null;
+  return {
+    numero_voo: trecho.numero_voo || "",
+    companhia: trecho.companhia || "",
+    origem_iata: trecho.origem_iata || "",
+    origem_cidade: trecho.origem_cidade || "",
+    destino_iata: trecho.destino_iata || "",
+    destino_cidade: trecho.destino_cidade || "",
+    horario_saida: trecho.horario_saida || "",
+    horario_chegada: trecho.horario_chegada || "",
+    data_saida: trecho.data_saida || null,
+    data_chegada: trecho.data_chegada || null,
+    duracao: trecho.duracao || "",
+  };
+}
+
+function getSegmentos(trecho) {
+  if (!trecho) return [];
+  if (Array.isArray(trecho.segmentos) && trecho.segmentos.length > 0) {
+    return trecho.segmentos;
+  }
+  const legacy = createLegacySegment(trecho);
+  return legacy ? [legacy] : [];
+}
+
+// Mantém os campos top-level do trecho espelhando segmentos[0] e segmentos[last],
+// para retrocompatibilidade com código que ainda lê trecho.origem_iata etc.
+function syncTrechoFromSegmentos(trecho) {
+  const segmentos = getSegmentos(trecho);
+  if (segmentos.length === 0) return trecho;
+  const first = segmentos[0];
+  const last = segmentos[segmentos.length - 1];
+  return {
+    ...trecho,
+    segmentos,
+    escalas: Math.max(0, segmentos.length - 1),
+    origem_iata: first.origem_iata || trecho.origem_iata || "",
+    origem_cidade: first.origem_cidade || trecho.origem_cidade || "",
+    destino_iata: last.destino_iata || trecho.destino_iata || "",
+    destino_cidade: last.destino_cidade || trecho.destino_cidade || "",
+    horario_saida: first.horario_saida || trecho.horario_saida || "",
+    horario_chegada: last.horario_chegada || trecho.horario_chegada || "",
+    companhia: first.companhia || trecho.companhia || "",
+    numero_voo: first.numero_voo || trecho.numero_voo || "",
+    duracao: trecho.tempo_total || trecho.duracao || "",
+    aeroporto_escala:
+      segmentos
+        .slice(0, -1)
+        .map((s) => s.destino_iata)
+        .filter(Boolean)
+        .join(" / ") || trecho.aeroporto_escala || "",
+  };
+}
 
 const TICKET_TYPES = [
   { value: "Normal", help: "Bilhete padrão ponto a ponto" },
@@ -450,6 +510,138 @@ function BlocoProduto({ formData, setFormData }) {
   );
 }
 
+// ─── Card de segmento (voo individual) ─────────────────────────────
+function SegmentoCard({ segmento, segmentoIdx, trechoIdx, totalSegmentos, onUpdate, onRemove }) {
+  const showNextDayBadge = isNextDayArrival(segmento);
+
+  return (
+    <div className="bg-slate-50 rounded-lg p-4 space-y-3 border border-slate-200">
+      {/* Linha 1: Voo N + Companhia + Numero voo + Duração */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          {totalSegmentos > 1 && (
+            <span className="bg-slate-900 text-white px-2 py-0.5 rounded text-xs font-bold flex-shrink-0">
+              VOO {segmentoIdx + 1}
+            </span>
+          )}
+          <Input
+            value={segmento.companhia || ""}
+            onChange={(e) => onUpdate(trechoIdx, segmentoIdx, "companhia", e.target.value)}
+            placeholder="Companhia"
+            className="h-8 max-w-[200px]"
+          />
+          <Input
+            value={segmento.numero_voo || ""}
+            onChange={(e) => onUpdate(trechoIdx, segmentoIdx, "numero_voo", e.target.value)}
+            className="h-8 w-28 text-xs font-mono"
+            placeholder="LA3210"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <Input
+            value={segmento.duracao || ""}
+            onChange={(e) => onUpdate(trechoIdx, segmentoIdx, "duracao", e.target.value)}
+            placeholder="1h 55min"
+            className={cn(
+              "h-7 w-24 text-xs font-mono text-center",
+              !segmento._duracao_manual && segmento.duracao && "bg-muted/40"
+            )}
+          />
+          {totalSegmentos > 1 && (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7 text-red-500 hover:text-red-700"
+              onClick={onRemove}
+              title="Remover segmento"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Linha 2: Origem → Destino visual */}
+      <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-3">
+        {/* ORIGEM */}
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2">
+            <Input
+              value={segmento.origem_iata || ""}
+              onChange={(e) => onUpdate(trechoIdx, segmentoIdx, "origem_iata", e.target.value.toUpperCase())}
+              maxLength={3}
+              className="h-9 w-16 text-base font-black text-center font-mono"
+              placeholder="ORG"
+            />
+            <Input
+              type="time"
+              value={segmento.horario_saida || ""}
+              onChange={(e) => onUpdate(trechoIdx, segmentoIdx, "horario_saida", e.target.value)}
+              className="h-9 flex-1 font-mono"
+            />
+          </div>
+          <Input
+            value={segmento.origem_cidade || ""}
+            onChange={(e) => onUpdate(trechoIdx, segmentoIdx, "origem_cidade", e.target.value)}
+            placeholder="Cidade origem"
+            className="h-7 text-xs"
+          />
+          <Input
+            type="date"
+            value={segmento.data_saida || ""}
+            onChange={(e) => onUpdate(trechoIdx, segmentoIdx, "data_saida", e.target.value || null)}
+            className="h-7 text-xs"
+          />
+        </div>
+
+        {/* SETA central */}
+        <div className="flex flex-col items-center px-2 pt-2">
+          <Plane className="w-5 h-5 text-slate-400 rotate-90" />
+          {showNextDayBadge && (
+            <span
+              className="text-[10px] text-amber-700 font-bold bg-amber-100 px-2 py-0.5 rounded-full mt-1 whitespace-nowrap"
+              title="Este voo chega no dia seguinte ao da saída"
+            >
+              ⚠️ +1 dia
+            </span>
+          )}
+        </div>
+
+        {/* DESTINO */}
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2">
+            <Input
+              type="time"
+              value={segmento.horario_chegada || ""}
+              onChange={(e) => onUpdate(trechoIdx, segmentoIdx, "horario_chegada", e.target.value)}
+              className="h-9 flex-1 font-mono"
+            />
+            <Input
+              value={segmento.destino_iata || ""}
+              onChange={(e) => onUpdate(trechoIdx, segmentoIdx, "destino_iata", e.target.value.toUpperCase())}
+              maxLength={3}
+              className="h-9 w-16 text-base font-black text-center font-mono"
+              placeholder="DST"
+            />
+          </div>
+          <Input
+            value={segmento.destino_cidade || ""}
+            onChange={(e) => onUpdate(trechoIdx, segmentoIdx, "destino_cidade", e.target.value)}
+            placeholder="Cidade destino"
+            className="h-7 text-xs"
+          />
+          <Input
+            type="date"
+            value={segmento.data_chegada || ""}
+            onChange={(e) => onUpdate(trechoIdx, segmentoIdx, "data_chegada", e.target.value || null)}
+            className="h-7 text-xs"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Bloco 3 — Itinerário ───────────────────────────────────────────
 function BlocoItinerario({ formData, setFormData }) {
   const fileInputRef = useRef(null);
@@ -514,28 +706,88 @@ function BlocoItinerario({ formData, setFormData }) {
 
   const PROMPT_EXTRACAO = `Analise as imagens de voos fornecidas e extraia TODAS as informações visíveis de TODOS os trechos (ida e volta se houver).
 
+Para CADA TRECHO (ida e volta separados), liste TODOS os segmentos individualmente. Um voo com 1 escala = 2 segmentos. Com 2 escalas = 3 segmentos. Cada segmento é um voo entre dois aeroportos.
+
 Retorne APENAS um JSON válido, sem markdown, sem backticks, neste formato exato:
 {
   "trechos": [
     {
       "tipo": "ida" ou "volta",
-      "companhia": "nome da companhia aérea",
-      "numero_voo": "código do voo se visível",
-      "origem_iata": "XXX",
-      "origem_cidade": "nome da cidade",
-      "destino_iata": "XXX",
-      "destino_cidade": "nome da cidade",
-      "horario_saida": "HH:MM",
-      "horario_chegada": "HH:MM",
-      "duracao": "Xh XXmin",
-      "escalas": 0,
-      "aeroporto_escala": "XXX ou null",
-      "tempo_escala": "Xh XXmin ou null",
-      "classe": "Econômica/Executiva/Primeira se visível"
+      "classe": "Econômica" | "Premium Economy" | "Executiva" | "Primeira",
+      "escalas": <numero_de_paradas>,
+      "segmentos": [
+        {
+          "numero_voo": "LA3210",
+          "companhia": "LATAM",
+          "origem_iata": "BSB",
+          "origem_cidade": "Brasília",
+          "destino_iata": "GRU",
+          "destino_cidade": "São Paulo",
+          "horario_saida": "14:30",
+          "horario_chegada": "16:25",
+          "data_saida": "2026-05-15",
+          "data_chegada": "2026-05-15",
+          "duracao": "1h 55min"
+        }
+      ],
+      "tempo_total": "17h 00min",
+      "tempo_escalas": [
+        { "aeroporto": "GRU", "duracao": "3h 20min" }
+      ]
     }
   ]
 }
-Se houver dois trechos visíveis (ida e volta), retorne ambos no array. Se houver múltiplas opções de voo, retorne apenas o voo selecionado/destacado ou o primeiro visível.`;
+
+REGRAS CRÍTICAS:
+
+1. COMPANHIA POR SEGMENTO:
+   - Se a ida tem 2 segmentos com operadores diferentes (BA + LATAM), liste cada um com sua companhia.
+   - Nunca generalize um operador para todos os segmentos.
+
+2. AEROPORTOS DE ESCALA:
+   - O destino_iata de um segmento = origem_iata do próximo segmento.
+   - NUNCA concatene aeroportos como "LHR / GRU" no campo aeroporto_escala — use o array segmentos.
+   - Cada aeroporto de escala vira destino de um segmento e origem do próximo.
+
+3. DIA SEGUINTE (campos data_saida / data_chegada) — REGRAS OBRIGATÓRIAS:
+
+   3.1. INDICADORES VISUAIS EXPLÍCITOS (prioridade máxima):
+        - "+1", "+1d", "(+1)", "+2d" próximos ao horário de chegada
+        - "Próximo dia", "Dia seguinte", "Next day"
+        - Datas diferentes visíveis (ex: saída "15/05", chegada "16/05")
+        - Setinhas ou ícones de calendário ao lado do horário
+
+   3.2. INDICADORES IMPLÍCITOS (quando não há nada visual):
+        - Voo internacional: duração >= 6h E chegada < saída → dia seguinte
+        - Voo doméstico longo: duração >= 4h E chegada < saída → dia seguinte
+        - Voo noturno (saída 20h-23h59) chegando entre 00h-12h → dia seguinte
+
+   3.3. PREENCHIMENTO:
+        - data_saida: data em que o voo decola (formato YYYY-MM-DD)
+        - data_chegada: data em que o voo pousa (pode ser +1, +2 dependendo da duração)
+        - Se NÃO for possível determinar a data exata mas há indicador de dia seguinte,
+          retorne null nos campos data_* MAS adicione "+1d" no final de horario_chegada
+          (ex: "08:30+1d"). O sistema interpreta esse sufixo.
+
+   3.4. CONFLITOS:
+        - Se há indicador visual de "+1" mas a duração calculada não bate, CONFIE no indicador visual.
+        - Datas explícitas no print são SEMPRE a fonte mais confiável.
+
+   3.5. SEGMENTOS COM ESCALA:
+        - Cada segmento tem suas próprias data_saida / data_chegada.
+        - O primeiro segmento começa na data inicial da viagem.
+        - Cada segmento subsequente começa na data_chegada do anterior
+          (ou +1 se a escala atravessa meia-noite).
+
+4. TEMPOS:
+   - "duracao" do segmento = só o tempo desse voo.
+   - "tempo_total" do trecho = soma de todos os voos + esperas (ida ou volta completa).
+   - "tempo_escalas" = uma entrada por escala (aeroporto onde ocorre + duração da espera). length = segmentos.length - 1.
+
+5. MÚLTIPLAS OPÇÕES NA MESMA IMAGEM:
+   - Se houver várias opções de voo, retorne apenas a opção selecionada/destacada ou a primeira visível.
+
+Retorne APENAS o JSON, sem markdown nem comentários.`;
 
   const processarItinerario = async () => {
     if (!apiKey) {
@@ -578,20 +830,34 @@ Se houver dois trechos visíveis (ida e volta), retorne ambos no array. Se houve
       const raw = data.content[0].text.trim();
       const jsonText = raw.replace(/^```json\s*/i, "").replace(/```$/i, "").trim();
       const parsed = JSON.parse(jsonText);
+      // Normaliza horários "08:30+1d" → time + data_chegada ajustada, encadeia datas entre segmentos.
+      const normalized = normalizeItinerary(parsed);
       setFormData((p) => {
         const baseBag = p.baggage || { personal: 1, carry_on: 1, checked: 0 };
-        const trechos = (parsed.trechos || []).map((t) => ({
-          ...t,
-          classe: t.classe || "Econômica",
-          baggage: t.baggage || {
-            personal: baseBag.personal ?? 1,
-            carry_on: baseBag.carry_on ?? 0,
-            checked: baseBag.checked ?? 0,
-          },
-        }));
+        const trechos = (normalized.trechos || []).map((t) => {
+          const segmentos =
+            Array.isArray(t.segmentos) && t.segmentos.length > 0
+              ? t.segmentos
+              : [createLegacySegment(t)];
+          const baseTrecho = {
+            tipo: t.tipo || "ida",
+            classe: t.classe || "Econômica",
+            baggage: t.baggage || {
+              personal: baseBag.personal ?? 1,
+              carry_on: baseBag.carry_on ?? 0,
+              checked: baseBag.checked ?? 0,
+            },
+            segmentos,
+            tempo_total: t.tempo_total || t.duracao || "",
+            tempo_escalas: Array.isArray(t.tempo_escalas) ? t.tempo_escalas : [],
+            aeroporto_escala: t.aeroporto_escala || "",
+            tempo_escala: t.tempo_escala || "",
+          };
+          return syncTrechoFromSegmentos(baseTrecho);
+        });
         return { ...p, itinerary: { trechos }, itinerary_reviewed: false };
       });
-      toast({ title: "Itinerário extraído", description: `${parsed.trechos?.length || 0} trecho(s) detectado(s)` });
+      toast({ title: "Itinerário extraído", description: `${normalized.trechos?.length || 0} trecho(s) detectado(s)` });
     } catch (e) {
       console.error(e);
       setError(`Erro ao processar imagens: ${e.message}`);
@@ -600,64 +866,171 @@ Se houver dois trechos visíveis (ida e volta), retorne ambos no array. Se houve
     }
   };
 
+  // Atualiza atributo top-level do trecho (classe, tipo, etc).
   const updateTrecho = (idx, field, value) => {
     setFormData((p) => {
       const trechos = [...p.itinerary.trechos];
       const patch = { [field]: value };
-      if (field === "duracao") patch._duracao_manual = true;
-      trechos[idx] = { ...trechos[idx], ...patch };
+      trechos[idx] = syncTrechoFromSegmentos({ ...trechos[idx], ...patch });
       return { ...p, itinerary: { trechos }, itinerary_reviewed: false };
     });
   };
 
-  // Recalcula duração automaticamente quando saída/chegada mudam
+  // Atualiza campo dentro de um segmento específico.
+  const updateSegmento = (trechoIdx, segIdx, field, value) => {
+    setFormData((p) => {
+      const trechos = [...p.itinerary.trechos];
+      const trecho = { ...trechos[trechoIdx] };
+      const segmentos = [...getSegmentos(trecho)];
+      const segPatch = { [field]: value };
+      if (field === "duracao") segPatch._duracao_manual = true;
+      segmentos[segIdx] = { ...segmentos[segIdx], ...segPatch };
+      trecho.segmentos = segmentos;
+      trechos[trechoIdx] = syncTrechoFromSegmentos(trecho);
+      return { ...p, itinerary: { trechos }, itinerary_reviewed: false };
+    });
+  };
+
+  const addSegmento = (trechoIdx) => {
+    setFormData((p) => {
+      const trechos = [...p.itinerary.trechos];
+      const trecho = { ...trechos[trechoIdx] };
+      const segmentos = [...getSegmentos(trecho)];
+      const last = segmentos[segmentos.length - 1];
+      segmentos.push({
+        numero_voo: "",
+        companhia: last?.companhia || "",
+        origem_iata: last?.destino_iata || "",
+        origem_cidade: last?.destino_cidade || "",
+        destino_iata: "",
+        destino_cidade: "",
+        horario_saida: "",
+        horario_chegada: "",
+        data_saida: last?.data_chegada || null,
+        data_chegada: null,
+        duracao: "",
+      });
+      trecho.segmentos = segmentos;
+      // Atualiza array de escalas para preservar tamanho consistente.
+      const tempoEscalas = Array.isArray(trecho.tempo_escalas)
+        ? [...trecho.tempo_escalas]
+        : [];
+      tempoEscalas[segmentos.length - 2] = tempoEscalas[segmentos.length - 2] || {
+        aeroporto: last?.destino_iata || "",
+        duracao: "",
+      };
+      trecho.tempo_escalas = tempoEscalas;
+      trechos[trechoIdx] = syncTrechoFromSegmentos(trecho);
+      return { ...p, itinerary: { trechos }, itinerary_reviewed: false };
+    });
+  };
+
+  const removeSegmento = (trechoIdx, segIdx) => {
+    setFormData((p) => {
+      const trechos = [...p.itinerary.trechos];
+      const trecho = { ...trechos[trechoIdx] };
+      const segmentos = getSegmentos(trecho).filter((_, i) => i !== segIdx);
+      if (segmentos.length === 0) {
+        // Mantém pelo menos um segmento vazio
+        segmentos.push(createLegacySegment({}));
+      }
+      trecho.segmentos = segmentos;
+      // Remove o tempo de escala correspondente (se removeu segmento, escala adjacente some)
+      if (Array.isArray(trecho.tempo_escalas)) {
+        const tempoEscalas = [...trecho.tempo_escalas];
+        // remove na posição segIdx-1 se segIdx>0, senão na posição 0
+        const idxToRemove = segIdx > 0 ? segIdx - 1 : 0;
+        tempoEscalas.splice(idxToRemove, 1);
+        trecho.tempo_escalas = tempoEscalas;
+      }
+      trechos[trechoIdx] = syncTrechoFromSegmentos(trecho);
+      return { ...p, itinerary: { trechos }, itinerary_reviewed: false };
+    });
+  };
+
+  const updateTempoEscala = (trechoIdx, escalaIdx, value) => {
+    setFormData((p) => {
+      const trechos = [...p.itinerary.trechos];
+      const trecho = { ...trechos[trechoIdx] };
+      const segmentos = getSegmentos(trecho);
+      const tempoEscalas = Array.isArray(trecho.tempo_escalas)
+        ? [...trecho.tempo_escalas]
+        : [];
+      const aeroporto =
+        tempoEscalas[escalaIdx]?.aeroporto ||
+        segmentos[escalaIdx]?.destino_iata ||
+        "";
+      tempoEscalas[escalaIdx] = { aeroporto, duracao: value };
+      trecho.tempo_escalas = tempoEscalas;
+      trechos[trechoIdx] = syncTrechoFromSegmentos(trecho);
+      return { ...p, itinerary: { trechos }, itinerary_reviewed: false };
+    });
+  };
+
+  // Recalcula duração de cada segmento automaticamente quando saída/chegada/datas mudam
   // (a menos que o vendedor já tenha editado a duração manualmente)
-  const trechosTimeKey = (formData.itinerary?.trechos || [])
-    .map((t) => `${t.horario_saida || ""}~${t.horario_chegada || ""}~${t._duracao_manual ? "m" : "a"}`)
+  const segmentosTimeKey = (formData.itinerary?.trechos || [])
+    .flatMap((t, ti) =>
+      getSegmentos(t).map(
+        (s, si) =>
+          `${ti}.${si}:${s.horario_saida || ""}~${s.horario_chegada || ""}~${s.data_saida || ""}~${s.data_chegada || ""}~${s._duracao_manual ? "m" : "a"}`
+      )
+    )
     .join("|");
   useEffect(() => {
     setFormData((p) => {
       const trechos = p.itinerary?.trechos || [];
       let changed = false;
       const next = trechos.map((t) => {
-        if (t._duracao_manual) return t;
-        if (!t.horario_saida || !t.horario_chegada) return t;
-        const dur = calculateDuration(t.horario_saida, t.horario_chegada);
-        if (dur && dur !== t.duracao) {
-          changed = true;
-          return { ...t, duracao: dur };
-        }
-        return t;
+        const segmentos = getSegmentos(t);
+        const updatedSegs = segmentos.map((s) => {
+          if (s._duracao_manual) return s;
+          if (!s.horario_saida || !s.horario_chegada) return s;
+          // Usa cálculo consciente de datas — voos noturnos com data_chegada
+          // explícita resultam em duração correta (não soma 24h indevidamente).
+          const dur = calculateSegmentDuration(s);
+          if (dur && dur !== s.duracao) {
+            changed = true;
+            return { ...s, duracao: dur };
+          }
+          return s;
+        });
+        if (updatedSegs === segmentos) return t;
+        return syncTrechoFromSegmentos({ ...t, segmentos: updatedSegs });
       });
       if (!changed) return p;
       return { ...p, itinerary: { ...p.itinerary, trechos: next } };
     });
-  }, [trechosTimeKey]);
+  }, [segmentosTimeKey]);
 
   const addTrechoManual = () => {
     setFormData((p) => {
       const baseBag = p.baggage || { personal: 1, carry_on: 1, checked: 0 };
+      const novo = syncTrechoFromSegmentos({
+        tipo: p.itinerary.trechos.length === 0 ? "ida" : "volta",
+        classe: "Econômica",
+        baggage: {
+          personal: baseBag.personal ?? 1,
+          carry_on: baseBag.carry_on ?? 0,
+          checked: baseBag.checked ?? 0,
+        },
+        segmentos: [
+          {
+            companhia: "", numero_voo: "",
+            origem_iata: "", origem_cidade: "",
+            destino_iata: "", destino_cidade: "",
+            horario_saida: "", horario_chegada: "",
+            data_saida: null, data_chegada: null,
+            duracao: "",
+          },
+        ],
+        tempo_total: "",
+        tempo_escalas: [],
+      });
       return {
         ...p,
         itinerary: {
-          trechos: [
-            ...p.itinerary.trechos,
-            {
-              tipo: p.itinerary.trechos.length === 0 ? "ida" : "volta",
-              companhia: "", numero_voo: "",
-              origem_iata: "", origem_cidade: "",
-              destino_iata: "", destino_cidade: "",
-              horario_saida: "", horario_chegada: "",
-              duracao: "", escalas: 0,
-              aeroporto_escala: "", tempo_escala: "",
-              classe: "Econômica",
-              baggage: {
-                personal: baseBag.personal ?? 1,
-                carry_on: baseBag.carry_on ?? 0,
-                checked: baseBag.checked ?? 0,
-              },
-            },
-          ],
+          trechos: [...p.itinerary.trechos, novo],
         },
       };
     });
@@ -956,184 +1329,210 @@ Se houver dois trechos visíveis (ida e volta), retorne ambos no array. Se houve
                 Nenhum trecho ainda. Processe as imagens ou adicione manualmente.
               </p>
             )}
-            {formData.itinerary.trechos.map((t, idx) => (
-              <div key={idx} className="p-4 rounded-lg border border-border space-y-3 bg-muted/20">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="capitalize">{t.tipo}</Badge>
-                    <span className="text-sm font-medium">
-                      {t.companhia || "Companhia"} {t.numero_voo && `· ${t.numero_voo}`}
-                    </span>
-                  </div>
-                  <Button size="icon" variant="ghost" onClick={() => removeTrecho(idx)}>
-                    <Trash2 className="h-4 w-4 text-red-500" />
-                  </Button>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <Input
-                    placeholder="Companhia"
-                    value={t.companhia || ""}
-                    onChange={(e) => updateTrecho(idx, "companhia", e.target.value)}
-                  />
-                  <Input
-                    placeholder="Número do voo"
-                    value={t.numero_voo || ""}
-                    onChange={(e) => updateTrecho(idx, "numero_voo", e.target.value)}
-                  />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Origem</Label>
-                    <Input
-                      placeholder="IATA"
-                      value={t.origem_iata || ""}
-                      onChange={(e) => updateTrecho(idx, "origem_iata", e.target.value.toUpperCase())}
-                    />
-                    <Input
-                      placeholder="Cidade"
-                      value={t.origem_cidade || ""}
-                      onChange={(e) => updateTrecho(idx, "origem_cidade", e.target.value)}
-                    />
-                    <Input
-                      placeholder="Saída HH:MM"
-                      value={t.horario_saida || ""}
-                      onChange={(e) => updateTrecho(idx, "horario_saida", e.target.value)}
-                    />
-                  </div>
-                  <div className="flex flex-col items-center text-xs text-muted-foreground gap-1">
-                    <ChevronRight className="h-5 w-5" />
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Input
-                          placeholder="Duração"
-                          value={t.duracao || ""}
-                          onChange={(e) => updateTrecho(idx, "duracao", e.target.value)}
-                          className={cn(
-                            "text-center",
-                            !t._duracao_manual && t.duracao && "bg-muted/40"
-                          )}
-                        />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        Calculado automaticamente pelos horários. Edite se necessário.
-                      </TooltipContent>
-                    </Tooltip>
-                    <Input
-                      placeholder="Escalas"
-                      type="number"
-                      min={0}
-                      value={t.escalas || 0}
-                      onChange={(e) => updateTrecho(idx, "escalas", parseInt(e.target.value) || 0)}
-                      className="text-center"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Destino</Label>
-                    <Input
-                      placeholder="IATA"
-                      value={t.destino_iata || ""}
-                      onChange={(e) => updateTrecho(idx, "destino_iata", e.target.value.toUpperCase())}
-                    />
-                    <Input
-                      placeholder="Cidade"
-                      value={t.destino_cidade || ""}
-                      onChange={(e) => updateTrecho(idx, "destino_cidade", e.target.value)}
-                    />
-                    <Input
-                      placeholder="Chegada HH:MM"
-                      value={t.horario_chegada || ""}
-                      onChange={(e) => updateTrecho(idx, "horario_chegada", e.target.value)}
-                    />
-                  </div>
-                </div>
-                {t.escalas > 0 && (
-                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border">
-                    <Input
-                      placeholder="Aeroporto escala (IATA)"
-                      value={t.aeroporto_escala || ""}
-                      onChange={(e) => updateTrecho(idx, "aeroporto_escala", e.target.value)}
-                    />
-                    <Input
-                      placeholder="Tempo de escala"
-                      value={t.tempo_escala || ""}
-                      onChange={(e) => updateTrecho(idx, "tempo_escala", e.target.value)}
-                    />
-                  </div>
-                )}
-
-                {formData.ticket_type === "Quebra de Trecho" && (
-                  <>
-                    <div className="space-y-2 pt-3 border-t border-border">
-                      <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                        Classe
-                      </Label>
-                      <Select
-                        value={t.classe || "Econômica"}
-                        onValueChange={(v) => updateTrecho(idx, "classe", v)}
+            {formData.itinerary.trechos.map((t, idx) => {
+              const isIda = t.tipo === "ida";
+              const segmentos = getSegmentos(t);
+              const Icon = isIda ? PlaneTakeoff : PlaneLanding;
+              return (
+                <Card
+                  key={idx}
+                  className={cn(
+                    "shadow-sm overflow-hidden border-l-4",
+                    isIda ? "border-l-red-500" : "border-l-blue-500"
+                  )}
+                >
+                  {/* Header do trecho */}
+                  <div
+                    className={cn(
+                      "px-5 py-3 flex items-center justify-between gap-2 flex-wrap",
+                      isIda ? "bg-red-50" : "bg-blue-50"
+                    )}
+                  >
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Icon className={cn("w-5 h-5", isIda ? "text-red-700" : "text-blue-700")} />
+                      <h3
+                        className={cn(
+                          "font-bold text-base uppercase tracking-wider",
+                          isIda ? "text-red-700" : "text-blue-700"
+                        )}
                       >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Econômica">Econômica</SelectItem>
-                          <SelectItem value="Premium Economy">Premium Economy</SelectItem>
-                          <SelectItem value="Executiva">Executiva</SelectItem>
-                          <SelectItem value="Primeira">Primeira</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        {isIda ? "IDA" : "VOLTA"}
+                      </h3>
+                      {(t.escalas || 0) === 0 ? (
+                        <Badge variant="outline" className="text-emerald-700 border-emerald-300 bg-emerald-50">
+                          Voo direto
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-amber-700 border-amber-300">
+                          {t.escalas} {t.escalas === 1 ? "escala" : "escalas"}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Input
+                        value={t.tempo_total || ""}
+                        onChange={(e) => updateTrecho(idx, "tempo_total", e.target.value)}
+                        placeholder="Tempo total"
+                        className="h-7 w-32 text-xs"
+                      />
+                      <Button size="icon" variant="ghost" onClick={() => removeTrecho(idx)} title="Remover trecho">
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <CardContent className="p-5 space-y-3">
+                    {segmentos.map((seg, segIdx) => {
+                      const proximo = segmentos[segIdx + 1];
+                      const escalaPernoita = !!(
+                        proximo &&
+                        seg.data_chegada &&
+                        proximo.data_saida &&
+                        seg.data_chegada !== proximo.data_saida
+                      );
+                      return (
+                        <Fragment key={segIdx}>
+                          <SegmentoCard
+                            segmento={seg}
+                            segmentoIdx={segIdx}
+                            trechoIdx={idx}
+                            totalSegmentos={segmentos.length}
+                            onUpdate={updateSegmento}
+                            onRemove={() => removeSegmento(idx, segIdx)}
+                          />
+                          {segIdx < segmentos.length - 1 && (
+                            <div className="my-1 flex items-center gap-3 pl-2">
+                              <div
+                                className={cn(
+                                  "flex-1 border-t-2 border-dashed",
+                                  escalaPernoita ? "border-red-300" : "border-amber-300",
+                                )}
+                              />
+                              <div
+                                className={cn(
+                                  "px-3 py-1 rounded-full text-xs font-medium flex items-center gap-2 border",
+                                  escalaPernoita
+                                    ? "bg-red-100 text-red-800 border-red-200"
+                                    : "bg-amber-100 text-amber-800 border-amber-200",
+                                )}
+                                title={
+                                  escalaPernoita
+                                    ? "A escala atravessa a meia-noite — o passageiro pernoita no aeroporto/cidade."
+                                    : "Escala curta no mesmo dia."
+                                }
+                              >
+                                <span>{escalaPernoita ? "🌙" : "⏳"}</span>
+                                <span>
+                                  {escalaPernoita ? "Pernoite" : "Escala"} em {seg.destino_iata || "—"}
+                                </span>
+                                <Input
+                                  value={t.tempo_escalas?.[segIdx]?.duracao || ""}
+                                  onChange={(e) => updateTempoEscala(idx, segIdx, e.target.value)}
+                                  placeholder="5h 05min"
+                                  className={cn(
+                                    "h-6 w-24 text-xs px-2 py-0 bg-white",
+                                    escalaPernoita ? "border-red-300" : "border-amber-300",
+                                  )}
+                                />
+                              </div>
+                              <div
+                                className={cn(
+                                  "flex-1 border-t-2 border-dashed",
+                                  escalaPernoita ? "border-red-300" : "border-amber-300",
+                                )}
+                              />
+                            </div>
+                          )}
+                        </Fragment>
+                      );
+                    })}
+
+                    <div className="flex justify-center pt-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => addSegmento(idx)}
+                        className="gap-1 text-xs"
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Adicionar segmento (escala)
+                      </Button>
                     </div>
 
-                    <div className="space-y-2 pt-3 border-t border-border">
-                      <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                        Franquia de bagagem deste trecho
-                      </Label>
-                      <div className="grid grid-cols-3 gap-3">
-                        {[
-                          { key: "personal", label: "🎒 Artigo pessoal", max: 1 },
-                          { key: "carry_on", label: "🎒 Mão (10kg)", max: 5 },
-                          { key: "checked", label: "🧳 Despachada (23kg)", max: 5 },
-                        ].map((b) => {
-                          const val = Number(t.baggage?.[b.key]) || 0;
-                          return (
-                            <div
-                              key={b.key}
-                              className="rounded-lg border border-border bg-muted/30 p-3"
-                            >
-                              <div className="text-[11px] text-muted-foreground mb-2">{b.label}</div>
-                              <div className="flex items-center justify-between">
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="icon"
-                                  className="h-7 w-7"
-                                  onClick={() => updateTrechoBaggage(idx, b.key, Math.max(0, val - 1))}
-                                  disabled={val <= 0}
+                    {formData.ticket_type === "Quebra de Trecho" && (
+                      <div className="mt-4 pt-4 border-t border-border space-y-4">
+                        <div className="space-y-2">
+                          <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                            Classe
+                          </Label>
+                          <Select
+                            value={t.classe || "Econômica"}
+                            onValueChange={(v) => updateTrecho(idx, "classe", v)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Econômica">Econômica</SelectItem>
+                              <SelectItem value="Premium Economy">Premium Economy</SelectItem>
+                              <SelectItem value="Executiva">Executiva</SelectItem>
+                              <SelectItem value="Primeira">Primeira</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                            Franquia de bagagem deste trecho
+                          </Label>
+                          <div className="grid grid-cols-3 gap-3">
+                            {[
+                              { key: "personal", label: "🎒 Artigo pessoal", max: 1 },
+                              { key: "carry_on", label: "🎒 Mão (10kg)", max: 5 },
+                              { key: "checked", label: "🧳 Despachada (23kg)", max: 5 },
+                            ].map((b) => {
+                              const val = Number(t.baggage?.[b.key]) || 0;
+                              return (
+                                <div
+                                  key={b.key}
+                                  className="rounded-lg border border-border bg-muted/30 p-3"
                                 >
-                                  −
-                                </Button>
-                                <span className="font-bold tabular-nums">
-                                  {String(val).padStart(2, "0")}
-                                </span>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="icon"
-                                  className="h-7 w-7"
-                                  onClick={() => updateTrechoBaggage(idx, b.key, Math.min(b.max, val + 1))}
-                                  disabled={val >= b.max}
-                                >
-                                  +
-                                </Button>
-                              </div>
-                            </div>
-                          );
-                        })}
+                                  <div className="text-[11px] text-muted-foreground mb-2">{b.label}</div>
+                                  <div className="flex items-center justify-between">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="icon"
+                                      className="h-7 w-7"
+                                      onClick={() => updateTrechoBaggage(idx, b.key, Math.max(0, val - 1))}
+                                      disabled={val <= 0}
+                                    >
+                                      −
+                                    </Button>
+                                    <span className="font-bold tabular-nums">
+                                      {String(val).padStart(2, "0")}
+                                    </span>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="icon"
+                                      className="h-7 w-7"
+                                      onClick={() => updateTrechoBaggage(idx, b.key, Math.min(b.max, val + 1))}
+                                      disabled={val >= b.max}
+                                    >
+                                      +
+                                    </Button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            ))}
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
 
             {formData.itinerary.trechos.length > 0 && !formData.itinerary_reviewed && (
               <Button
@@ -2121,13 +2520,30 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
     const isSplit = t.ticket_type === "Quebra de Trecho";
     texto += `🛫 ITINERÁRIO:\n`;
     trechos.forEach((tr) => {
+      const segmentos = getSegmentos(tr);
+      const stops = segmentos
+        .slice(0, -1)
+        .map((s) => s.destino_iata)
+        .filter(Boolean);
       const escalaInfo =
         tr.escalas > 0
-          ? `${tr.escalas} escala(s) via ${tr.aeroporto_escala || "—"}`
+          ? `${tr.escalas} escala(s)${stops.length ? ` via ${stops.join(" / ")}` : ""}`
           : "Voo direto";
       texto += `${tr.tipo === "volta" ? "↩️ VOLTA: " : ""}${tr.origem_cidade} (${tr.origem_iata}) ➝ ${tr.destino_cidade} (${tr.destino_iata})\n`;
-      texto += `✈️ ${escalaInfo} operado por ${tr.companhia}${tr.numero_voo ? ` (${tr.numero_voo})` : ""}\n`;
-      texto += `🕒 Saída: ${tr.horario_saida}\n🕒 Chegada: ${tr.horario_chegada}\n⏱️ Duração: ${tr.duracao}\n`;
+      texto += `✈️ ${escalaInfo}\n`;
+
+      if (segmentos.length > 1) {
+        segmentos.forEach((s, si) => {
+          texto += `  • Voo ${si + 1}: ${s.companhia || ""}${s.numero_voo ? ` ${s.numero_voo}` : ""} — ${s.origem_iata}→${s.destino_iata} · ${s.horario_saida || ""}→${s.horario_chegada || ""}${s.duracao ? ` · ${s.duracao}` : ""}\n`;
+          if (si < segmentos.length - 1) {
+            const espera = tr.tempo_escalas?.[si]?.duracao;
+            if (espera) texto += `    ⏳ Escala em ${s.destino_iata}: ${espera}\n`;
+          }
+        });
+      } else {
+        texto += `🕒 Saída: ${tr.horario_saida}\n🕒 Chegada: ${tr.horario_chegada}\n`;
+      }
+      texto += `⏱️ Duração total: ${tr.tempo_total || tr.duracao || "—"}\n`;
       if (isSplit) {
         const cls = tr.classe || "Econômica";
         const bg = tr.baggage || {};

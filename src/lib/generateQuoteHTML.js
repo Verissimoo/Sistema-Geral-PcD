@@ -2,6 +2,8 @@
 // Gera um documento HTML auto-contido para a cotação, pronto para
 // abrir em nova aba e salvar como PDF via window.print().
 
+import { isNextDayArrival } from "./timeParser";
+
 const formatBRL = (v) =>
   (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -112,33 +114,96 @@ function buildPerTrechoExtras(trecho, data) {
     </div>`;
 }
 
+// Retrocompat: deriva segmentos a partir do trecho (com fallback para campos legacy)
+function getSegmentosFromTrecho(trecho) {
+  if (Array.isArray(trecho?.segmentos) && trecho.segmentos.length > 0) {
+    return trecho.segmentos;
+  }
+  return [{
+    numero_voo: trecho?.numero_voo || "",
+    companhia: trecho?.companhia || "",
+    origem_iata: trecho?.origem_iata || "",
+    origem_cidade: trecho?.origem_cidade || "",
+    destino_iata: trecho?.destino_iata || "",
+    destino_cidade: trecho?.destino_cidade || "",
+    horario_saida: trecho?.horario_saida || "",
+    horario_chegada: trecho?.horario_chegada || "",
+    data_saida: trecho?.data_saida || null,
+    data_chegada: trecho?.data_chegada || null,
+    duracao: trecho?.duracao || "",
+  }];
+}
+
 function buildFlightCard(trecho, data) {
   const isOut = trecho.tipo !== "volta";
   const dateStr = isOut ? data.dates?.departure : data.dates?.return;
   const dateLong = formatDateLong(dateStr);
-  const escalas = trecho.escalas || 0;
+  const segmentos = getSegmentosFromTrecho(trecho);
+  const escalas = trecho.escalas != null ? trecho.escalas : Math.max(0, segmentos.length - 1);
   const directLabel = escalas === 0 ? "Voo Direto" : `${escalas} escala(s)`;
+  const tempoTotal = trecho.tempo_total || trecho.duracao || "";
 
-  const stopsHtml = `
-    <div class="tl-stop">
-      <div class="tl-dot filled"><svg><use href="#ic-plane"/></svg></div>
-      <div class="tl-time">${esc(trecho.horario_saida || "--:--")}</div>
-      <div class="tl-place">${esc(trecho.origem_cidade || "")} (${esc(trecho.origem_iata || "")})</div>
-      <div class="tl-fnum">${esc(trecho.companhia || "")}${trecho.numero_voo ? `<span class="tl-sep"></span>${esc(trecho.numero_voo)}` : ""}<span class="tl-sep"></span>${esc(trecho.duracao || "")}</div>
-    </div>
-    ${escalas > 0 ? `
+  // Constrói a timeline iterando segmentos com escalas entre eles.
+  const tlPieces = [];
+  segmentos.forEach((seg, sIdx) => {
+    const isLast = sIdx === segmentos.length - 1;
+    const nextDay = isNextDayArrival(seg);
+    const nextDayBadge = nextDay
+      ? ` <span style="display:inline-block;background:#FEF3C7;color:#92400E;font-size:8px;font-weight:700;padding:2px 6px;border-radius:8px;margin-left:4px;letter-spacing:0.5px;">+1D</span>`
+      : "";
+
+    // Saída do segmento
+    tlPieces.push(`
       <div class="tl-stop">
-        <div class="tl-dot dim"><svg><use href="#ic-clock"/></svg></div>
-        <div class="conn"><svg><use href="#ic-clock"/></svg> Conexão em ${esc(trecho.aeroporto_escala || "—")}</div>
-        <div class="conn-d">Tempo de espera: ${esc(trecho.tempo_escala || "—")}</div>
-      </div>
-    ` : ""}
-    <div class="tl-stop" style="padding-bottom:0">
-      <div class="tl-dot filled"><svg><use href="#ic-check"/></svg></div>
-      <div class="tl-time">${esc(trecho.horario_chegada || "--:--")}</div>
-      <div class="tl-place">${esc(trecho.destino_cidade || "")} (${esc(trecho.destino_iata || "")})</div>
-      ${dateLong ? `<div class="arr"><svg><use href="#ic-check"/></svg> Chegada confirmada — ${esc(dateLong)}</div>` : ""}
-    </div>`;
+        <div class="tl-dot filled"><svg><use href="#ic-plane"/></svg></div>
+        <div class="tl-time">${esc(seg.horario_saida || "--:--")}</div>
+        <div class="tl-place">${esc(seg.origem_cidade || "")} (${esc(seg.origem_iata || "")})</div>
+        <div class="tl-fnum">${esc(seg.companhia || "")}${seg.numero_voo ? `<span class="tl-sep"></span>${esc(seg.numero_voo)}` : ""}${seg.duracao ? `<span class="tl-sep"></span>${esc(seg.duracao)}` : ""}</div>
+      </div>`);
+
+    // Chegada do segmento (intermediária ou final)
+    if (isLast) {
+      tlPieces.push(`
+        <div class="tl-stop" style="padding-bottom:0">
+          <div class="tl-dot filled"><svg><use href="#ic-check"/></svg></div>
+          <div class="tl-time">${esc(seg.horario_chegada || "--:--")}${nextDayBadge}</div>
+          <div class="tl-place">${esc(seg.destino_cidade || "")} (${esc(seg.destino_iata || "")})</div>
+          ${dateLong ? `<div class="arr"><svg><use href="#ic-check"/></svg> Chegada confirmada — ${esc(dateLong)}</div>` : ""}
+        </div>`);
+    } else {
+      const proximo = segmentos[sIdx + 1];
+      const espera = trecho.tempo_escalas?.[sIdx]?.duracao || "";
+      const escalaPernoita = !!(
+        seg.data_chegada &&
+        proximo?.data_saida &&
+        seg.data_chegada !== proximo.data_saida
+      );
+      const stopBg = escalaPernoita ? "#FEE2E2" : "var(--gold-l)";
+      const stopBd = escalaPernoita ? "#FECACA" : "var(--gold-b)";
+      const stopColor = escalaPernoita ? "#991B1B" : "var(--gold)";
+      const stopIcon = escalaPernoita ? "🌙" : "⏳";
+      const stopLabel = escalaPernoita ? "Pernoite" : "Escala";
+      tlPieces.push(`
+        <div class="tl-stop">
+          <div class="tl-dot dim"><svg><use href="#ic-clock"/></svg></div>
+          <div class="tl-time" style="font-size:14px;font-weight:600;color:var(--t2);">${esc(seg.horario_chegada || "--:--")}${nextDayBadge}</div>
+          <div class="tl-place">${esc(seg.destino_cidade || "")} (${esc(seg.destino_iata || "")})</div>
+          <div class="conn" style="background:${stopBg};border-color:${stopBd};color:${stopColor};">
+            <span style="font-size:11px;">${stopIcon}</span> ${stopLabel} em ${esc(seg.destino_iata || "—")}${espera ? ` · ${esc(espera)}` : ""}
+          </div>
+        </div>`);
+    }
+  });
+
+  const stopsHtml = tlPieces.join("");
+  const companhiasUnique = [
+    ...new Set(segmentos.map((s) => s.companhia).filter(Boolean)),
+  ];
+  const companhiaLabel = companhiasUnique.length === 1
+    ? companhiasUnique[0]
+    : companhiasUnique.length > 1
+      ? `${companhiasUnique.length} operadores`
+      : trecho.companhia || "";
 
   return `
     <div class="flight">
@@ -148,9 +213,9 @@ function buildFlightCard(trecho, data) {
           ${dateLong ? `<span class="f-date">${esc(dateLong)}</span>` : ""}
         </div>
         <div class="f-pills">
-          ${trecho.duracao ? `<div class="f-pill"><svg><use href="#ic-clock"/></svg> ${esc(trecho.duracao)}</div>` : ""}
+          ${tempoTotal ? `<div class="f-pill"><svg><use href="#ic-clock"/></svg> ${esc(tempoTotal)}</div>` : ""}
           <div class="f-pill">${directLabel}</div>
-          ${trecho.companhia ? `<div class="f-pill">${esc(trecho.companhia)}</div>` : ""}
+          ${companhiaLabel ? `<div class="f-pill">${esc(companhiaLabel)}</div>` : ""}
         </div>
       </div>
       <div class="fbody"><div class="tl">${stopsHtml}</div></div>

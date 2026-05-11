@@ -1,57 +1,27 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  FileText, ShoppingCart, TrendingUp, DollarSign, Users,
-  Calendar, Target, Trophy, Send, CheckCircle2, FileStack, X, Ban,
-  AlertTriangle, Plus, ArrowRight, Activity, Crown,
+  FileText, CheckCircle2, TrendingUp, DollarSign, Users,
+  Calendar, Target, Trophy, BarChart3, Filter, Activity, ArrowRight,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { localClient } from "@/api/localClient";
-import { CAREER_LEVELS } from "@/lib/careerPlan";
 import { filterCommercialQuotes } from "@/lib/commercialFilter";
+import {
+  getMonthRevenue, getRevenueQuotesInPeriod, APPROVED_PIPELINE_STATUSES,
+} from "@/lib/revenueHelper";
 
 const formatBRL = (v) =>
-  Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-const fmtTodayBR = () =>
-  new Date().toLocaleDateString("pt-BR", {
-    day: "2-digit", month: "long", year: "numeric",
-  });
-
-const fmtDayShort = (d) =>
-  d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-
-const isSameDay = (a, b) =>
-  a.getFullYear() === b.getFullYear() &&
-  a.getMonth() === b.getMonth() &&
-  a.getDate() === b.getDate();
-
-const isSameMonth = (date, ref = new Date()) =>
-  date.getFullYear() === ref.getFullYear() && date.getMonth() === ref.getMonth();
-
-const timeAgo = (iso) => {
-  if (!iso) return "—";
-  const diff = Date.now() - new Date(iso).getTime();
-  const min = Math.floor(diff / 60000);
-  if (min < 1) return "agora";
-  if (min < 60) return `há ${min} min`;
-  const h = Math.floor(min / 60);
-  if (h < 24) return `há ${h}h`;
-  const d = Math.floor(h / 24);
-  if (d === 1) return "ontem";
-  if (d < 30) return `há ${d}d`;
-  return new Date(iso).toLocaleDateString("pt-BR");
-};
-
-const AGUARDANDO_FECHAMENTO_STATUSES = [
+const NEGOCIACAO_STATUSES = [
   "Enviado",
   "FollowUp Pendente",
   "FollowUp 1 Enviado",
@@ -59,333 +29,288 @@ const AGUARDANDO_FECHAMENTO_STATUSES = [
   "FollowUp 3 Enviado",
 ];
 
-const STATUS_CONFIG = {
-  Enviado: {
-    color: "blue",
-    icon: Send,
-    label: "Aguardando fechamento",
-    matches: AGUARDANDO_FECHAMENTO_STATUSES,
-  },
-  Aprovado: { color: "emerald", icon: CheckCircle2, label: "Aprovados", matches: ["Aprovado"] },
-  "Aguardando Emissão": { color: "amber", icon: Send, label: "⏳ Aguardando Emissão", matches: ["Aguardando Emissão"] },
-  Emitido: { color: "purple", icon: FileStack, label: "Emitidos", matches: ["Emitido"] },
-  Recusado: { color: "red", icon: X, label: "Recusados", matches: ["Recusado"] },
-  Cancelado: { color: "gray", icon: Ban, label: "Cancelados", matches: ["Cancelado"] },
-};
+const initials = (name = "") =>
+  name.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("");
 
-const COLOR_CLASSES = {
-  blue: "bg-blue-100 text-blue-700 border-blue-200",
-  emerald: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  amber: "bg-amber-100 text-amber-800 border-amber-400",
-  purple: "bg-purple-100 text-purple-800 border-purple-300",
-  red: "bg-red-100 text-red-700 border-red-200",
-  gray: "bg-gray-100 text-gray-600 border-gray-200",
+const dateKey = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+const timeAgo = (date) => {
+  if (!date) return "—";
+  const diff = Date.now() - new Date(date).getTime();
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return "agora";
+  if (min < 60) return `há ${min}min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `há ${h}h`;
+  const d = Math.floor(h / 24);
+  if (d === 1) return "ontem";
+  if (d < 30) return `há ${d}d`;
+  return new Date(date).toLocaleDateString("pt-BR");
 };
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [users, setUsers] = useState([]);
-  const [quotes, setQuotes] = useState([]);
-  const [goals, setGoals] = useState([]);
   const [periodo, setPeriodo] = useState("30");
   const [periodoCustom, setPeriodoCustom] = useState({ start: "", end: "" });
+  const [allQuotes, setAllQuotes] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [goals, setGoals] = useState([]);
 
   useEffect(() => {
-    (async () => {
-      const [usersList, quotesList, goalsList] = await Promise.all([
-        localClient.entities.Users.list(),
-        localClient.entities.Quotes.list(),
-        localClient.entities.CommercialGoals.list(),
-      ]);
-      setUsers(usersList || []);
-      setQuotes(quotesList || []);
-      setGoals(goalsList || []);
-    })();
+    Promise.all([
+      localClient.entities.Quotes.list(),
+      localClient.entities.Users.list(),
+      localClient.entities.CommercialGoals.list(),
+    ]).then(([qs, us, gs]) => {
+      setAllQuotes(qs || []);
+      setUsers(us || []);
+      setGoals(gs || []);
+    });
   }, []);
 
-  // ── Filtro de período ──────────────────────────────────────────────
-  const periodRange = useMemo(() => {
+  const periodDates = useMemo(() => {
     const now = new Date();
+    let startDate;
+    let endDate;
     if (periodo === "custom") {
-      const start = periodoCustom.start
+      startDate = periodoCustom.start
         ? new Date(periodoCustom.start + "T00:00:00")
         : new Date(0);
-      const end = periodoCustom.end
+      endDate = periodoCustom.end
         ? new Date(periodoCustom.end + "T23:59:59")
         : now;
-      return { start, end };
+    } else {
+      const days = parseInt(periodo, 10);
+      startDate = new Date(now.getTime() - (days - 1) * 24 * 60 * 60 * 1000);
+      startDate.setHours(0, 0, 0, 0);
+      endDate = now;
     }
-    const days = parseInt(periodo);
-    const start = new Date(now);
-    start.setDate(start.getDate() - days + 1);
-    start.setHours(0, 0, 0, 0);
-    return { start, end: now };
+    const days = Math.max(1, Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)));
+    return { startDate, endDate, days };
   }, [periodo, periodoCustom]);
 
-  // Apenas vendas feitas por vendedor/gerente contam para métricas comerciais.
-  // Suporte e parceiro são excluídos das metas.
+  // Métricas comerciais — exclui parceiro e suporte
   const commercialQuotes = useMemo(
-    () => filterCommercialQuotes(quotes, users),
-    [quotes, users]
+    () => filterCommercialQuotes(allQuotes, users),
+    [allQuotes, users],
   );
 
-  const filteredQuotes = useMemo(() => {
+  // Quotes criadas no período (qualquer status)
+  const periodQuotes = useMemo(() => {
     return commercialQuotes.filter((q) => {
       const d = new Date(q.created_date);
-      return d >= periodRange.start && d <= periodRange.end;
+      return d >= periodDates.startDate && d <= periodDates.endDate;
     });
-  }, [commercialQuotes, periodRange]);
+  }, [commercialQuotes, periodDates]);
 
-  // ── Métricas ──────────────────────────────────────────────────────
-  const today = useMemo(() => new Date(), []);
-  const yesterday = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 1);
-    return d;
-  }, []);
-
-  const metrics = useMemo(() => {
-    // "Cotações Hoje / Ontem" são sempre referentes ao dia (independente do filtro).
-    // Apenas cotações de vendedor/gerente contam para métricas comerciais.
-    const cotacoesHoje = commercialQuotes.filter((q) =>
-      isSameDay(new Date(q.created_date), today)
-    ).length;
-    const cotacoesOntem = commercialQuotes.filter((q) =>
-      isSameDay(new Date(q.created_date), yesterday)
-    ).length;
-
-    // Demais métricas seguem o período selecionado
-    const vendasPeriodo = filteredQuotes.filter(
-      (q) => q.status === "Aprovado" || q.status === "Emitido"
-    );
-    const receitaPeriodo = vendasPeriodo.reduce((s, q) => s + (q.total_value || 0), 0);
-    const taxaConv = filteredQuotes.length > 0
-      ? Math.round((vendasPeriodo.length / filteredQuotes.length) * 100)
-      : 0;
-    const ticketMedio = vendasPeriodo.length > 0
-      ? receitaPeriodo / vendasPeriodo.length
-      : 0;
-
-    const vendedoresAtivos = users.filter(
-      (u) => u.role === "vendedor" && u.status === "Ativo"
-    );
-    const emFormacao = vendedoresAtivos.filter(
-      (u) => (u.career_level || "N0") === "N0"
-    ).length;
-
-    return {
-      cotacoesHoje,
-      cotacoesOntem,
-      vendasMes: vendasPeriodo.length,
-      receitaMes: receitaPeriodo,
-      cotacoesMesTotal: filteredQuotes.length,
-      taxaConv,
-      ticketMedio,
-      vendedoresAtivos: vendedoresAtivos.length,
-      emFormacao,
-    };
-  }, [commercialQuotes, filteredQuotes, users, today, yesterday]);
-
-  // ── Série de barras adaptativa ao período ─────────────────────────
-  const chartData = useMemo(() => {
-    const start = new Date(periodRange.start);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(periodRange.end);
-    end.setHours(23, 59, 59, 999);
-    const totalDays = Math.max(1, Math.ceil((end - start) / 86400000));
-    const groupByWeek = totalDays > 30;
-    const isSale = (q) =>
-      q.status === "Aprovado" ||
-      q.status === "Emitido" ||
-      q.status === "Aguardando Emissão";
-
-    const buckets = [];
-
-    if (groupByWeek) {
-      const numWeeks = Math.ceil(totalDays / 7);
-      for (let i = 0; i < numWeeks; i++) {
-        const bStart = new Date(start);
-        bStart.setDate(bStart.getDate() + i * 7);
-        const bEnd = new Date(bStart);
-        bEnd.setDate(bEnd.getDate() + 6);
-        bEnd.setHours(23, 59, 59, 999);
-        if (bStart > end) break;
-        buckets.push({
-          start: bStart,
-          end: bEnd,
-          label: `${bStart.getDate()}/${bStart.getMonth() + 1}`,
-          cotacoes: 0,
-          vendas: 0,
-        });
-      }
-      for (const q of filteredQuotes) {
-        if (!q.created_date) continue;
-        const d = new Date(q.created_date);
-        const bucket = buckets.find((b) => d >= b.start && d <= b.end);
-        if (!bucket) continue;
-        bucket.cotacoes += 1;
-        if (isSale(q)) bucket.vendas += 1;
-      }
-    } else {
-      for (let i = 0; i < totalDays; i++) {
-        const d = new Date(start);
-        d.setDate(d.getDate() + i);
-        if (d > end) break;
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-        buckets.push({ key, label: fmtDayShort(d), cotacoes: 0, vendas: 0 });
-      }
-      const byKey = Object.fromEntries(buckets.map((b) => [b.key, b]));
-      for (const q of filteredQuotes) {
-        if (!q.created_date) continue;
-        const d = new Date(q.created_date);
-        const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-        const bucket = byKey[k];
-        if (!bucket) continue;
-        bucket.cotacoes += 1;
-        if (isSale(q)) bucket.vendas += 1;
-      }
-    }
-
-    const max = Math.max(1, ...buckets.map((b) => Math.max(b.cotacoes, b.vendas)));
-    const totalCot = buckets.reduce((s, b) => s + b.cotacoes, 0);
-    const totalSales = buckets.reduce((s, b) => s + b.vendas, 0);
-    const conv = totalCot > 0 ? Math.round((totalSales / totalCot) * 100) : 0;
-    return { buckets, max, totalCot, totalSales, conv, groupByWeek };
-  }, [filteredQuotes, periodRange]);
-
-  // ── Meta do mês atual (real do calendário), com fallback à "Ativa" ─
-  const currentMonthYM = useMemo(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  }, []);
-
-  const activeGoal = useMemo(
+  // RECEITA do período — só Emitido, alocada pela data de emissão
+  const periodRevenue = useMemo(
     () =>
-      goals.find((g) => g.month === currentMonthYM) ||
-      goals.find((g) => g.status === "Ativa"),
-    [goals, currentMonthYM]
+      getRevenueQuotesInPeriod(
+        commercialQuotes,
+        periodDates.startDate,
+        periodDates.endDate,
+      ),
+    [commercialQuotes, periodDates],
+  );
+  const totalRevenue = periodRevenue.reduce(
+    (s, q) => s + (Number(q.total_value) || 0),
+    0,
+  );
+  const totalEmitidos = periodRevenue.length;
+
+  // Pipeline do período (Aprovado + Aguardando Emissão) — usa created_date
+  const pipelineQuotes = useMemo(
+    () =>
+      periodQuotes.filter((q) => APPROVED_PIPELINE_STATUSES.includes(q.status)),
+    [periodQuotes],
+  );
+  const pipelineValue = pipelineQuotes.reduce(
+    (s, q) => s + (Number(q.total_value) || 0),
+    0,
   );
 
-  const goalStats = useMemo(() => {
-    if (!activeGoal?.month) return null;
-    const [y, m] = activeGoal.month.split("-").map(Number);
-    const start = new Date(y, m - 1, 1);
-    const end = new Date(y, m, 0, 23, 59, 59);
-    const totalDays = end.getDate();
-    const todayDate = new Date();
-    const monthStarted = todayDate >= start;
-    const monthEnded = todayDate > end;
-    const elapsedDays = monthEnded
-      ? totalDays
-      : monthStarted
-      ? Math.max(1, todayDate.getDate())
-      : 0;
-    const remainingDays = Math.max(0, totalDays - elapsedDays);
+  // Vendedores ativos
+  const activeSellers = useMemo(
+    () =>
+      users.filter(
+        (u) =>
+          (u.role === "vendedor" || u.role === "gerente") &&
+          u.status === "Ativo",
+      ),
+    [users],
+  );
+  const emFormacao = useMemo(
+    () =>
+      users.filter(
+        (u) => u.role === "vendedor" && (u.career_level || "N0") === "N0",
+      ).length,
+    [users],
+  );
 
-    const sold = commercialQuotes
-      .filter((q) => {
-        const d = new Date(q.created_date);
-        return (
-          d >= start && d <= end && (q.status === "Aprovado" || q.status === "Emitido")
-        );
-      })
-      .reduce((s, q) => s + (q.total_value || 0), 0);
+  // Dados do gráfico
+  const chartData = useMemo(() => {
+    const days = periodDates.days;
+    const data = [];
+    for (let i = 0; i < days; i++) {
+      const d = new Date(periodDates.startDate);
+      d.setDate(d.getDate() + i);
+      data.push({
+        key: dateKey(d),
+        label: `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`,
+        fullDate: d,
+        cotacoes: 0,
+        vendas: 0,
+      });
+    }
+    const byKey = Object.fromEntries(data.map((d) => [d.key, d]));
 
-    const target = Number(activeGoal.monthly_target) || 0;
-    const pct = target > 0 ? Math.min(100, (sold / target) * 100) : 0;
-    const missing = Math.max(0, target - sold);
-    const dailyAvg = elapsedDays > 0 ? sold / elapsedDays : 0;
-    const dailyNeeded = remainingDays > 0 ? missing / remainingDays : 0;
+    for (const q of commercialQuotes) {
+      if (!q.created_date) continue;
+      const d = new Date(q.created_date);
+      const k = dateKey(d);
+      if (byKey[k]) byKey[k].cotacoes += 1;
+    }
+    for (const q of commercialQuotes) {
+      if (q.status !== "Emitido") continue;
+      const issuedDateStr =
+        q.emission_completed_date || q.issued_date || q.created_date;
+      if (!issuedDateStr) continue;
+      const d = new Date(issuedDateStr);
+      const k = dateKey(d);
+      if (byKey[k]) byKey[k].vendas += 1;
+    }
+    return data;
+  }, [commercialQuotes, periodDates]);
 
-    return { sold, target, pct, missing, dailyAvg, dailyNeeded };
-  }, [activeGoal, commercialQuotes]);
+  const maxValue = Math.max(
+    ...chartData.map((d) => Math.max(d.cotacoes, d.vendas)),
+    1,
+  );
+  const totalCotacoes = chartData.reduce((s, d) => s + d.cotacoes, 0);
+  const totalVendas = chartData.reduce((s, d) => s + d.vendas, 0);
+  const conversao =
+    totalCotacoes > 0
+      ? ((totalVendas / totalCotacoes) * 100).toFixed(1)
+      : "0.0";
 
-  // ── Status counts (no período) ────────────────────────────────────
-  const statusCounts = useMemo(() => {
-    const out = {};
-    Object.entries(STATUS_CONFIG).forEach(([key, cfg]) => {
-      const matches = cfg.matches || [key];
-      const list = filteredQuotes.filter((q) => matches.includes(q.status));
-      out[key] = {
-        count: list.length,
-        total: list.reduce((sum, q) => sum + (q.total_value || 0), 0),
-      };
-    });
-    return out;
-  }, [filteredQuotes]);
+  // Meta do mês atual
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const metaAtual = goals.find((g) => g.month === currentMonth);
+  const receitaMes = useMemo(
+    () => getMonthRevenue(commercialQuotes, currentMonth),
+    [commercialQuotes, currentMonth],
+  );
 
-  // ── Ranking vendedores (no período) ───────────────────────────────
-  const ranking = useMemo(() => {
-    const map = {};
-    filteredQuotes.forEach((q) => {
-      if (!q.seller_id) return;
-      if (q.status !== "Aprovado" && q.status !== "Emitido") return;
-      if (!map[q.seller_id]) {
-        map[q.seller_id] = { id: q.seller_id, revenue: 0, sales: 0, name: q.seller_name };
-      }
-      map[q.seller_id].revenue += q.total_value || 0;
-      map[q.seller_id].sales += 1;
-    });
-    const list = Object.values(map).map((s) => {
-      const u = users.find((x) => x.id === s.id);
+  // Funil de conversão
+  const funil = useMemo(() => {
+    const negociacao = periodQuotes.filter((q) =>
+      NEGOCIACAO_STATUSES.includes(q.status),
+    );
+    const aprovadas = periodQuotes.filter((q) => q.status === "Aprovado");
+    const aguardando = periodQuotes.filter(
+      (q) => q.status === "Aguardando Emissão",
+    );
+    const emitidas = periodQuotes.filter((q) => q.status === "Emitido");
+    return [
+      {
+        label: "Em negociação",
+        count: negociacao.length,
+        color: "bg-blue-500",
+      },
+      { label: "Aprovadas", count: aprovadas.length, color: "bg-amber-500" },
+      {
+        label: "Aguardando emissão",
+        count: aguardando.length,
+        color: "bg-orange-500",
+      },
+      {
+        label: "Emitidas (receita)",
+        count: emitidas.length,
+        color: "bg-emerald-500",
+      },
+    ];
+  }, [periodQuotes]);
+
+  // Top 5 vendedores
+  const topPerformers = useMemo(() => {
+    const sellers = users.filter(
+      (u) =>
+        (u.role === "vendedor" || u.role === "gerente") &&
+        u.status === "Ativo",
+    );
+    const ranked = sellers.map((seller) => {
+      const sellerRevenue = periodRevenue.filter(
+        (q) => q.seller_id === seller.id,
+      );
+      const totalRev = sellerRevenue.reduce(
+        (s, q) => s + (Number(q.total_value) || 0),
+        0,
+      );
+      const sellerCotacoes = periodQuotes.filter(
+        (q) => q.seller_id === seller.id,
+      );
       return {
-        ...s,
-        name: u?.name || s.name || "—",
-        career_level: u?.career_level || "N0",
+        ...seller,
+        receita: totalRev,
+        vendas: sellerRevenue.length,
+        cotacoes: sellerCotacoes.length,
       };
     });
-    list.sort((a, b) => b.revenue - a.revenue);
-    return list.slice(0, 7);
-  }, [filteredQuotes, users]);
+    return ranked
+      .sort((a, b) => b.receita - a.receita)
+      .slice(0, 5)
+      .filter((r) => r.receita > 0 || r.cotacoes > 0);
+  }, [users, periodRevenue, periodQuotes]);
 
-  const maxRevenue = ranking[0]?.revenue || 1;
+  const maxSellerRevenue = topPerformers[0]?.receita || 1;
 
-  // ── Atividade recente (no período) ────────────────────────────────
-  const activity = useMemo(() => {
+  // Atividade recente — criações + emissões
+  const recentActivity = useMemo(() => {
     const events = [];
-    filteredQuotes.forEach((q) => {
-      events.push({
-        type: "create",
-        date: q.created_date,
-        text: `${q.seller_name || "—"} criou orçamento ${q.quote_number || ""} — ${q.client?.name || ""} · ${formatBRL(q.total_value)}`,
-        icon: FileText,
-        color: "text-blue-600",
-      });
-      [
-        { field: "approved_date", label: "Aprovado", color: "text-emerald-600" },
-        { field: "issued_date", label: "Emitido", color: "text-purple-600" },
-        { field: "rejected_date", label: "Recusado", color: "text-red-600" },
-      ].forEach(({ field, label, color }) => {
-        if (q[field]) {
-          const cfg = STATUS_CONFIG[label];
-          events.push({
-            type: "status",
-            date: q[field],
-            text: `${q.seller_name || "—"} alterou ${q.quote_number || ""} para ${label} · ${formatBRL(q.total_value)}`,
-            icon: cfg?.icon || CheckCircle2,
-            color,
-          });
-        }
-      });
-    });
+    for (const q of commercialQuotes) {
+      if (q.created_date) {
+        events.push({
+          type: "created",
+          date: q.created_date,
+          quote: q,
+          icon: "📄",
+          color: "text-blue-600",
+          label: "criou orçamento",
+        });
+      }
+      if (q.status === "Emitido" && (q.emission_completed_date || q.issued_date)) {
+        events.push({
+          type: "issued",
+          date: q.emission_completed_date || q.issued_date,
+          quote: q,
+          icon: "✅",
+          color: "text-emerald-600",
+          label: "emitiu",
+        });
+      }
+    }
     events.sort((a, b) => new Date(b.date) - new Date(a.date));
-    return events.slice(0, 10);
-  }, [filteredQuotes]);
+    return events.slice(0, 8);
+  }, [commercialQuotes]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Dashboard Gerencial</h1>
-          <p className="text-muted-foreground text-sm mt-1">
+          <h1 className="text-3xl font-bold text-slate-900">Dashboard Gerencial</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Visão geral da operação — PassagensComDesconto
           </p>
         </div>
+
         <div className="flex items-center gap-2 flex-wrap">
           <Select value={periodo} onValueChange={setPeriodo}>
-            <SelectTrigger className="w-[180px]">
-              <Calendar className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+            <SelectTrigger className="w-48">
+              <Calendar className="w-4 h-4 mr-2 text-muted-foreground" />
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -396,442 +321,506 @@ export default function Dashboard() {
               <SelectItem value="custom">Personalizado</SelectItem>
             </SelectContent>
           </Select>
+
           {periodo === "custom" && (
-            <div className="flex items-center gap-2">
+            <>
               <Input
                 type="date"
                 value={periodoCustom.start}
                 onChange={(e) =>
                   setPeriodoCustom((p) => ({ ...p, start: e.target.value }))
                 }
-                className="w-[150px]"
+                className="w-40"
               />
-              <span className="text-xs text-muted-foreground">até</span>
+              <span className="text-muted-foreground">até</span>
               <Input
                 type="date"
                 value={periodoCustom.end}
                 onChange={(e) =>
                   setPeriodoCustom((p) => ({ ...p, end: e.target.value }))
                 }
-                className="w-[150px]"
+                className="w-40"
               />
-            </div>
+            </>
           )}
-          <Badge variant="outline" className="gap-2 px-3 py-1.5">
-            <Calendar className="h-3.5 w-3.5" />
-            {fmtTodayBR()}
+
+          <Badge variant="outline" className="ml-2">
+            {now.toLocaleDateString("pt-BR", {
+              day: "2-digit",
+              month: "long",
+              year: "numeric",
+            })}
           </Badge>
         </div>
       </div>
 
-      {/* Row 1 — Métricas principais */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+      {/* Row 1 — 5 cards de métricas */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <MetricCard
-          icon={<FileText className="h-4 w-4" />}
-          label="Cotações Hoje"
-          value={metrics.cotacoesHoje}
-          subtext={`${metrics.cotacoesOntem} ontem`}
-          color="text-blue-600"
+          icon={FileText}
+          iconColor="text-blue-600"
+          iconBg="bg-blue-50"
+          label="Cotações"
+          value={periodQuotes.length}
+          subtext="No período selecionado"
+          badge={`${periodDates.days}d`}
         />
+
         <MetricCard
-          icon={<ShoppingCart className="h-4 w-4" />}
-          label="Vendas do Mês"
-          value={metrics.vendasMes}
-          subtext={`${formatBRL(metrics.receitaMes)} em receita`}
-          color="text-emerald-600"
+          icon={CheckCircle2}
+          iconColor="text-emerald-600"
+          iconBg="bg-emerald-50"
+          label="Vendas Emitidas"
+          value={totalEmitidos}
+          subtext={formatBRL(totalRevenue)}
+          extra={
+            pipelineQuotes.length > 0 && (
+              <span className="text-xs text-amber-600 font-medium">
+                + {pipelineQuotes.length} em pipeline ({formatBRL(pipelineValue)})
+              </span>
+            )
+          }
         />
+
         <MetricCard
-          icon={<TrendingUp className="h-4 w-4" />}
+          icon={TrendingUp}
+          iconColor="text-amber-600"
+          iconBg="bg-amber-50"
           label="Taxa de Conversão"
-          value={`${metrics.taxaConv}%`}
-          subtext={`${metrics.cotacoesMesTotal} cotações → ${metrics.vendasMes} vendas`}
-          color="text-amber-600"
+          value={
+            periodQuotes.length > 0
+              ? `${((totalEmitidos / periodQuotes.length) * 100).toFixed(1)}%`
+              : "0%"
+          }
+          subtext={`${totalEmitidos} emitidas / ${periodQuotes.length} cotações`}
         />
+
         <MetricCard
-          icon={<DollarSign className="h-4 w-4" />}
+          icon={DollarSign}
+          iconColor="text-slate-700"
+          iconBg="bg-slate-100"
           label="Ticket Médio"
-          value={formatBRL(metrics.ticketMedio)}
-          subtext={`Baseado em ${metrics.vendasMes} vendas`}
-          color="text-[#0B1E3D] dark:text-blue-400"
+          value={
+            totalEmitidos > 0
+              ? formatBRL(totalRevenue / totalEmitidos)
+              : "R$ 0,00"
+          }
+          subtext={`Baseado em ${totalEmitidos} ${totalEmitidos === 1 ? "venda" : "vendas"}`}
         />
+
         <MetricCard
-          icon={<Users className="h-4 w-4" />}
+          icon={Users}
+          iconColor="text-purple-600"
+          iconBg="bg-purple-50"
           label="Vendedores Ativos"
-          value={metrics.vendedoresAtivos}
-          subtext={`${metrics.emFormacao} em formação`}
-          color="text-purple-600"
+          value={activeSellers.length}
+          subtext={`${emFormacao} em formação`}
         />
       </div>
 
       {/* Row 2 — Gráfico + Meta */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-        {/* Chart */}
-        <Card className="border-border/50 lg:col-span-2">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Activity className="h-4 w-4 text-primary" />
-              Cotações vs Vendas
-              <span className="text-xs font-normal text-muted-foreground">
-                ({periodo === "custom"
-                  ? "período personalizado"
-                  : `últimos ${periodo} dias`})
-              </span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <BarChart data={chartData} />
-          </CardContent>
-        </Card>
-
-        {/* Meta ativa */}
-        <Card className="border-border/50">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Target className="h-4 w-4 text-amber-500" />
-              Meta Comercial Ativa
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {activeGoal && goalStats ? (
-              <ActiveGoal goal={activeGoal} stats={goalStats} />
-            ) : (
-              <div className="text-center py-6 space-y-3">
-                <Target className="h-10 w-10 text-muted-foreground/30 mx-auto" />
-                <p className="text-sm text-muted-foreground">Nenhuma meta comercial ativa</p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => navigate("/gerente/metas")}
-                  className="gap-1.5"
-                >
-                  <Plus className="h-3.5 w-3.5" /> Criar meta
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Row 3 — Status + Ranking */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        <Card className="border-border/50">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <FileStack className="h-4 w-4 text-primary" />
-              Cotações por Status
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {Object.entries(STATUS_CONFIG).map(([status, cfg]) => {
-                const data = statusCounts[status];
-                const Icon = cfg.icon;
-                const pendingAttention = status === "Enviado" && data.count > 0;
-                return (
-                  <button
-                    key={status}
-                    onClick={() => navigate(`/gerente/orcamentos?status=${encodeURIComponent(status)}`)}
-                    className={cn(
-                      "p-3 rounded-lg border text-left transition-all hover:shadow-md",
-                      COLOR_CLASSES[cfg.color],
-                      pendingAttention && "ring-2 ring-amber-400 shadow-amber-500/20"
-                    )}
-                  >
-                    <div className="flex items-center justify-between mb-1.5">
-                      <Icon className="h-3.5 w-3.5" />
-                      {pendingAttention && (
-                        <Badge className="bg-amber-500 hover:bg-amber-500 text-white text-[9px] h-4 px-1.5 border-0">
-                          Atenção
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="text-[10px] uppercase tracking-widest font-bold opacity-80">
-                      {cfg.label}
-                    </div>
-                    <div className="font-bold text-xl mt-0.5">{data.count}</div>
-                    <div className="text-[11px] opacity-80 truncate">
-                      {formatBRL(data.total)}
-                    </div>
-                  </button>
-                );
-              })}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <Card className="lg:col-span-3 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="font-bold text-base flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-slate-700" />
+                Cotações vs Vendas
+              </h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                Últimos {periodDates.days} dias · Vendas conta apenas orçamentos Emitidos
+              </p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        <Card className="border-border/50">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Trophy className="h-4 w-4 text-amber-500" />
-              Ranking de Vendedores — Período
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {ranking.length === 0 ? (
-              <div className="text-center py-6 text-sm text-muted-foreground">
-                Nenhuma venda registrada este mês.
-              </div>
-            ) : (
-              <div className="space-y-2.5">
-                {ranking.map((s, i) => (
-                  <RankRow
-                    key={s.id}
-                    pos={i + 1}
-                    seller={s}
-                    maxRevenue={maxRevenue}
-                    isFirst={i === 0}
-                  />
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Row 4 — Atividade */}
-      <Card className="border-border/50">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Activity className="h-4 w-4 text-primary" />
-            Últimas Atividades
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {activity.length === 0 ? (
-            <div className="text-center py-6 text-sm text-muted-foreground">
-              Nenhuma atividade registrada ainda.
+          <div className="relative h-64 mt-2">
+            <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
+              {[100, 75, 50, 25, 0].map((pct) => (
+                <div key={pct} className="flex items-center gap-2">
+                  <span className="text-[10px] text-slate-400 w-6 text-right">
+                    {Math.ceil((maxValue * pct) / 100)}
+                  </span>
+                  <div className="flex-1 border-t border-dashed border-slate-200" />
+                </div>
+              ))}
             </div>
-          ) : (
-            <div className="space-y-2">
-              {activity.map((ev, i) => {
-                const Icon = ev.icon;
+
+            <div className="absolute inset-0 ml-8 flex items-end gap-1 pb-6">
+              {chartData.map((day, idx) => {
+                const cotPct = (day.cotacoes / maxValue) * 100;
+                const venPct = (day.vendas / maxValue) * 100;
+                const showLabel =
+                  idx % Math.max(1, Math.ceil(chartData.length / 8)) === 0 ||
+                  idx === chartData.length - 1;
+
                 return (
                   <div
-                    key={i}
-                    className="flex items-start gap-3 p-2.5 rounded-lg hover:bg-muted/40 transition-colors text-sm"
+                    key={idx}
+                    className="flex-1 flex flex-col items-center min-w-0 group relative"
                   >
-                    <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                      <Icon className={cn("h-4 w-4", ev.color)} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm">{ev.text}</div>
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        {timeAgo(ev.date)}
+                    <div className="w-full flex items-end justify-center gap-0.5 h-full">
+                      <div className="absolute -top-14 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 shadow-lg">
+                        <div className="font-semibold">{day.label}</div>
+                        <div className="text-blue-300">Cotações: {day.cotacoes}</div>
+                        <div className="text-emerald-300">Vendas: {day.vendas}</div>
                       </div>
+
+                      <div
+                        className="bg-gradient-to-t from-blue-500 to-blue-400 rounded-t-sm hover:from-blue-600 hover:to-blue-500 transition-all"
+                        style={{
+                          height: `${cotPct}%`,
+                          width: "40%",
+                          minHeight: day.cotacoes > 0 ? "3px" : "0",
+                        }}
+                      />
+                      <div
+                        className="bg-gradient-to-t from-emerald-500 to-emerald-400 rounded-t-sm hover:from-emerald-600 hover:to-emerald-500 transition-all"
+                        style={{
+                          height: `${venPct}%`,
+                          width: "40%",
+                          minHeight: day.vendas > 0 ? "3px" : "0",
+                        }}
+                      />
                     </div>
+                    {showLabel && (
+                      <span className="text-[10px] text-slate-500 mt-1.5 whitespace-nowrap">
+                        {day.label}
+                      </span>
+                    )}
                   </div>
                 );
               })}
             </div>
+          </div>
+
+          <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-100 flex-wrap gap-2">
+            <div className="flex items-center gap-5">
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-sm bg-gradient-to-t from-blue-500 to-blue-400" />
+                <span className="text-xs font-medium text-slate-700">
+                  Cotações criadas
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-sm bg-gradient-to-t from-emerald-500 to-emerald-400" />
+                <span className="text-xs font-medium text-slate-700">
+                  Vendas emitidas
+                </span>
+              </div>
+            </div>
+            <div className="text-xs text-slate-500">
+              <span className="font-bold text-slate-900">{totalCotacoes}</span>{" "}
+              cotações
+              <span className="mx-2 text-slate-300">·</span>
+              <span className="font-bold text-slate-900">{totalVendas}</span>{" "}
+              vendas
+              <span className="mx-2 text-slate-300">·</span>
+              <span className="font-bold text-emerald-600">{conversao}%</span>{" "}
+              conversão
+            </div>
+          </div>
+        </Card>
+
+        {/* Meta Comercial */}
+        <MetaCard
+          metaAtual={metaAtual}
+          receitaMes={receitaMes}
+          navigate={navigate}
+        />
+      </div>
+
+      {/* Row 3 — Funil + Top Performers */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <Card className="lg:col-span-2 p-6">
+          <h3 className="font-bold text-base mb-4 flex items-center gap-2">
+            <Filter className="w-5 h-5 text-slate-700" />
+            Funil de Conversão
+          </h3>
+
+          <div className="space-y-3">
+            {funil.map((stage, idx) => {
+              const pct =
+                periodQuotes.length > 0
+                  ? (stage.count / periodQuotes.length) * 100
+                  : 0;
+              return (
+                <div key={idx}>
+                  <div className="flex justify-between items-baseline mb-1">
+                    <span className="text-sm font-medium">{stage.label}</span>
+                    <span className="text-sm">
+                      <strong>{stage.count}</strong>
+                      <span className="text-xs text-muted-foreground ml-1">
+                        ({pct.toFixed(0)}%)
+                      </span>
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                    <div
+                      className={cn(stage.color, "h-2 rounded-full transition-all duration-700")}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+
+        <Card className="lg:col-span-3 p-6">
+          <h3 className="font-bold text-base mb-4 flex items-center gap-2">
+            <Trophy className="w-5 h-5 text-amber-500" />
+            Ranking de Vendedores —{" "}
+            {periodo === "7"
+              ? "Últimos 7 dias"
+              : periodo === "15"
+                ? "Últimos 15 dias"
+                : "Período"}
+          </h3>
+
+          {topPerformers.length === 0 ? (
+            <p className="text-center text-muted-foreground py-6 text-sm">
+              Nenhum vendedor com atividade no período.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {topPerformers.map((seller, idx) => (
+                <div
+                  key={seller.id}
+                  onClick={() => navigate(`/gerente/vendedores/${seller.id}`)}
+                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+                >
+                  <div
+                    className={cn(
+                      "w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0",
+                      idx === 0 && "bg-amber-100 text-amber-700",
+                      idx === 1 && "bg-slate-200 text-slate-700",
+                      idx === 2 && "bg-orange-100 text-orange-700",
+                      idx > 2 && "bg-slate-100 text-slate-500",
+                    )}
+                  >
+                    {idx + 1}
+                  </div>
+
+                  <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center font-semibold text-xs text-slate-700 shrink-0">
+                    {initials(seller.name)}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm truncate">{seller.name}</p>
+                    <div className="w-full bg-slate-100 rounded-full h-1.5 mt-1">
+                      <div
+                        className="bg-gradient-to-r from-amber-500 to-amber-400 h-1.5 rounded-full"
+                        style={{
+                          width: `${(seller.receita / maxSellerRevenue) * 100}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <p className="font-bold text-sm">
+                      {formatBRL(seller.receita)}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {seller.vendas} vendas / {seller.cotacoes} cotações
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
-        </CardContent>
+        </Card>
+      </div>
+
+      {/* Row 4 — Atividade Recente */}
+      <Card className="p-6">
+        <h3 className="font-bold text-base mb-4 flex items-center gap-2">
+          <Activity className="w-5 h-5 text-slate-700" />
+          Atividade Recente
+        </h3>
+
+        {recentActivity.length === 0 ? (
+          <p className="text-center text-muted-foreground py-6 text-sm">
+            Nenhuma atividade registrada ainda.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {recentActivity.map((ev, idx) => {
+              const trecho = ev.quote.itinerary?.trechos?.[0];
+              const seg = trecho?.segmentos?.[0];
+              const origem = seg?.origem_iata || trecho?.origem_iata || "";
+              const destino = seg?.destino_iata || trecho?.destino_iata || "";
+              const rota = origem && destino ? `${origem} → ${destino}` : "";
+
+              return (
+                <div
+                  key={idx}
+                  className="flex items-center gap-3 py-2 border-b border-slate-100 last:border-0"
+                >
+                  <span className="text-lg shrink-0">{ev.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm">
+                      <span className={cn("font-semibold", ev.color)}>
+                        {ev.quote.seller_name || "—"}
+                      </span>{" "}
+                      {ev.label}{" "}
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {ev.quote.quote_number}
+                      </span>
+                      {rota && (
+                        <span className="text-muted-foreground"> · {rota}</span>
+                      )}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatBRL(ev.quote.total_value)}
+                    </p>
+                  </div>
+                  <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
+                    {timeAgo(ev.date)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </Card>
     </div>
   );
 }
 
-// ─── Subcomponentes ────────────────────────────────────────────────
-
-function MetricCard({ icon, label, value, subtext, color }) {
+function MetricCard({ icon: Icon, iconColor, iconBg, label, value, subtext, extra, badge }) {
   return (
-    <Card className="border-border/50 hover:shadow-md transition-shadow">
-      <CardContent className="p-4">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-          <span className={color}>{icon}</span>
-          <span>{label}</span>
+    <div className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md transition-shadow">
+      <div className="flex items-center justify-between mb-3">
+        <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", iconBg)}>
+          <Icon className={cn("w-5 h-5", iconColor)} />
         </div>
-        <div className={cn("font-bold text-2xl", color)}>{value}</div>
-        <div className="text-[11px] text-muted-foreground mt-0.5 truncate">{subtext}</div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function BarChart({ data }) {
-  const showAllLabels = data.buckets.length <= 15;
-  return (
-    <div className="space-y-3">
-      <div className="flex items-end gap-1 md:gap-1.5 h-44">
-        {data.buckets.map((b, i) => {
-          const cotH = (b.cotacoes / data.max) * 100;
-          const salesH = (b.vendas / data.max) * 100;
-          const showLabel = showAllLabels || i % Math.ceil(data.buckets.length / 10) === 0;
-          return (
-            <div key={i} className="flex-1 flex flex-col items-center gap-1 min-w-0">
-              <div className="w-full h-full flex items-end gap-0.5">
-                <div
-                  className="flex-1 rounded-t bg-blue-500/70 hover:bg-blue-500 transition-colors"
-                  style={{
-                    height: `${cotH}%`,
-                    minHeight: b.cotacoes > 0 ? "2px" : "0",
-                  }}
-                  title={`${b.label}: ${b.cotacoes} cotações`}
-                />
-                <div
-                  className="flex-1 rounded-t bg-emerald-500/70 hover:bg-emerald-500 transition-colors"
-                  style={{
-                    height: `${salesH}%`,
-                    minHeight: b.vendas > 0 ? "2px" : "0",
-                  }}
-                  title={`${b.label}: ${b.vendas} vendas`}
-                />
-              </div>
-              <div className="text-[9px] text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis max-w-full">
-                {showLabel ? b.label : ""}
-              </div>
-            </div>
-          );
-        })}
+        {badge && (
+          <span className="text-xs text-slate-400 font-medium">{badge}</span>
+        )}
       </div>
-      <div className="flex items-center justify-between gap-3 text-xs flex-wrap pt-2 border-t border-border">
-        <div className="flex items-center gap-4">
-          <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-blue-500" /> Cotações
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-emerald-500" /> Vendas
-          </span>
-          {data.groupByWeek && (
-            <span className="text-[10px] text-muted-foreground">(agrupado por semana)</span>
-          )}
-        </div>
-        <div className="text-muted-foreground">
-          Total: <strong>{data.totalCot}</strong> cotações ·{" "}
-          <strong>{data.totalSales}</strong> vendas ·{" "}
-          <strong>{data.conv}%</strong> conversão
-        </div>
-      </div>
+      <p className="text-3xl font-black text-slate-900 mb-0.5">{value}</p>
+      <p className="text-xs text-slate-500 font-medium">{label}</p>
+      {subtext && <p className="text-xs text-slate-400 mt-2">{subtext}</p>}
+      {extra && <div className="mt-1">{extra}</div>}
     </div>
   );
 }
 
-function ActiveGoal({ goal, stats }) {
-  const navigate = useNavigate();
-  const reached = stats.pct >= 100;
-  const radius = 70;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDash = (stats.pct / 100) * circumference;
+function MetaCard({ metaAtual, receitaMes, navigate }) {
+  const now = new Date();
+  if (!metaAtual) {
+    return (
+      <Card className="lg:col-span-2 p-6 flex flex-col items-center justify-center text-center">
+        <Target className="w-12 h-12 text-slate-300 mb-3" />
+        <p className="text-sm text-muted-foreground mb-3">
+          Nenhuma meta para{" "}
+          {now.toLocaleDateString("pt-BR", { month: "long" })}
+        </p>
+        <Button variant="outline" onClick={() => navigate("/gerente/metas")}>
+          Definir meta <ArrowRight className="w-4 h-4 ml-1" />
+        </Button>
+      </Card>
+    );
+  }
+
+  const target = Number(metaAtual.monthly_target) || 0;
+  const pct = target > 0 ? Math.min(100, (receitaMes / target) * 100) : 0;
+  const faltam = Math.max(0, target - receitaMes);
+
+  const diasMes = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const diaAtual = now.getDate();
+  const diasRestantes = Math.max(0, diasMes - diaAtual);
+  const mediaDiaria = diaAtual > 0 ? receitaMes / diaAtual : 0;
+  const necessarioDia = diasRestantes > 0 ? faltam / diasRestantes : 0;
 
   return (
-    <div className="space-y-3">
-      <div>
-        <div className="font-semibold">{goal.month_label || goal.title}</div>
-        <div className="text-xs text-muted-foreground mt-0.5">
-          Meta mensal · {goal.month}
+    <Card className="lg:col-span-2 p-6 bg-gradient-to-br from-slate-900 to-slate-800 text-white border-0">
+      <div className="flex items-center gap-2 mb-3">
+        <Target className="w-5 h-5 text-amber-400" />
+        <h3 className="font-bold text-base">Meta Comercial Ativa</h3>
+      </div>
+      <p className="text-xl font-bold mb-1">
+        {metaAtual.month_label || metaAtual.month}
+      </p>
+      <p className="text-xs text-slate-300 mb-4">
+        Meta mensal · {metaAtual.month}
+      </p>
+
+      <div className="relative w-40 h-40 mx-auto mb-3">
+        <svg viewBox="0 0 100 100" className="-rotate-90 w-full h-full">
+          <circle
+            cx="50"
+            cy="50"
+            r="42"
+            fill="none"
+            stroke="rgba(255,255,255,0.1)"
+            strokeWidth="8"
+          />
+          <circle
+            cx="50"
+            cy="50"
+            r="42"
+            fill="none"
+            stroke={pct >= 100 ? "#10B981" : "#F4A224"}
+            strokeWidth="8"
+            strokeLinecap="round"
+            strokeDasharray={`${(pct * Math.PI * 84) / 100} ${Math.PI * 84}`}
+            className="transition-all duration-1000"
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className={cn("text-3xl font-black", pct >= 100 ? "text-emerald-400" : "text-amber-400")}>
+            {Math.round(pct)}%
+          </span>
+          <span className="text-[10px] text-slate-400 tracking-widest">ATINGIDO</span>
         </div>
       </div>
 
-      <div className="flex justify-center py-2">
-        <div className="relative h-[160px] w-[160px]">
-          <svg className="absolute inset-0 -rotate-90" viewBox="0 0 160 160">
-            <circle cx="80" cy="80" r={radius} fill="none" stroke="hsl(var(--muted))" strokeWidth="10" />
-            <circle
-              cx="80" cy="80" r={radius}
-              fill="none"
-              stroke={reached ? "#10B981" : "#F59E0B"}
-              strokeWidth="10"
-              strokeDasharray={`${strokeDash} ${circumference}`}
-              strokeLinecap="round"
-              className="transition-all duration-500"
-            />
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <div className="text-2xl font-bold">{stats.pct.toFixed(0)}%</div>
-            <div className="text-[10px] text-muted-foreground uppercase tracking-widest">
-              atingido
-            </div>
-          </div>
-        </div>
+      <div className="text-center mb-3">
+        <p className="text-xl font-bold">{formatBRL(receitaMes)}</p>
+        <p className="text-xs text-slate-400">de {formatBRL(target)}</p>
       </div>
 
-      <div className="text-center text-sm">
-        <div className="font-bold">{formatBRL(stats.sold)}</div>
-        <div className="text-xs text-muted-foreground">de {formatBRL(stats.target)}</div>
-      </div>
-
-      {reached ? (
-        <div className="p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-sm text-center font-semibold">
-          🎉 Meta atingida!
+      {pct >= 100 ? (
+        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg px-3 py-2 text-sm text-center">
+          🎉 <strong className="text-emerald-400">Meta atingida!</strong>
         </div>
-      ) : (
-        <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs text-center">
-          Faltam <strong>{formatBRL(stats.missing)}</strong>
+      ) : faltam > 0 ? (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2 text-sm text-center">
+          Faltam{" "}
+          <strong className="text-amber-400">{formatBRL(faltam)}</strong>
         </div>
-      )}
+      ) : null}
 
-      <div className="text-xs text-muted-foreground text-center">
-        Média diária: <strong>{formatBRL(stats.dailyAvg)}</strong>
-        {!reached && (
-          <>
-            {" · "}Necessário: <strong>{formatBRL(stats.dailyNeeded)}/dia</strong>
-          </>
-        )}
+      <div className="grid grid-cols-2 gap-2 mt-3 text-xs">
+        <div>
+          <p className="text-slate-400">Média atual</p>
+          <p className="font-bold">{formatBRL(mediaDiaria)}/dia</p>
+        </div>
+        <div>
+          <p className="text-slate-400">Necessário</p>
+          <p
+            className={cn(
+              "font-bold",
+              mediaDiaria >= necessarioDia
+                ? "text-emerald-400"
+                : "text-red-400",
+            )}
+          >
+            {formatBRL(necessarioDia)}/dia
+          </p>
+        </div>
       </div>
 
       <Button
+        variant="outline"
         size="sm"
-        variant="ghost"
         onClick={() => navigate("/gerente/metas")}
-        className="w-full gap-1 text-xs"
+        className="w-full mt-4 bg-transparent border-white/20 hover:bg-white/10 text-white"
       >
-        Ver escada completa <ArrowRight className="h-3 w-3" />
+        Ver escada completa <ArrowRight className="w-4 h-4 ml-1" />
       </Button>
-    </div>
-  );
-}
-
-function RankRow({ pos, seller, maxRevenue, isFirst }) {
-  const pct = (seller.revenue / maxRevenue) * 100;
-  const levelData = CAREER_LEVELS.find((l) => l.level === seller.career_level);
-  return (
-    <div
-      className={cn(
-        "p-2.5 rounded-lg border transition-all",
-        isFirst
-          ? "border-amber-300 bg-gradient-to-r from-amber-50 to-amber-100/40 dark:from-amber-500/10 dark:to-amber-500/5 shadow-md shadow-amber-500/10"
-          : "border-border bg-card"
-      )}
-    >
-      <div className="flex items-center gap-3">
-        <div
-          className={cn(
-            "h-8 w-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0",
-            isFirst
-              ? "bg-amber-500 text-white"
-              : "bg-muted text-muted-foreground"
-          )}
-        >
-          {isFirst ? <Crown className="h-3.5 w-3.5" /> : pos}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-semibold truncate">{seller.name}</span>
-            {levelData && (
-              <Badge
-                style={{ background: levelData.color }}
-                className="text-white text-[9px] h-4 px-1.5 border-0"
-              >
-                {seller.career_level}
-              </Badge>
-            )}
-          </div>
-          <div className="mt-1">
-            <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-              <div
-                className={cn(
-                  "h-full transition-all duration-500",
-                  isFirst ? "bg-amber-500" : "bg-primary"
-                )}
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-          </div>
-        </div>
-        <div className="text-right shrink-0">
-          <div className="font-bold text-sm">{formatBRL(seller.revenue)}</div>
-          <div className="text-[10px] text-muted-foreground">{seller.sales} vendas</div>
-        </div>
-      </div>
-    </div>
+    </Card>
   );
 }
