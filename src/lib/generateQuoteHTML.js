@@ -134,12 +134,27 @@ function getSegmentosFromTrecho(trecho) {
   }];
 }
 
+// Em cotações Hidden City, o passageiro usa o bilhete apenas até a escala
+// marcada. Esta função retorna { efetivos, descartados } com base no flag
+// is_hidden_city_stop. Se nenhum segmento estiver marcado, descartados = [].
+function splitEffectiveSegments(segmentos) {
+  const hiddenIdx = segmentos.findIndex((s) => s && s.is_hidden_city_stop);
+  if (hiddenIdx === -1) return { efetivos: segmentos, descartados: [] };
+  return {
+    efetivos: segmentos.slice(0, hiddenIdx + 1),
+    descartados: segmentos.slice(hiddenIdx + 1),
+  };
+}
+
 function buildFlightCard(trecho, data) {
   const isOut = trecho.tipo !== "volta";
   const dateStr = isOut ? data.dates?.departure : data.dates?.return;
   const dateLong = formatDateLong(dateStr);
-  const segmentos = getSegmentosFromTrecho(trecho);
-  const escalas = trecho.escalas != null ? trecho.escalas : Math.max(0, segmentos.length - 1);
+  const allSegmentos = getSegmentosFromTrecho(trecho);
+  const { efetivos: segmentos, descartados } = splitEffectiveSegments(allSegmentos);
+  const isHiddenCity = descartados.length > 0;
+  // Escalas conta apenas as efetivas (entre segmentos que o pax realmente usa).
+  const escalas = Math.max(0, segmentos.length - 1);
   const directLabel = escalas === 0 ? "Voo Direto" : `${escalas} escala(s)`;
   const tempoTotal = trecho.tempo_total || trecho.duracao || "";
 
@@ -219,6 +234,11 @@ function buildFlightCard(trecho, data) {
         </div>
       </div>
       <div class="fbody"><div class="tl">${stopsHtml}</div></div>
+      ${isHiddenCity ? `
+        <div style="background:#FEF3C7;border-left:4px solid #F59E0B;padding:10px 14px;margin:0;font-size:11px;color:#92400E;line-height:1.5;">
+          ✈️ <strong>Hidden City — atenção:</strong> esta cotação encerra em ${esc(segmentos[segmentos.length - 1]?.destino_iata || "")} (${esc(segmentos[segmentos.length - 1]?.destino_cidade || "")}). Os trechos seguintes do bilhete (${descartados.map((d) => esc(d.destino_iata || "")).filter(Boolean).join(" / ")}) <strong>não serão utilizados</strong>.
+        </div>
+      ` : ""}
       ${buildPerTrechoExtras(trecho, data)}
     </div>`;
 }
@@ -637,10 +657,17 @@ export function generateQuoteHTML(data) {
   const trechoVolta = trechos.find((t) => t.tipo === "volta");
   const tipoViagem = trechoVolta ? "Ida e Volta" : "Somente Ida";
 
-  const origemIata = trechoIda?.origem_iata || "";
-  const destinoIata = trechoIda?.destino_iata || "";
-  const origemCidade = trechoIda?.origem_cidade || "";
-  const destinoCidade = trechoIda?.destino_cidade || "";
+  // Hidden City: hero precisa refletir o destino real do passageiro, não o
+  // destino final do bilhete (que ele não vai usar).
+  const idaSegments = getSegmentosFromTrecho(trechoIda);
+  const { efetivos: idaEfetivos } = splitEffectiveSegments(idaSegments);
+  const idaPrimeiroEf = idaEfetivos[0] || {};
+  const idaUltimoEf = idaEfetivos[idaEfetivos.length - 1] || {};
+
+  const origemIata = idaPrimeiroEf.origem_iata || trechoIda?.origem_iata || "";
+  const destinoIata = idaUltimoEf.destino_iata || trechoIda?.destino_iata || "";
+  const origemCidade = idaPrimeiroEf.origem_cidade || trechoIda?.origem_cidade || "";
+  const destinoCidade = idaUltimoEf.destino_cidade || trechoIda?.destino_cidade || "";
   const companhia = trechoIda?.companhia || "";
 
   const economia =

@@ -65,8 +65,29 @@ export function computePricingTotals(quote) {
   const pricing = quote?.pricing || {};
 
   let costPerPax = 0;
+  // Em multi-programa, o nipon é calculado trecho a trecho (cada trecho pode
+  // ter regra própria: Azul × 1.0; demais × 1.1). Esses dois caminhos divergem
+  // do single/split, então tratamos `niponPerPax` separado quando aplicável.
+  let niponPerPaxMulti = null;
 
-  if (pricing.is_split === true || pricing.is_split === "true") {
+  if (pricing.multi_program === true || pricing.multi_program === "true") {
+    // Multi-programa — cada trecho com programa próprio. Custo e nipon
+    // POR PESSOA são a soma dos custos/nipons de cada trecho.
+    const trechosPricing = Array.isArray(pricing.trechos_pricing) ? pricing.trechos_pricing : [];
+    let totalCost = 0;
+    let totalNipon = 0;
+    for (const tp of trechosPricing) {
+      const miles = toNumber(tp.miles_qty);
+      const cpt = toNumber(tp.cost_per_thousand);
+      const tax = toNumber(tp.tax);
+      const segCost = (miles / 1000) * cpt + tax;
+      const isAzulSeg = isAzulProgram({ program_name: tp.program_name, is_azul: tp.is_azul });
+      totalCost += segCost;
+      totalNipon += isAzulSeg ? segCost : segCost * 1.1;
+    }
+    costPerPax = totalCost;
+    niponPerPaxMulti = totalNipon;
+  } else if (pricing.is_split === true || pricing.is_split === "true") {
     // Quebra de Trecho — soma dos custos dos trechos POR PASSAGEIRO.
     costPerPax = toNumber(pricing.total_cost);
   } else {
@@ -80,7 +101,8 @@ export function computePricingTotals(quote) {
   // cost_brl/tax sem reabrir o gerador — o que historicamente causou nipon
   // inconsistente em quotes antigos.
   const isAzul = isAzulProgram(pricing);
-  const niponPerPax = isAzul ? costPerPax : costPerPax * 1.1;
+  const niponPerPax =
+    niponPerPaxMulti != null ? niponPerPaxMulti : (isAzul ? costPerPax : costPerPax * 1.1);
 
   // Venda total — prioriza pricing.sale_value (input do vendedor) e cai para
   // quote.total_value (que já é o total final, incluindo serviços e adicionais).

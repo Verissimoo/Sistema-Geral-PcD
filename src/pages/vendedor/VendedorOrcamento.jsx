@@ -25,6 +25,7 @@ import {
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger
 } from "@/components/ui/tooltip";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import { localClient } from "@/api/localClient";
@@ -529,11 +530,36 @@ function BlocoProduto({ formData, setFormData }) {
 }
 
 // ─── Card de segmento (voo individual) ─────────────────────────────
-function SegmentoCard({ segmento, segmentoIdx, trechoIdx, totalSegmentos, onUpdate, onRemove }) {
+function SegmentoCard({
+  segmento,
+  segmentoIdx,
+  trechoIdx,
+  totalSegmentos,
+  onUpdate,
+  onRemove,
+  isHiddenStop = false,
+  isAfterHidden = false,
+  hiddenDestinoIata = "",
+}) {
   const showNextDayBadge = isNextDayArrival(segmento);
 
   return (
-    <div className="bg-slate-50 rounded-lg p-4 space-y-3 border border-slate-200">
+    <div
+      className={cn(
+        "rounded-lg p-4 space-y-3 border",
+        isHiddenStop && "border-purple-400 ring-2 ring-purple-200 bg-purple-50/40",
+        isAfterHidden && "border-slate-300 bg-slate-100 opacity-60",
+        !isHiddenStop && !isAfterHidden && "bg-slate-50 border-slate-200"
+      )}
+    >
+      {isAfterHidden && (
+        <div className="bg-red-50 border border-red-200 rounded p-2 text-xs text-red-700 flex items-center gap-2">
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+          <span>
+            <strong>Pax NÃO embarca neste segmento</strong> — destino real é {hiddenDestinoIata || "—"} (Hidden City)
+          </span>
+        </div>
+      )}
       {/* Linha 1: Voo N + Companhia + Numero voo + Duração */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
@@ -656,7 +682,85 @@ function SegmentoCard({ segmento, segmentoIdx, trechoIdx, totalSegmentos, onUpda
           />
         </div>
       </div>
+
+      {/* Checkbox Hidden City — só se houver escala (totalSegmentos > 1) e este
+          NÃO é o último segmento, e não está sob outro hidden stop. */}
+      {totalSegmentos > 1 && !isAfterHidden && segmentoIdx < totalSegmentos - 1 && (
+        <div className="pt-2 border-t border-slate-200">
+          <label className="flex items-start gap-2 cursor-pointer">
+            <Checkbox
+              checked={isHiddenStop}
+              onCheckedChange={(checked) =>
+                onUpdate(trechoIdx, segmentoIdx, "is_hidden_city_stop", !!checked)
+              }
+              className="mt-0.5"
+            />
+            <div>
+              <p className="text-xs font-semibold text-purple-700">
+                ✈️ Hidden City — pax desce em {segmento.destino_iata || "—"}
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                Marque se este é o destino real. Os segmentos seguintes deste trecho serão descartados.
+              </p>
+            </div>
+          </label>
+        </div>
+      )}
     </div>
+  );
+}
+
+// ─── Helpers Hidden City ───────────────────────────────────────────
+// Retorna apenas os segmentos efetivos do trecho (até o segmento marcado
+// como is_hidden_city_stop, inclusive). Se não houver hidden stop, retorna
+// todos os segmentos.
+function getEffectiveSegments(trecho) {
+  const segmentos = (trecho && Array.isArray(trecho.segmentos)) ? trecho.segmentos : [];
+  const hiddenIdx = segmentos.findIndex((s) => s && s.is_hidden_city_stop);
+  if (hiddenIdx === -1) return segmentos;
+  return segmentos.slice(0, hiddenIdx + 1);
+}
+
+function HiddenCitySummary({ trechos }) {
+  const trechoIda = trechos?.find((t) => t.tipo === "ida") || trechos?.[0];
+  if (!trechoIda) return null;
+  const segs = getSegmentos(trechoIda);
+  if (segs.length === 0) return null;
+  const effectiveIda = getEffectiveSegments(trechoIda);
+  const origemReal = effectiveIda[0] || segs[0];
+  const destinoReal = effectiveIda[effectiveIda.length - 1] || segs[segs.length - 1];
+  const isHiddenCity = (trechos || []).some((t) =>
+    (t.segmentos || []).some((s) => s.is_hidden_city_stop)
+  );
+  if (!origemReal?.origem_iata && !destinoReal?.destino_iata) return null;
+
+  return (
+    <Card className="bg-slate-900 text-white border-slate-800">
+      <CardContent className="p-4">
+        <p className="text-[10px] uppercase tracking-wider text-amber-400 font-bold mb-2">
+          Destino real do passageiro
+        </p>
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-2xl font-black leading-none">{origemReal?.origem_iata || "—"}</p>
+            <p className="text-xs text-slate-300 mt-1 truncate">{origemReal?.origem_cidade || ""}</p>
+          </div>
+          <div className="text-2xl text-slate-400">→</div>
+          <div className="text-right min-w-0">
+            <p className="text-2xl font-black leading-none">{destinoReal?.destino_iata || "—"}</p>
+            <p className="text-xs text-slate-300 mt-1 truncate">{destinoReal?.destino_cidade || ""}</p>
+          </div>
+        </div>
+        {isHiddenCity && (
+          <div className="mt-3 pt-3 border-t border-white/15 text-xs text-amber-200 flex items-start gap-2">
+            <span>🎯</span>
+            <span>
+              Esta é uma cotação <strong>Hidden City</strong> — o pax usa o bilhete somente até a escala marcada e os trechos seguintes são descartados.
+            </span>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -902,6 +1006,15 @@ Retorne APENAS o JSON, sem markdown nem comentários.`;
       const segmentos = [...getSegmentos(trecho)];
       const segPatch = { [field]: value };
       if (field === "duracao") segPatch._duracao_manual = true;
+      // Hidden City exclusivo: ao marcar um segmento como destino real,
+      // desmarca qualquer outro segmento do mesmo trecho que estivesse marcado.
+      if (field === "is_hidden_city_stop" && value === true) {
+        for (let i = 0; i < segmentos.length; i++) {
+          if (i !== segIdx && segmentos[i].is_hidden_city_stop) {
+            segmentos[i] = { ...segmentos[i], is_hidden_city_stop: false };
+          }
+        }
+      }
       segmentos[segIdx] = { ...segmentos[segIdx], ...segPatch };
       trecho.segmentos = segmentos;
       trechos[trechoIdx] = syncTrechoFromSegmentos(trecho);
@@ -1347,6 +1460,10 @@ Retorne APENAS o JSON, sem markdown nem comentários.`;
                 Nenhum trecho ainda. Processe as imagens ou adicione manualmente.
               </p>
             )}
+
+            {/* Destino real declarado — exibe sempre que houver trecho de IDA */}
+            <HiddenCitySummary trechos={formData.itinerary.trechos} />
+
             {formData.itinerary.trechos.map((t, idx) => {
               const isIda = t.tipo === "ida";
               const segmentos = getSegmentos(t);
@@ -1400,7 +1517,12 @@ Retorne APENAS o JSON, sem markdown nem comentários.`;
                   </div>
 
                   <CardContent className="p-5 space-y-3">
-                    {segmentos.map((seg, segIdx) => {
+                    {(() => {
+                      // Pré-computa: tem hidden city neste trecho? Qual segmento marca o destino real?
+                      const hiddenIdx = segmentos.findIndex((s) => s.is_hidden_city_stop);
+                      const hiddenDestinoIata =
+                        hiddenIdx !== -1 ? segmentos[hiddenIdx].destino_iata : "";
+                      return segmentos.map((seg, segIdx) => {
                       const proximo = segmentos[segIdx + 1];
                       const escalaPernoita = !!(
                         proximo &&
@@ -1408,6 +1530,8 @@ Retorne APENAS o JSON, sem markdown nem comentários.`;
                         proximo.data_saida &&
                         seg.data_chegada !== proximo.data_saida
                       );
+                      const isHiddenStop = !!seg.is_hidden_city_stop;
+                      const isAfterHidden = hiddenIdx !== -1 && segIdx > hiddenIdx;
                       return (
                         <Fragment key={segIdx}>
                           <SegmentoCard
@@ -1417,6 +1541,9 @@ Retorne APENAS o JSON, sem markdown nem comentários.`;
                             totalSegmentos={segmentos.length}
                             onUpdate={updateSegmento}
                             onRemove={() => removeSegmento(idx, segIdx)}
+                            isHiddenStop={isHiddenStop}
+                            isAfterHidden={isAfterHidden}
+                            hiddenDestinoIata={hiddenDestinoIata}
                           />
                           {segIdx < segmentos.length - 1 && (
                             <div className="my-1 flex items-center gap-3 pl-2">
@@ -1463,7 +1590,8 @@ Retorne APENAS o JSON, sem markdown nem comentários.`;
                           )}
                         </Fragment>
                       );
-                    })}
+                    });
+                    })()}
 
                     <div className="flex justify-center pt-1">
                       <Button
@@ -1581,6 +1709,10 @@ function BlocoPrecificacao({ formData, setFormData }) {
 
   const isSplit = formData.ticket_type === "Quebra de Trecho";
   const isParceiroMode = formData.recipient_type === "parceiro";
+  const isMultiProgram = formData.pricing?.multi_program === true;
+  const trechosCount = (formData.itinerary?.trechos || []).length;
+  // Multi-programa só faz sentido em IDA+VOLTA fora de Quebra de Trecho
+  const canMultiProgram = !isSplit && trechosCount >= 2;
 
   // Inicialização automática do modo split conforme ticket_type / itinerário.
   useEffect(() => {
@@ -1623,6 +1755,57 @@ function BlocoPrecificacao({ formData, setFormData }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSplit, formData.itinerary?.trechos?.length]);
+
+  // Multi-programa só faz sentido enquanto !isSplit. Se mudar pra split, limpa.
+  useEffect(() => {
+    if (!canMultiProgram && isMultiProgram) {
+      setFormData((prev) => {
+        const next = { ...prev.pricing, multi_program: false };
+        delete next.trechos_pricing;
+        return { ...prev, pricing: next };
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canMultiProgram]);
+
+  // Sincroniza trechos_pricing com os trechos do itinerário (mantém ordem,
+  // preserva entradas já preenchidas, cria placeholders para novos).
+  useEffect(() => {
+    if (!isMultiProgram) return;
+    const trechosItin = formData.itinerary?.trechos || [];
+    setFormData((prev) => {
+      const existing = prev.pricing?.trechos_pricing || [];
+      const novos = trechosItin.map((t, idx) => {
+        const prior = existing.find((x) => x.tipo === t.tipo) || existing[idx];
+        return prior
+          ? { ...prior, tipo: t.tipo }
+          : {
+              tipo: t.tipo || "ida",
+              program_id: "",
+              program_name: "",
+              miles_qty: "",
+              tax: "",
+              cost_per_thousand: 0,
+              sale_per_thousand: 0,
+              is_azul: false,
+            };
+      });
+      const same =
+        existing.length === novos.length &&
+        existing.every((e, i) => e.tipo === novos[i].tipo);
+      if (same) return prev;
+      return { ...prev, pricing: { ...prev.pricing, trechos_pricing: novos } };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMultiProgram, formData.itinerary?.trechos?.length, formData.itinerary?.trechos?.map((t) => t.tipo).join("|")]);
+
+  const updateMultiTrechoPricing = (idx, patch) => {
+    setFormData((prev) => {
+      const arr = [...(prev.pricing?.trechos_pricing || [])];
+      arr[idx] = { ...arr[idx], ...patch };
+      return { ...prev, pricing: { ...prev.pricing, trechos_pricing: arr } };
+    });
+  };
 
   const updateTrechoPricing = (idx, updatedTrecho) => {
     setFormData((prev) => {
@@ -1682,7 +1865,26 @@ function BlocoPrecificacao({ formData, setFormData }) {
     let acrescimo = 0;
     let custoPorPessoa = 0;
 
-    if (pr.is_split) {
+    if (pr.multi_program) {
+      // Multi-programa — cada trecho com programa próprio. Custo e Nipon são
+      // somas dos trechos (POR PESSOA). venda_base = soma da "venda das milhas"
+      // de cada trecho usando sale_per_thousand do programa.
+      const arr = Array.isArray(pr.trechos_pricing) ? pr.trechos_pricing : [];
+      for (const tp of arr) {
+        const milhas = parseBR(tp.miles_qty);
+        const tax = parseBR(tp.tax);
+        const cpt = Number(tp.cost_per_thousand) || 0;
+        const spt = Number(tp.sale_per_thousand) || 0;
+        const milhasCost = (milhas / 1000) * cpt;
+        const milhasSale = (milhas / 1000) * spt;
+        const segCost = milhasCost + tax;
+        const segNipon = tp.is_azul ? segCost : milhasSale + tax;
+        cost_brl += milhasCost;
+        venda_base += milhasSale;
+        custoPorPessoa += segCost;
+        niponPorPessoa += segNipon;
+      }
+    } else if (pr.is_split) {
       // Em modo split, total_nipon/total_cost já são a soma POR PESSOA dos trechos.
       niponPorPessoa = Number(pr.total_nipon) || 0;
       custoPorPessoa = Number(pr.total_cost) || 0;
@@ -1750,7 +1952,8 @@ function BlocoPrecificacao({ formData, setFormData }) {
     };
   }, [formData, appliedCostPerThousand, appliedSalePerThousand]);
 
-  // Mantém nipon_value (POR PESSOA) e cost_brl_calc sincronizados (modo single).
+  // Mantém nipon_value (POR PESSOA) e cost_brl_calc sincronizados (single + multi).
+  // Modo split não sincroniza (já tem total_nipon/total_cost próprios).
   useEffect(() => {
     if (formData.pricing.is_split) return;
     setFormData((p) => ({
@@ -1759,6 +1962,57 @@ function BlocoPrecificacao({ formData, setFormData }) {
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [calc.niponPorPessoa, calc.cost_brl, formData.pricing.is_split]);
+
+  // Preço sugerido pela tabela (venda das milhas + taxas) × pax. Usado para
+  // detectar override do vendedor (cobrar diferente do que a tabela sugere).
+  const precoSugerido = useMemo(() => {
+    const pr = formData.pricing;
+    const pax = Math.max(1, Number(formData.passengers) || 1);
+    if (pr.multi_program) {
+      let perPax = 0;
+      for (const tp of pr.trechos_pricing || []) {
+        const milhas = parseBR(tp.miles_qty);
+        const tax = parseBR(tp.tax);
+        const spt = Number(tp.sale_per_thousand) || 0;
+        perPax += (milhas / 1000) * spt + tax;
+      }
+      return perPax * pax;
+    }
+    if (pr.is_split || pr.type !== "milhas") return 0;
+    // Single programa milhas: usa sale_per_thousand do programa selecionado
+    const milhas = parseBR(pr.miles_qty);
+    const tax = parseBR(pr.tax);
+    return ((milhas / 1000) * appliedSalePerThousand + tax) * pax;
+  }, [formData.pricing, formData.passengers, appliedSalePerThousand]);
+
+  const saleAtual = useMemo(() => {
+    const pr = formData.pricing;
+    const pax = Math.max(1, Number(formData.passengers) || 1);
+    const v = parseBR(pr.sale_value);
+    return pr.sale_per === "pessoa" ? v * pax : v;
+  }, [formData.pricing, formData.passengers]);
+
+  const isPriceOverridden =
+    precoSugerido > 0 && saleAtual > 0 && Math.abs(saleAtual - precoSugerido) > 5;
+
+  // Persiste flag de override no pricing (lido por persistQuote pra criar notificação)
+  useEffect(() => {
+    setFormData((p) => {
+      const same =
+        p.pricing?.price_overridden === isPriceOverridden &&
+        Math.abs((Number(p.pricing?.suggested_price) || 0) - precoSugerido) < 0.01;
+      if (same) return p;
+      return {
+        ...p,
+        pricing: {
+          ...p.pricing,
+          price_overridden: isPriceOverridden,
+          suggested_price: precoSugerido,
+        },
+      };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPriceOverridden, precoSugerido]);
 
   const aboveNipon = calc.saleTotal >= calc.nipon && calc.saleTotal > 0;
   const passengers = calc.passengers;
@@ -1776,12 +2030,49 @@ function BlocoPrecificacao({ formData, setFormData }) {
           </CardTitle>
         </CardHeader>
         <CardContent>
+        {/* Toggle multi-programa — só fora de Quebra de Trecho e com 2+ trechos */}
+        {canMultiProgram && (
+          <div className="flex items-start justify-between gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg mb-4">
+            <div className="min-w-0">
+              <p className="font-semibold text-sm text-amber-900">
+                Programas diferentes por trecho?
+              </p>
+              <p className="text-xs text-amber-700 mt-0.5">
+                Ative quando IDA e VOLTA usam companhias/programas diferentes (ex: ida GOL, volta LATAM).
+              </p>
+            </div>
+            <Switch
+              checked={isMultiProgram}
+              onCheckedChange={(checked) => {
+                setFormData((prev) => {
+                  const next = { ...prev.pricing, multi_program: !!checked };
+                  if (!checked) {
+                    delete next.trechos_pricing;
+                  }
+                  return { ...prev, pricing: next };
+                });
+              }}
+            />
+          </div>
+        )}
+
         {isSplit ? (
           <SplitPricing
             trechos={formData.pricing?.trechos || []}
             milesTable={milesTable}
             onChange={updateTrechoPricing}
             passengers={passengers}
+          />
+        ) : isMultiProgram ? (
+          <MultiProgramPricing
+            trechosPricing={formData.pricing?.trechos_pricing || []}
+            milesTable={milesTable}
+            onChange={updateMultiTrechoPricing}
+            passengers={passengers}
+            custoPorPessoa={calc.custoPorPessoa}
+            niponPorPessoa={calc.niponPorPessoa}
+            custoTotal={calc.custoTotal}
+            niponTotal={calc.nipon}
           />
         ) : (
           <Tabs
@@ -2018,6 +2309,33 @@ function BlocoPrecificacao({ formData, setFormData }) {
               {calc.isPerPerson
                 ? <>Total da venda: <strong>{formatBRL(calc.saleTotal)}</strong> ({formatBRL(calc.saleInput)} × {passengers} pax)</>
                 : <>Por pessoa: <strong>{formatBRL(calc.saleTotal / passengers)}</strong> ({formatBRL(calc.saleTotal)} ÷ {passengers})</>}
+            </div>
+          )}
+
+          {/* Override de preço — preço cobrado difere do sugerido pela tabela */}
+          {isPriceOverridden && (
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+              <div className="flex items-start gap-2">
+                <Info className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
+                <div className="flex-1 text-sm">
+                  <p className="font-semibold text-purple-900">
+                    Preço customizado pelo vendedor
+                  </p>
+                  <p className="text-xs text-purple-700 mt-0.5">
+                    Sugerido pela tabela: <strong>{formatBRL(precoSugerido)}</strong> · Você está cobrando:{" "}
+                    <strong>{formatBRL(saleAtual)}</strong>
+                    {saleAtual > precoSugerido && (
+                      <span className="text-emerald-700"> (acima do sugerido — bom!)</span>
+                    )}
+                    {saleAtual < precoSugerido && (
+                      <span className="text-amber-700"> (abaixo do sugerido)</span>
+                    )}
+                  </p>
+                  <p className="text-[10px] text-purple-600 mt-1">
+                    ⓘ O gerente será notificado sobre essa alteração ao salvar.
+                  </p>
+                </div>
+              </div>
             </div>
           )}
 
@@ -2527,6 +2845,209 @@ function TrechoPricingCard({ trecho, index, milesTable, onChange }) {
   );
 }
 
+// ─── Multi-programa — IDA e VOLTA com programas diferentes ────────
+function MultiProgramPricing({
+  trechosPricing,
+  milesTable,
+  onChange,
+  passengers = 1,
+  custoPorPessoa = 0,
+  niponPorPessoa = 0,
+  custoTotal = 0,
+  niponTotal = 0,
+}) {
+  if (trechosPricing.length === 0) {
+    return (
+      <div className="p-4 rounded-lg bg-muted/40 border border-dashed text-sm text-muted-foreground text-center">
+        Preencha os trechos no Bloco 3 para configurar os programas por trecho.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-sm">
+        <Info className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+        <div className="text-amber-800 dark:text-amber-300">
+          <strong>Multi-programa:</strong> cada trecho usa um programa de milhas próprio. Os totais (custo e Nipon) somam todos os trechos × passageiros.
+        </div>
+      </div>
+
+      {trechosPricing.map((tp, idx) => (
+        <MultiProgramTrechoCard
+          key={idx}
+          trechoPricing={tp}
+          index={idx}
+          milesTable={milesTable}
+          onUpdate={(patch) => onChange(idx, patch)}
+          passengers={passengers}
+        />
+      ))}
+
+      {/* Consolidado */}
+      <Card className="bg-slate-900 text-white border-slate-800">
+        <CardContent className="p-5 space-y-2">
+          <div className="text-[10px] uppercase tracking-widest text-slate-400">
+            Total consolidado (IDA + VOLTA){passengers >= 2 ? ` · × ${passengers} pax` : ""}
+          </div>
+          {passengers >= 2 && (
+            <>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-300">Custo por pessoa:</span>
+                <span className="font-semibold">{formatBRL(custoPorPessoa)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-slate-300">Nipon por pessoa:</span>
+                <span className="font-semibold text-amber-400">{formatBRL(niponPorPessoa)}</span>
+              </div>
+              <Separator className="my-2 bg-slate-700" />
+            </>
+          )}
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-300">Custo total:</span>
+            <span className="font-semibold">{formatBRL(custoTotal)}</span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-slate-300">Valor Nipon total:</span>
+            <span className="font-semibold text-amber-400">{formatBRL(niponTotal)}</span>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function MultiProgramTrechoCard({ trechoPricing, index, milesTable, onUpdate, passengers }) {
+  const isIda = trechoPricing.tipo === "ida";
+  const tp = trechoPricing;
+
+  const selectedProgram = useMemo(
+    () => milesTable.find((m) => m.id === tp.program_id) || null,
+    [milesTable, tp.program_id]
+  );
+
+  const milesParsed = parseBR(tp.miles_qty);
+  const cpt = useMemo(
+    () => (selectedProgram ? getCostForMiles(selectedProgram, milesParsed) : Number(tp.cost_per_thousand) || 0),
+    [selectedProgram, milesParsed, tp.cost_per_thousand]
+  );
+  const spt = useMemo(
+    () => (selectedProgram ? getSaleForMiles(selectedProgram, milesParsed) : Number(tp.sale_per_thousand) || 0),
+    [selectedProgram, milesParsed, tp.sale_per_thousand]
+  );
+
+  // Mantém snapshot dos preços do programa atualizado quando o vendedor
+  // muda programa ou quantidade de milhas (faixas com preço variável).
+  useEffect(() => {
+    if (
+      Math.abs(cpt - (Number(tp.cost_per_thousand) || 0)) < 0.001 &&
+      Math.abs(spt - (Number(tp.sale_per_thousand) || 0)) < 0.001
+    ) return;
+    onUpdate({ cost_per_thousand: cpt, sale_per_thousand: spt });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cpt, spt]);
+
+  const tax = parseBR(tp.tax);
+  const segCost = (milesParsed / 1000) * cpt + tax;
+  const segSaleSugerida = (milesParsed / 1000) * spt + tax;
+
+  return (
+    <Card className={cn("border-l-4", isIda ? "border-l-red-500" : "border-l-blue-500")}>
+      <CardHeader className={cn("py-3", isIda ? "bg-red-50" : "bg-blue-50")}>
+        <CardTitle className={cn("text-sm flex items-center gap-2", isIda ? "text-red-700" : "text-blue-700")}>
+          {isIda ? <PlaneTakeoff className="w-4 h-4" /> : <PlaneLanding className="w-4 h-4" />}
+          {isIda ? "IDA" : "VOLTA"} — Configuração de milhas
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-4 space-y-3">
+        <div className="space-y-2">
+          <Label>Programa de milhas</Label>
+          <Select
+            value={tp.program_id || ""}
+            onValueChange={(v) => {
+              const program = milesTable.find((m) => m.id === v);
+              onUpdate({
+                program_id: v,
+                program_name: program?.program || "",
+                cost_per_thousand: program?.cost_per_thousand || 0,
+                sale_per_thousand: program?.sale_per_thousand || 0,
+                is_azul: !!program?.program?.toLowerCase().includes("azul"),
+              });
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={milesTable.length === 0 ? "Sem programas" : "Selecione..."} />
+            </SelectTrigger>
+            <SelectContent>
+              {milesTable.map((m) => (
+                <SelectItem
+                  key={m.id}
+                  value={m.id}
+                  disabled={m.stock_status === "unavailable"}
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={cn(
+                        "w-2 h-2 rounded-full",
+                        m.stock_status === "own" && "bg-green-500",
+                        m.stock_status === "unavailable" && "bg-red-500",
+                        (!m.stock_status || m.stock_status === "supplier") && "bg-yellow-500"
+                      )}
+                    />
+                    {m.program} — {formatBRL(m.cost_per_thousand)}/mil
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-2">
+            <Label>Milhas por pessoa</Label>
+            <Input
+              type="text"
+              inputMode="decimal"
+              placeholder="Ex: 23.300"
+              value={tp.miles_qty || ""}
+              onChange={(e) => onUpdate({ miles_qty: sanitizeBRInput(e.target.value) })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Taxa por pessoa (R$)</Label>
+            <Input
+              type="text"
+              inputMode="decimal"
+              placeholder="Ex: 32,87"
+              value={tp.tax || ""}
+              onChange={(e) => onUpdate({ tax: sanitizeBRInput(e.target.value) })}
+            />
+          </div>
+        </div>
+
+        {milesParsed > 0 && (
+          <div className="bg-slate-50 rounded p-2.5 text-xs space-y-1 border border-slate-200">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Custo por pax neste trecho:</span>
+              <strong>{formatBRL(segCost)}</strong>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Venda sugerida por pax (tabela):</span>
+              <strong className="text-amber-700">{formatBRL(segSaleSugerida)}</strong>
+            </div>
+            {passengers > 1 && (
+              <div className="flex justify-between text-muted-foreground pt-1 border-t border-slate-200 mt-1">
+                <span>Custo × {passengers} pax:</span>
+                <strong>{formatBRL(segCost * passengers)}</strong>
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── Bloco 5 — Gerar ────────────────────────────────────────────────
 function BlocoGerar({ formData, totalValue, commission, onSaved }) {
   const [whatsappOpen, setWhatsappOpen] = useState(false);
@@ -2646,6 +3167,16 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
         cost_brl: parseBR(t.cost_brl),
       }));
     }
+    // Multi-programa: normaliza milhas/taxa de cada trecho para Number
+    if (Array.isArray(normalizedPricing.trechos_pricing)) {
+      normalizedPricing.trechos_pricing = normalizedPricing.trechos_pricing.map((tp) => ({
+        ...tp,
+        miles_qty: parseBR(tp.miles_qty),
+        tax: parseBR(tp.tax),
+        cost_per_thousand: Number(tp.cost_per_thousand) || 0,
+        sale_per_thousand: Number(tp.sale_per_thousand) || 0,
+      }));
+    }
     return {
       pricing: normalizedPricing,
       additional: formData.additional.active
@@ -2753,6 +3284,44 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
         toast({ title: "Erro ao salvar orçamento no servidor", variant: "destructive" });
         return null;
       }
+
+      // Cria notificação para o gerente quando o vendedor cobrou preço
+      // diferente do sugerido pela tabela (preserva o valor sugerido como
+      // metadado). Não bloqueia o save se a notificação falhar.
+      if (!isParceiroMode && finalPricing?.price_overridden === true) {
+        try {
+          const suggested = Number(finalPricing.suggested_price) || 0;
+          const passengersCount = Math.max(1, Number(formData.passengers) || 1);
+          const saleTotalReal =
+            finalPricing.sale_per === "pessoa"
+              ? Number(finalPricing.sale_value) * passengersCount
+              : Number(finalPricing.sale_value);
+          const diff = saleTotalReal - suggested;
+          const direction = diff > 0 ? "acima" : "abaixo";
+          const fmt = (v) =>
+            Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+          await supabase.from("pcd_notifications").insert({
+            type: "price_override",
+            quote_id: quote.id,
+            quote_number: number,
+            seller_id: user?.id || null,
+            seller_name: user?.name || null,
+            title: `Preço customizado em ${number}`,
+            message: `${user?.name || "Vendedor"} cotou ${fmt(saleTotalReal)} ${direction} do sugerido (${fmt(suggested)}) — diferença de ${fmt(Math.abs(diff))}.`,
+            metadata: {
+              suggested: suggested,
+              actual: saleTotalReal,
+              difference: diff,
+              client_name: formData.client?.name || formData.partner_name || null,
+              passengers: passengersCount,
+            },
+            target_role: "gerente",
+          });
+        } catch (err) {
+          console.warn("[BlocoGerar] Falha ao criar notificação de override:", err);
+        }
+      }
+
       setSavedQuote(quote);
       onSaved?.(quote);
       toast({ title: "Orçamento salvo com sucesso!" });

@@ -4,7 +4,9 @@ import {
   FileStack, Search, Plus, Eye, Calendar, DollarSign,
   CheckCircle2, Send, FileText, Copy, Check, Download,
   Clock, XCircle, PlusCircle, AlertTriangle, RefreshCw,
+  Edit, FilePlus,
 } from "lucide-react";
+import QuickPriceEditDialog from "@/components/QuickPriceEditDialog";
 import { EmissionDialog } from "@/components/EmissionDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -109,6 +111,8 @@ export default function VendedorOrcamentos() {
   const [statusExtra, setStatusExtra] = useState({ emission_date: "", reject_reason: "" });
   const [copied, setCopied] = useState(false);
   const [emissionDialogQuote, setEmissionDialogQuote] = useState(null);
+  const [quickEditQuote, setQuickEditQuote] = useState(null);
+  const [quickEditOpen, setQuickEditOpen] = useState(false);
 
   const reload = async () => {
     const [list, mt] = await Promise.all([
@@ -386,6 +390,11 @@ export default function VendedorOrcamentos() {
               onView={() => setDetailQuote(q)}
               onMarkRejected={() => openStatusChange(q, "Recusado")}
               onSendToEmission={() => setEmissionDialogQuote(q)}
+              onQuickEdit={() => {
+                setQuickEditQuote(q);
+                setQuickEditOpen(true);
+              }}
+              onFullEdit={() => navigate(`/vendedor/orcamento?edit=${q.id}`)}
             />
           ))}
         </div>
@@ -429,6 +438,20 @@ export default function VendedorOrcamentos() {
         onClose={() => setEmissionDialogQuote(null)}
         onSuccess={() => {
           toast({ title: "Enviado para emissão", description: "A equipe de suporte foi notificada." });
+          reload();
+        }}
+      />
+
+      {/* Edição rápida de valores — mantém voos/cliente intactos */}
+      <QuickPriceEditDialog
+        open={quickEditOpen}
+        onOpenChange={(v) => {
+          setQuickEditOpen(v);
+          if (!v) setQuickEditQuote(null);
+        }}
+        quote={quickEditQuote}
+        onSaved={() => {
+          toast({ title: "Valores atualizados" });
           reload();
         }}
       />
@@ -587,7 +610,11 @@ function StatusActionMenu({ quote, onMarkRejected, onSendToEmission }) {
   );
 }
 
-function QuoteRow({ quote, onView, onMarkRejected, onSendToEmission }) {
+// Status em que a edição rápida não faz sentido (cotação congelada).
+const FROZEN_EDIT_STATUSES = new Set(["Emitido", "Cancelado", "Recusado"]);
+
+function QuoteRow({ quote, onView, onMarkRejected, onSendToEmission, onQuickEdit, onFullEdit }) {
+  const canEdit = !FROZEN_EDIT_STATUSES.has(quote.status);
   const ida = quote.itinerary?.trechos?.find((t) => t.tipo === "ida")
     || quote.itinerary?.trechos?.[0];
   const route = ida ? `${ida.origem_iata} → ${ida.destino_iata}` : "—";
@@ -644,6 +671,41 @@ function QuoteRow({ quote, onView, onMarkRejected, onSendToEmission }) {
             <Button size="sm" variant="ghost" onClick={onView} className="gap-1.5">
               <Eye className="h-3.5 w-3.5" /> Detalhes
             </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button size="sm" variant="outline" disabled={!canEdit} className="gap-1.5">
+                  <Edit className="h-3.5 w-3.5" /> Editar
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-72 p-2">
+                <button
+                  type="button"
+                  onClick={() => onQuickEdit?.()}
+                  className="w-full text-left p-3 rounded-md hover:bg-amber-50 transition"
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <RefreshCw className="w-4 h-4 text-amber-600" />
+                    <p className="font-semibold text-sm">Atualizar valores</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Mudar pontuação, custo, taxa ou venda. Mantém voos e cliente.
+                  </p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onFullEdit?.()}
+                  className="w-full text-left p-3 rounded-md hover:bg-blue-50 transition mt-1"
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <FilePlus className="w-4 h-4 text-blue-600" />
+                    <p className="font-semibold text-sm">Edição completa</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Refazer cotação do zero (mudou voo, destino, cliente etc).
+                  </p>
+                </button>
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
       </CardContent>
@@ -743,11 +805,21 @@ function QuoteDetail({
 
       {/* Itinerário */}
       <Section title="Itinerário">
-        {(quote.itinerary?.trechos || []).map((t, i) => (
+        {(quote.itinerary?.trechos || []).map((t, i) => {
+          const segs = Array.isArray(t.segmentos) ? t.segmentos : [];
+          const hiddenIdx = segs.findIndex((s) => s && s.is_hidden_city_stop);
+          const isHidden = hiddenIdx !== -1;
+          const destinoReal = isHidden ? segs[hiddenIdx] : null;
+          return (
           <div key={i} className="p-3 rounded-lg bg-muted/40 border border-border space-y-1.5">
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="capitalize">{t.tipo}</Badge>
               <span className="font-medium">{t.companhia} {t.numero_voo}</span>
+              {isHidden && (
+                <Badge className="bg-purple-100 text-purple-700 border-purple-300 text-[10px]">
+                  ✈️ Hidden City
+                </Badge>
+              )}
             </div>
             <div className="flex items-center gap-3 text-sm">
               <div>
@@ -762,14 +834,22 @@ function QuoteDetail({
                 {(!t.escalas || t.escalas === 0) && " · direto"}
               </div>
               <div className="text-right">
-                <div className="font-bold text-base">{t.horario_chegada}</div>
-                <div className="text-xs text-muted-foreground">
+                <div className={`font-bold text-base ${isHidden ? "line-through text-slate-400" : ""}`}>
+                  {t.horario_chegada}
+                </div>
+                <div className={`text-xs ${isHidden ? "line-through text-slate-400" : "text-muted-foreground"}`}>
                   {t.destino_cidade} ({t.destino_iata})
                 </div>
+                {isHidden && destinoReal && (
+                  <div className="text-[10px] text-purple-700 font-semibold mt-0.5">
+                    Pax desce em {destinoReal.destino_iata}
+                  </div>
+                )}
               </div>
             </div>
           </div>
-        ))}
+          );
+        })}
         <div className="grid grid-cols-3 gap-2 pt-2">
           <Field label="Ida" value={formatDateBR(quote.dates?.departure)} />
           <Field

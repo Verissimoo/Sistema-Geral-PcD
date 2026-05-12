@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FollowUpAlert } from "./FollowUpAlert";
+import { NotificationBell } from "./NotificationBell";
 import { useFollowUpEngine } from "@/lib/useFollowUpEngine";
 import { useAuth } from "@/lib/AuthContext";
 
@@ -28,6 +29,7 @@ export default function Layout() {
           <span className="ml-3 font-semibold text-sm lg:hidden">PassagensComDesconto</span>
           <div className="ml-auto flex items-center gap-3">
             <FollowUpAlert />
+            <NotificationBell />
             <span className="hidden sm:inline text-sm text-slate-600">
               {user?.name}
             </span>
