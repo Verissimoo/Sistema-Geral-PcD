@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   FileStack, Search, Plus, Eye, Calendar, DollarSign,
   CheckCircle2, Send, FileText, Copy, Check, Download,
-  Clock, XCircle, PlusCircle,
+  Clock, XCircle, PlusCircle, AlertTriangle, RefreshCw,
 } from "lucide-react";
 import { EmissionDialog } from "@/components/EmissionDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +27,8 @@ import { cn } from "@/lib/utils";
 import { localClient } from "@/api/localClient";
 import { openQuoteInNewTab } from "@/lib/generateQuoteHTML";
 import { useAuth } from "@/lib/AuthContext";
+import { computePricingTotals, computeCommission, buildCommissionSnapshot } from "@/lib/pricingCalculator";
+import { checkMilesPriceFreshness, FROZEN_STATUSES } from "@/lib/priceFreshness";
 
 const STATUSES = [
   "Enviado",
@@ -96,6 +98,7 @@ export default function VendedorOrcamentos() {
   const { toast } = useToast();
   const { user, isAdmin } = useAuth();
   const [quotes, setQuotes] = useState([]);
+  const [milesTable, setMilesTable] = useState([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("Todos");
   const [periodFilter, setPeriodFilter] = useState("all");
@@ -108,10 +111,69 @@ export default function VendedorOrcamentos() {
   const [emissionDialogQuote, setEmissionDialogQuote] = useState(null);
 
   const reload = async () => {
-    const list = (await localClient.entities.Quotes.list()) || [];
+    const [list, mt] = await Promise.all([
+      localClient.entities.Quotes.list(),
+      localClient.entities.MilesTable.list(),
+    ]);
     // Vendedor enxerga apenas as próprias cotações; admin vê todas.
-    const visible = isAdmin ? list : list.filter((q) => q.seller_id === user?.id);
+    const visible = isAdmin ? list : (list || []).filter((q) => q.seller_id === user?.id);
     setQuotes(visible);
+    setMilesTable(mt || []);
+  };
+
+  // Reprecifica um orçamento ainda não congelado usando o preço atual da
+  // tabela de milhas. Mantém o valor de venda (acordado com o cliente) e
+  // recalcula custo + comissão. Snapshot completo via pricingCalculator.
+  const handleRecalculatePrice = async (quote, freshness) => {
+    if (!freshness || freshness.isFresh) return;
+    if (FROZEN_STATUSES.has(quote.status)) {
+      toast({
+        title: "Status congelado",
+        description: "Cotações emitidas/canceladas/recusadas não podem ser reprecificadas.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const ok = window.confirm(
+      `Atualizar o preço deste orçamento de ${formatBRL(freshness.usedPrice)}/mil para ${formatBRL(freshness.currentPrice)}/mil?\n\n` +
+        "O custo será recalculado, mas o valor de venda ao cliente permanece. Margem e comissão são recalculados."
+    );
+    if (!ok) return;
+
+    const newCostPerThousand = Number(freshness.currentPrice) || 0;
+    const milesQty = Number(quote.pricing?.miles_qty) || 0;
+    const newCostBrl = (milesQty / 1000) * newCostPerThousand;
+
+    const tentativePricing = {
+      ...(quote.pricing || {}),
+      miles_value_per_thousand: newCostPerThousand,
+      cost_brl: newCostBrl,
+      cost_brl_calc: newCostBrl,
+      reprecified_at: new Date().toISOString(),
+    };
+    // Sincroniza nipon_value snapshot com o cálculo dinâmico (custo × 1.10 ou
+    // × 1.0 para Azul). Sem isso, o snapshot fica stale após o recalc.
+    const derived = computePricingTotals({ ...quote, pricing: tentativePricing });
+    const newPricing = { ...tentativePricing, nipon_value: derived.niponPerPax };
+    const newCommission = buildCommissionSnapshot({
+      ...quote,
+      pricing: newPricing,
+    });
+
+    const updated = await localClient.entities.Quotes.update(quote.id, {
+      pricing: newPricing,
+      commission: newCommission,
+    });
+    if (!updated) {
+      toast({ title: "Erro ao atualizar preço", variant: "destructive" });
+      return;
+    }
+    toast({
+      title: "Preço atualizado",
+      description: "Custo e comissão recalculados com base na tabela atual.",
+    });
+    setDetailQuote(updated);
+    await reload();
   };
 
   useEffect(() => { if (user?.id) reload(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [user?.id, isAdmin]);
@@ -353,6 +415,8 @@ export default function VendedorOrcamentos() {
                 setDetailQuote(null);
                 navigate(`/vendedor/orcamento?from=${detailQuote.id}`);
               }}
+              milesTable={milesTable}
+              onRecalculatePrice={handleRecalculatePrice}
             />
           )}
         </DialogContent>
@@ -587,10 +651,78 @@ function QuoteRow({ quote, onView, onMarkRejected, onSendToEmission }) {
   );
 }
 
-function QuoteDetail({ quote, onCopyWhatsapp, copied, onPDF, onNewQuoteForClient }) {
+function QuoteDetail({
+  quote,
+  onCopyWhatsapp,
+  copied,
+  onPDF,
+  onNewQuoteForClient,
+  milesTable = [],
+  onRecalculatePrice,
+}) {
   const isParceiroQuote = quote.recipient_type === "parceiro";
+  const totals = computePricingTotals(quote);
+  const commission = computeCommission(quote);
+  const multiPax = totals.passengers >= 2;
+  const renderPerPaxHint = (perPax) =>
+    multiPax ? (
+      <div className="text-[10px] text-muted-foreground">
+        {formatBRL(perPax)} × {totals.passengers}
+      </div>
+    ) : null;
+  const freshness = useMemo(
+    () => checkMilesPriceFreshness(quote, milesTable),
+    [quote, milesTable]
+  );
+  const isFrozen = FROZEN_STATUSES.has(quote.status);
   return (
     <div className="space-y-4 text-sm">
+      {/* Snapshot de preço desatualizado em relação à tabela de milhas atual */}
+      {!freshness.isFresh && (
+        <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-amber-900 mb-1">
+                Preço da {freshness.programName} mudou desde esta cotação
+                {freshness.multipleSegments && ` (e em mais ${freshness.segmentsStale - 1} trecho${freshness.segmentsStale - 1 === 1 ? "" : "s"})`}
+              </p>
+              <p className="text-sm text-amber-800 mb-2">
+                Cotado a <strong>{formatBRL(freshness.usedPrice)}/mil</strong>, hoje custa{" "}
+                <strong>{formatBRL(freshness.currentPrice)}/mil</strong>
+                <span className={freshness.priceChange > 0 ? "text-red-600" : "text-green-600"}>
+                  {" "}
+                  ({freshness.priceChange > 0 ? "+" : ""}
+                  {formatBRL(freshness.priceChange)}/mil)
+                </span>
+                .
+              </p>
+              {isFrozen ? (
+                <p className="text-xs text-amber-700">
+                  Esta cotação já está no status <strong>{quote.status}</strong> — os valores
+                  ficam congelados para auditoria.
+                </p>
+              ) : freshness.multipleSegments ? (
+                <p className="text-xs text-amber-700">
+                  Quebra de Trecho com múltiplos programas — a reprecificação precisa ser
+                  feita criando uma nova cotação derivada.
+                </p>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-amber-400 text-amber-700 hover:bg-amber-100"
+                  onClick={() => onRecalculatePrice?.(quote, freshness)}
+                >
+                  <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                  Atualizar preço para o valor atual
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Cliente */}
       <Section title="Cliente">
         <Field label="Nome" value={quote.client?.name} />
@@ -648,17 +780,43 @@ function QuoteDetail({ quote, onCopyWhatsapp, copied, onPDF, onNewQuoteForClient
         </div>
       </Section>
 
-      {/* Precificação */}
-      <Section title="Precificação">
+      {/* Precificação — totais já consideram múltiplos passageiros. */}
+      <Section title={multiPax ? `Precificação · ${totals.passengers} passageiros` : "Precificação"}>
         <Field
           label="Tipo"
           value={quote.pricing?.type === "milhas" ? `Milhas — ${quote.pricing?.program || "—"}` : "Dinheiro"}
         />
-        <Field label="Custo" value={formatBRL(quote.pricing?.cost_brl)} />
-        <Field label="Taxa" value={formatBRL(quote.pricing?.tax)} />
-        <Field label="Nipon (mínimo)" value={formatBRL(quote.pricing?.nipon_value)} />
-        <Field label="Venda" value={formatBRL(quote.pricing?.sale_value)} />
-        <Field label="Comissão total" value={formatBRL(quote.commission?.total)} />
+        <Field
+          label="Custo total"
+          value={
+            <div className="text-right">
+              <div>{formatBRL(totals.costTotal)}</div>
+              {renderPerPaxHint(totals.costPerPax)}
+            </div>
+          }
+        />
+        <Field
+          label="Nipon (mínimo)"
+          value={
+            <div className="text-right">
+              <div>{formatBRL(totals.niponTotal)}</div>
+              {renderPerPaxHint(totals.niponPerPax)}
+            </div>
+          }
+        />
+        <Field label="Venda" value={formatBRL(totals.saleTotal || quote.total_value)} />
+        <Field
+          label={`Margem bruta`}
+          value={
+            <span className={totals.margemBruta >= 0 ? "text-emerald-700" : "text-red-600"}>
+              {formatBRL(totals.margemBruta)}
+            </span>
+          }
+        />
+        <Field
+          label={`Comissão total${commission.isCarteiraPropria ? " · Carteira própria 30%" : ""}`}
+          value={formatBRL(commission.total)}
+        />
       </Section>
 
       {/* Serviços */}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Building2, Loader2, Image as ImageIcon, Palette,
 } from "lucide-react";
@@ -30,6 +30,8 @@ export default function ParceiroEmpresa() {
   const [coverPreview, setCoverPreview] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  // Trava síncrona contra clique duplo no salvar.
+  const isSavingRef = useRef(false);
 
   const load = async () => {
     setLoading(true);
@@ -100,7 +102,8 @@ export default function ParceiroEmpresa() {
       toast({ title: "Nome da empresa é obrigatório", variant: "destructive" });
       return;
     }
-    if (saving) return;
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
     setSaving(true);
 
     try {
@@ -146,6 +149,7 @@ export default function ParceiroEmpresa() {
         variant: "destructive",
       });
     } finally {
+      isSavingRef.current = false;
       setSaving(false);
     }
   };

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft, Plane, Calendar, User, Phone, Mail, DollarSign,
@@ -38,6 +38,8 @@ export default function ParceiroOrcamentoDetalhe() {
   const [quote, setQuote] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  // Trava síncrona contra clique duplo no botão de definir preço.
+  const isSavingRef = useRef(false);
 
   const [saleValue, setSaleValue] = useState("");
   const [clientName, setClientName] = useState("");
@@ -112,7 +114,7 @@ export default function ParceiroOrcamentoDetalhe() {
   const margemValida = saleValueNumber > 0 && margem >= 0;
 
   const handleSave = async () => {
-    if (saving) return;
+    if (isSavingRef.current) return;
     if (saleValueNumber <= 0) {
       toast({ title: "Informe um valor de venda válido", variant: "destructive" });
       return;
@@ -129,6 +131,7 @@ export default function ParceiroOrcamentoDetalhe() {
       toast({ title: "Nome do cliente é obrigatório", variant: "destructive" });
       return;
     }
+    isSavingRef.current = true;
     setSaving(true);
     try {
       const updates = {
@@ -156,6 +159,7 @@ export default function ParceiroOrcamentoDetalhe() {
       setQuote(updated);
       toast({ title: "Orçamento atualizado!", description: "Valor e dados do cliente salvos." });
     } finally {
+      isSavingRef.current = false;
       setSaving(false);
     }
   };

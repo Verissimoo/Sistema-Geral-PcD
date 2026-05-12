@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { localClient } from "@/api/localClient";
 import { CAREER_LEVELS } from "@/lib/careerPlan";
 import { filterCommercialQuotes, getCommercialUsers } from "@/lib/commercialFilter";
+import { computePricingTotals } from "@/lib/pricingCalculator";
 
 const formatBRL = (v) =>
   Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -94,13 +95,14 @@ export default function GerenteVendedores() {
         (q) => q.status === "Aprovado" || q.status === "Emitido"
       );
       const receita = vendidos.reduce((s, q) => s + (q.total_value || 0), 0);
+      // Lucro real: usa o helper que multiplica custo/nipon por passageiros.
+      // Fallback de 85% do total para quotes sem pricing estruturado.
       const lucro = vendidos.reduce((s, q) => {
-        const cost = Number(q.pricing?.cost_brl) || 0;
-        const tax = Number(q.pricing?.tax) || 0;
-        const custoTotal = cost + tax;
-        // Se não há custo registrado, estima 85% do total como custo
-        const custoEstimado = custoTotal > 0 ? custoTotal : (q.total_value || 0) * 0.85;
-        return s + ((q.total_value || 0) - custoEstimado);
+        const totals = computePricingTotals(q);
+        const custo = totals.costTotal > 0
+          ? totals.costTotal
+          : (Number(q.total_value) || 0) * 0.85;
+        return s + ((Number(q.total_value) || 0) - custo);
       }, 0);
       const cotacoes = userQuotes.length;
       const vendas = vendidos.length;

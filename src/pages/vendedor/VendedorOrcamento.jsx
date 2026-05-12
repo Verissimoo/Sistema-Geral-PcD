@@ -28,7 +28,9 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import { localClient } from "@/api/localClient";
+import { supabase } from "@/lib/supabase";
 import { openQuoteInNewTab } from "@/lib/generateQuoteHTML";
+import { computePricingTotals, computeCommission, buildCommissionSnapshot } from "@/lib/pricingCalculator";
 import { useAuth } from "@/lib/AuthContext";
 import { useClientOrigins } from "@/lib/useClientOrigins";
 import { getCostForMiles, getSaleForMiles, getTierForMiles } from "@/lib/milesHelper";
@@ -53,6 +55,22 @@ const formatDateBR = (dateStr) => {
   const [y, m, d] = dateStr.split("-");
   return `${d}/${m}/${y}`;
 };
+
+// Gera um quote_number único — tenta até 5 vezes contra o banco antes do fallback
+// baseado em timestamp. Combinado com a UNIQUE constraint em pcd_quotes.quote_number,
+// elimina a chance de colisão entre vendedores que abram o gerador simultaneamente.
+async function gerarNumeroPCDUnico() {
+  for (let i = 0; i < 5; i++) {
+    const candidato = `PCD-${Math.floor(10000 + Math.random() * 90000)}`;
+    const { data } = await supabase
+      .from('pcd_quotes')
+      .select('id')
+      .eq('quote_number', candidato)
+      .maybeSingle();
+    if (!data) return candidato;
+  }
+  return `PCD-${Date.now().toString().slice(-7)}`;
+}
 
 const calculateDuration = (departure, arrival) => {
   if (!departure || !arrival) return "";
@@ -1694,9 +1712,18 @@ function BlocoPrecificacao({ formData, setFormData }) {
     const isPerPerson = pr.sale_per !== "total";
     const saleTotal = isPerPerson ? saleInput * passengers : saleInput;
 
-    // Comissão sempre sobre os totais.
+    // Comissão sempre sobre os totais. Taxa base depende da origem do lead:
+    // Carteira própria → 30%; demais → 25%. Extra fixo em 45% do excedente.
+    const leadOrigin = formData.client?.lead_origin || "";
+    const isCarteiraPropria = String(leadOrigin)
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "")
+      .trim()
+      .startsWith("carteira propria");
+    const baseRate = isCarteiraPropria ? 0.3 : 0.25;
     const lucroNipon = Math.max(0, niponTotal - custoTotal);
-    const comissaoBase = lucroNipon * 0.25;
+    const comissaoBase = lucroNipon * baseRate;
     const excedente = Math.max(0, saleTotal - niponTotal);
     const comissaoExtra = excedente * 0.45;
     const comissaoTotal = comissaoBase + comissaoExtra;
@@ -1718,6 +1745,7 @@ function BlocoPrecificacao({ formData, setFormData }) {
       saleInput, saleTotal, isPerPerson, passengers,
       lucroNipon, lucroBruto,
       comissaoBase, excedente, comissaoExtra, comissaoTotal,
+      baseRate, isCarteiraPropria,
       total,
     };
   }, [formData, appliedCostPerThousand, appliedSalePerThousand]);
@@ -2010,7 +2038,10 @@ function BlocoPrecificacao({ formData, setFormData }) {
             )}>
               <CardContent className="p-4 space-y-1.5 text-sm">
                 <Row label="Lucro Nipon (nipon − custo)" value={formatBRL(calc.lucroNipon)} />
-                <Row label="Comissão base (25% do lucro Nipon)" value={formatBRL(calc.comissaoBase)} />
+                <Row
+                  label={`Comissão base (${(calc.baseRate * 100).toFixed(0)}% do lucro Nipon)${calc.isCarteiraPropria ? " · Carteira própria" : ""}`}
+                  value={formatBRL(calc.comissaoBase)}
+                />
                 <Row label="Excedente sobre Nipon" value={formatBRL(calc.excedente)} />
                 <Row label="Comissão extra (45% do excedente)" value={formatBRL(calc.comissaoExtra)} />
                 <Separator className="my-2" />
@@ -2502,9 +2533,11 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
   const [whatsappText, setWhatsappText] = useState("");
   const [copied, setCopied] = useState(false);
   const [savedQuote, setSavedQuote] = useState(null);
-  const [quoteNumber] = useState(
-    () => `PCD-${Math.floor(10000 + Math.random() * 90000)}`
-  );
+  const [quoteNumber, setQuoteNumber] = useState("");
+  const [saving, setSaving] = useState(false);
+  // Trava síncrona contra clique duplo: setSaving é assíncrono, então cliques
+  // dentro do mesmo tick do React não veem saving=true; o ref fecha essa janela.
+  const isSavingRef = useRef(false);
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -2636,66 +2669,106 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
 
   const persistQuote = async (text) => {
     if (savedQuote) return savedQuote;
-
-    const { pricing: normalizedPricing, additional: normalizedAdditional, competitor: normalizedCompetitor, services: normalizedServices } = buildNormalizedPayload();
-
-    const isParceiroMode = formData.recipient_type === "parceiro";
-    // Para parceiro, sale_value provisório = nipon (será sobrescrito pelo parceiro).
-    const niponBase = Number(normalizedPricing.nipon_value)
-      || Number(normalizedPricing.total_nipon)
-      || 0;
-    const finalPricing = isParceiroMode
-      ? { ...normalizedPricing, sale_value: niponBase }
-      : normalizedPricing;
-    const finalTotalValue = isParceiroMode ? niponBase : totalValue;
-
-    const quote = await localClient.entities.Quotes.create({
-      quote_number: quoteNumber,
-      recipient_type: formData.recipient_type || "cliente",
-      partner_id: formData.partner_id || null,
-      partner_name: formData.partner_name || null,
-      client: isParceiroMode ? null : formData.client,
-      client_id: isParceiroMode ? null : (formData.client?.id || null),
-      product: formData.product,
-      ticket_type: formData.ticket_type,
-      itinerary: formData.itinerary,
-      dates: {
-        departure: formData.departure_date,
-        return: formData.return_date,
-        one_way: formData.one_way,
-      },
-      passengers: formData.passengers,
-      baggage: formData.baggage,
-      pricing: finalPricing,
-      additional: isParceiroMode ? null : normalizedAdditional,
-      competitor: isParceiroMode ? null : normalizedCompetitor,
-      services: isParceiroMode
-        ? { insurance: { active: false, value: 0 }, transfer: { active: false, value: 0 } }
-        : normalizedServices,
-      total_value: finalTotalValue,
-      commission: isParceiroMode ? { base: 0, extra: 0, total: 0 } : commission,
-      seller_name: user?.name || "Equipe PCD",
-      seller_id: user?.id || null,
-      status: "Enviado",
-      whatsapp_text: text,
-      parent_quote_id: isParceiroMode ? null : (formData.parent_quote_id || null),
-      quote_sequence: formData.quote_sequence || 1,
-    });
-    if (!quote) {
-      toast({ title: "Erro ao salvar orçamento no servidor", variant: "destructive" });
+    if (isSavingRef.current) {
+      console.warn("[BlocoGerar] persistQuote já em andamento — ignorando clique duplicado.");
       return null;
     }
-    setSavedQuote(quote);
-    onSaved?.(quote);
-    toast({ title: "Orçamento salvo com sucesso!" });
-    return quote;
+    isSavingRef.current = true;
+    setSaving(true);
+    try {
+      // Gera o número apenas quando vai persistir de fato; única chamada por ciclo.
+      let number = quoteNumber;
+      if (!number) {
+        number = await gerarNumeroPCDUnico();
+        setQuoteNumber(number);
+      }
+
+      const { pricing: normalizedPricing, additional: normalizedAdditional, competitor: normalizedCompetitor, services: normalizedServices } = buildNormalizedPayload();
+
+      const isParceiroMode = formData.recipient_type === "parceiro";
+
+      // Nipon SEMPRE derivado pelo helper — gravamos só como snapshot informativo
+      // pra que pricing.nipon_value armazenado coincida com o cálculo dinâmico
+      // e relatórios externos (Supabase Studio) leiam o valor correto.
+      const derivedTotals = computePricingTotals({
+        ...formData,
+        pricing: normalizedPricing,
+      });
+      const niponBase = derivedTotals.niponPerPax;
+      const pricingWithSyncedNipon = {
+        ...normalizedPricing,
+        nipon_value: derivedTotals.niponPerPax,
+      };
+
+      // Para parceiro, sale_value provisório = nipon (será sobrescrito pelo parceiro).
+      const finalPricing = isParceiroMode
+        ? { ...pricingWithSyncedNipon, sale_value: niponBase }
+        : pricingWithSyncedNipon;
+      const finalTotalValue = isParceiroMode ? niponBase : totalValue;
+
+      // Snapshot completo da comissão — auditoria + leitura barata no consumo.
+      // Para parceiro, a comissão final será calculada quando o parceiro
+      // definir o preço de venda; zeramos aqui.
+      const commissionSnapshot = isParceiroMode
+        ? { base: 0, extra: 0, total: 0 }
+        : buildCommissionSnapshot({
+            ...formData,
+            pricing: finalPricing,
+            total_value: finalTotalValue,
+          });
+
+      const quote = await localClient.entities.Quotes.create({
+        quote_number: number,
+        recipient_type: formData.recipient_type || "cliente",
+        partner_id: formData.partner_id || null,
+        partner_name: formData.partner_name || null,
+        client: isParceiroMode ? null : formData.client,
+        client_id: isParceiroMode ? null : (formData.client?.id || null),
+        product: formData.product,
+        ticket_type: formData.ticket_type,
+        itinerary: formData.itinerary,
+        dates: {
+          departure: formData.departure_date,
+          return: formData.return_date,
+          one_way: formData.one_way,
+        },
+        passengers: formData.passengers,
+        baggage: formData.baggage,
+        pricing: finalPricing,
+        additional: isParceiroMode ? null : normalizedAdditional,
+        competitor: isParceiroMode ? null : normalizedCompetitor,
+        services: isParceiroMode
+          ? { insurance: { active: false, value: 0 }, transfer: { active: false, value: 0 } }
+          : normalizedServices,
+        total_value: finalTotalValue,
+        commission: commissionSnapshot,
+        seller_name: user?.name || "Equipe PCD",
+        seller_id: user?.id || null,
+        status: "Enviado",
+        whatsapp_text: text,
+        parent_quote_id: isParceiroMode ? null : (formData.parent_quote_id || null),
+        quote_sequence: formData.quote_sequence || 1,
+      });
+      if (!quote) {
+        toast({ title: "Erro ao salvar orçamento no servidor", variant: "destructive" });
+        return null;
+      }
+      setSavedQuote(quote);
+      onSaved?.(quote);
+      toast({ title: "Orçamento salvo com sucesso!" });
+      return quote;
+    } finally {
+      isSavingRef.current = false;
+      setSaving(false);
+    }
   };
 
   const handleWhatsapp = async () => {
     const txt = buildWhatsapp();
     setWhatsappText(txt);
-    await persistQuote(txt);
-    setWhatsappOpen(true);
+    const persisted = await persistQuote(txt);
+    // Só abre o modal se conseguiu persistir (ou se já estava salvo)
+    if (persisted || savedQuote) setWhatsappOpen(true);
   };
 
   const copy = async () => {
@@ -2706,7 +2779,11 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
 
   const handleGerarPDF = async () => {
     const txt = buildWhatsapp();
-    await persistQuote(txt);
+    const persisted = await persistQuote(txt);
+    // Usa o número que efetivamente foi persistido (importante quando a corrida
+    // de UNIQUE devolveu o registro existente em vez de criar um novo).
+    const numberForPDF =
+      persisted?.quote_number || savedQuote?.quote_number || quoteNumber;
     const normalized = buildNormalizedPayload();
     const niponBase = Number(normalized.pricing?.nipon_value) || Number(normalized.pricing?.total_nipon) || 0;
     const finalTotal = isParceiroMode ? niponBase : totalValue;
@@ -2714,7 +2791,7 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
       ? { ...normalized.pricing, sale_value: niponBase }
       : normalized.pricing;
     openQuoteInNewTab({
-      quote_number: quoteNumber,
+      quote_number: numberForPDF,
       recipient_type: formData.recipient_type || "cliente",
       partner_id: formData.partner_id || null,
       partner_name: formData.partner_name || null,
@@ -2745,7 +2822,20 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 relative">
+      {/* Overlay durante salvamento — bloqueia cliques fora do botão e tranquiliza o usuário */}
+      {saving && (
+        <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px] z-50 flex items-center justify-center rounded-lg">
+          <div className="bg-white rounded-xl shadow-lg p-5 flex items-center gap-3 border border-border">
+            <Loader2 className="w-6 h-6 text-amber-500 animate-spin" />
+            <div>
+              <p className="font-semibold text-sm">Salvando orçamento…</p>
+              <p className="text-xs text-muted-foreground">Não feche a página.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Resumo destinatário */}
       {isParceiroMode ? (
         <Card className="border-border/50 border-purple-200 bg-purple-50/50">
@@ -2829,15 +2919,27 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
         <Button
           onClick={handleWhatsapp}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 h-12"
+          disabled={saving}
+          className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 h-12 disabled:opacity-70"
         >
-          <MessageCircle className="h-5 w-5" /> 📱 Gerar texto WhatsApp
+          {saving ? (
+            <Loader2 className="h-5 w-5 animate-spin" />
+          ) : (
+            <MessageCircle className="h-5 w-5" />
+          )}
+          {saving ? "Salvando..." : "📱 Gerar texto WhatsApp"}
         </Button>
         <Button
           onClick={handleGerarPDF}
-          className="bg-[#0D2B6E] hover:bg-[#0A2259] text-white gap-2 h-12"
+          disabled={saving}
+          className="bg-[#0D2B6E] hover:bg-[#0A2259] text-white gap-2 h-12 disabled:opacity-70"
         >
-          <FileText className="h-5 w-5" /> 📄 Gerar PDF profissional
+          {saving ? (
+            <Loader2 className="h-5 w-5 animate-spin" />
+          ) : (
+            <FileText className="h-5 w-5" />
+          )}
+          {saving ? "Salvando..." : "📄 Gerar PDF profissional"}
         </Button>
       </div>
 
@@ -2975,38 +3077,16 @@ export default function VendedorOrcamento() {
     );
   }, [formData]);
 
+  // Comissão calculada via fonte única (pricingCalculator). Inclui detecção
+  // de Carteira própria (30% no lucro Nipon) e multiplicação correta por pax.
   const commission = useMemo(() => {
-    const pr = formData.pricing;
-    const pax = Math.max(1, Number(formData.passengers) || 1);
-
-    // Custo e Nipon POR PESSOA — multiplicamos por pax para os totais.
-    let custoPorPessoa = 0;
-    let niponPorPessoa = 0;
-
-    if (pr.is_split) {
-      custoPorPessoa = Number(pr.total_cost) || 0;
-      niponPorPessoa = Number(pr.total_nipon) || 0;
-    } else {
-      const cost_brl = pr.type === "milhas"
-        ? Number(pr.cost_brl_calc) || (parseBR(pr.miles_qty) / 1000) * (Number(pr.miles_value_per_thousand) || 0)
-        : parseBR(pr.cost_brl);
-      const tax = parseBR(pr.tax);
-      custoPorPessoa = cost_brl + tax;
-      niponPorPessoa = Number(pr.nipon_value) || 0;
-    }
-
-    const custoTotal = custoPorPessoa * pax;
-    const niponTotal = niponPorPessoa * pax;
-
-    const saleInput = parseBR(pr.sale_value);
-    const saleTotal = pr.sale_per === "total" ? saleInput : saleInput * pax;
-
-    const lucroNipon = Math.max(0, niponTotal - custoTotal);
-    const base = lucroNipon * 0.25;
-    const excedente = Math.max(0, saleTotal - niponTotal);
-    const extra = excedente * 0.45;
-    return { base, extra, total: base + extra };
-  }, [formData.pricing, formData.passengers]);
+    const result = computeCommission(formData);
+    return {
+      base: result.comissaoBase,
+      extra: result.comissaoExtra,
+      total: result.total,
+    };
+  }, [formData]);
 
   // Validação por bloco
   const isParceiroMode = formData.recipient_type === "parceiro";

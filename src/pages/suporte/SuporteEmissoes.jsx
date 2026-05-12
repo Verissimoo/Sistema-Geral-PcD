@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   Send, Clock, DollarSign, ChevronDown, ChevronUp, FileText, Plane,
   CheckCircle2, AlertTriangle, Users,
@@ -16,6 +16,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { localClient } from "@/api/localClient";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/AuthContext";
+import { computePricingTotals } from "@/lib/pricingCalculator";
 
 const formatBRL = (v) =>
   Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -182,6 +183,8 @@ function EmissionCard({ quote, expanded, onToggle, onEmit }) {
     ? Math.floor((Date.now() - new Date(sentAt).getTime()) / 3600000)
     : 0;
   const isUrgent = horasAguardando >= 24;
+  const totals = computePricingTotals(quote);
+  const multiPax = totals.passengers >= 2;
 
   return (
     <Card
@@ -281,10 +284,24 @@ function EmissionCard({ quote, expanded, onToggle, onEmit }) {
               ))}
             </Section>
 
-            <Section title="Pricing">
+            <Section title={multiPax ? `Pricing · ${totals.passengers} passageiros` : "Pricing"}>
               <Field label="Tipo" value={quote.pricing?.type === "milhas" ? `Milhas — ${quote.pricing?.program || "—"}` : "Dinheiro"} />
-              <Field label="Custo" value={formatBRL(quote.pricing?.cost_brl)} />
-              <Field label="Taxa" value={formatBRL(quote.pricing?.tax)} />
+              <Field
+                label="Custo total"
+                value={
+                  multiPax
+                    ? `${formatBRL(totals.costTotal)} (${formatBRL(totals.costPerPax)} × ${totals.passengers})`
+                    : formatBRL(totals.costTotal)
+                }
+              />
+              <Field
+                label="Nipon (mínimo)"
+                value={
+                  multiPax
+                    ? `${formatBRL(totals.niponTotal)} (${formatBRL(totals.niponPerPax)} × ${totals.passengers})`
+                    : formatBRL(totals.niponTotal)
+                }
+              />
               <Field label="Valor de venda" value={formatBRL(quote.total_value)} />
               <Field label="Valor pago final" value={formatBRL(quote.final_paid_value)} />
             </Section>
@@ -366,6 +383,8 @@ function EmitirDialog({ quote, open, onClose, onSuccess }) {
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  // Trava síncrona contra clique duplo: evita uploads paralelos do mesmo voucher.
+  const isSubmittingRef = useRef(false);
 
   useEffect(() => {
     if (open) {
@@ -376,11 +395,13 @@ function EmitirDialog({ quote, open, onClose, onSuccess }) {
   }, [open]);
 
   const handleEmitir = async () => {
+    if (isSubmittingRef.current) return;
     setError("");
     if (!voucherFile) {
       setError("Anexe o documento de emissão.");
       return;
     }
+    isSubmittingRef.current = true;
     setLoading(true);
 
     try {
@@ -411,6 +432,7 @@ function EmitirDialog({ quote, open, onClose, onSuccess }) {
       console.error(err);
       setError("Erro ao confirmar emissão: " + (err.message || "tente novamente"));
     } finally {
+      isSubmittingRef.current = false;
       setLoading(false);
     }
   };

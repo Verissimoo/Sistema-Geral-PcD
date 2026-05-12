@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   FileText, CheckCircle2, TrendingUp, DollarSign, Users,
   Calendar, Target, Trophy, BarChart3, Filter, Activity, ArrowRight,
+  Wallet, TrendingDown, Receipt, PiggyBank,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +18,7 @@ import { filterCommercialQuotes } from "@/lib/commercialFilter";
 import {
   getMonthRevenue, getRevenueQuotesInPeriod, APPROVED_PIPELINE_STATUSES,
 } from "@/lib/revenueHelper";
+import { computePricingTotals, computeCommission } from "@/lib/pricingCalculator";
 
 const formatBRL = (v) =>
   (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -130,6 +132,45 @@ export default function Dashboard() {
     (s, q) => s + (Number(q.total_value) || 0),
     0,
   );
+
+  // === MARGEM DA EQUIPE COMERCIAL ===
+  // Apenas vendas EMITIDAS do período (periodRevenue já é filtrado por:
+  // role vendedor/gerente via commercialQuotes + status "Emitido" + data de
+  // emissão dentro do período). Lucro real via pricingCalculator — custo e
+  // nipon corretamente multiplicados por passageiros, comissão considerando
+  // Carteira própria (30%) quando aplicável.
+  const margemEquipe = useMemo(() => {
+    let receitaTotal = 0;
+    let custoTotal = 0;
+    let comissaoTotal = 0;
+
+    for (const quote of periodRevenue) {
+      const totals = computePricingTotals(quote);
+      const commission = computeCommission(quote);
+      // Para receita usamos quote.total_value (já contempla serviços extras
+      // como seguro/transfer/adicional, que não entram em totals.saleTotal).
+      receitaTotal += Number(quote.total_value) || totals.saleTotal;
+      custoTotal += totals.costTotal;
+      comissaoTotal += commission.total;
+    }
+
+    const margemBruta = receitaTotal - custoTotal;
+    const margemLiquida = margemBruta - comissaoTotal;
+    const pct = (v) => (receitaTotal > 0 ? (v / receitaTotal) * 100 : 0);
+
+    return {
+      receitaTotal,
+      custoTotal,
+      comissaoTotal,
+      margemBruta,
+      margemLiquida,
+      pctMargemBruta: pct(margemBruta),
+      pctMargemLiquida: pct(margemLiquida),
+      pctComissoes: pct(comissaoTotal),
+      pctCusto: pct(custoTotal),
+      vendas: periodRevenue.length,
+    };
+  }, [periodRevenue]);
 
   // Vendedores ativos
   const activeSellers = useMemo(
@@ -417,6 +458,215 @@ export default function Dashboard() {
           subtext={`${emFormacao} em formação`}
         />
       </div>
+
+      {/* Margem da Equipe Comercial — cascata Receita → Custo → Comissão → Líquido */}
+      <Card className="overflow-hidden border-0 shadow-sm">
+        <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white p-5">
+          <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <PiggyBank className="w-5 h-5 text-amber-400" />
+              <h3 className="font-bold text-base">Margem da Equipe Comercial</h3>
+            </div>
+            <Badge variant="outline" className="text-white border-white/30">
+              {margemEquipe.vendas}{" "}
+              {margemEquipe.vendas === 1 ? "venda emitida" : "vendas emitidas"} no período
+            </Badge>
+          </div>
+          <p className="text-xs text-slate-300">
+            Quanto a operação gerou de verdade — sem inflar com pipeline ou aprovados
+          </p>
+        </div>
+
+        <div className="p-6 bg-white">
+          {margemEquipe.vendas === 0 ? (
+            <div className="text-center py-8 text-muted-foreground text-sm">
+              Sem vendas emitidas no período selecionado.
+            </div>
+          ) : (
+            <>
+              {/* Receita Total — referência (100%) */}
+              <div className="mb-4 pb-4 border-b border-slate-100">
+                <div className="flex items-baseline justify-between mb-1 flex-wrap gap-2">
+                  <span className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                    <Receipt className="w-4 h-4 text-blue-600" />
+                    Receita Total (100%)
+                  </span>
+                  <span className="text-2xl font-black text-slate-900">
+                    {formatBRL(margemEquipe.receitaTotal)}
+                  </span>
+                </div>
+                <div className="w-full bg-blue-500 h-2 rounded-full" />
+              </div>
+
+              {/* Custo Direto */}
+              <div className="mb-3">
+                <div className="flex items-baseline justify-between mb-1 flex-wrap gap-2">
+                  <span className="text-sm font-medium text-slate-600 flex items-center gap-2">
+                    <TrendingDown className="w-4 h-4 text-red-500" />
+                    Custo Direto (milhas + taxas)
+                  </span>
+                  <div className="text-right">
+                    <span className="font-bold text-red-600">
+                      −{formatBRL(margemEquipe.custoTotal)}
+                    </span>
+                    <span className="text-xs text-muted-foreground ml-2">
+                      {margemEquipe.pctCusto.toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-red-400 h-2 transition-all duration-700"
+                    style={{ width: `${Math.min(100, margemEquipe.pctCusto)}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Margem Bruta (antes das comissões) */}
+              <div className="mb-4 pb-4 border-b border-slate-100">
+                <div className="flex items-baseline justify-between mb-1 flex-wrap gap-2">
+                  <span className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-amber-600" />
+                    Margem Bruta (antes das comissões)
+                  </span>
+                  <div className="text-right">
+                    <span className="text-xl font-black text-amber-600">
+                      {formatBRL(margemEquipe.margemBruta)}
+                    </span>
+                    <span className="text-xs text-amber-600 font-semibold ml-2">
+                      {margemEquipe.pctMargemBruta.toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-amber-400 to-amber-500 h-2 transition-all duration-700"
+                    style={{
+                      width: `${Math.min(100, Math.max(0, margemEquipe.pctMargemBruta))}%`,
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Comissões pagas */}
+              <div className="mb-3">
+                <div className="flex items-baseline justify-between mb-1 flex-wrap gap-2">
+                  <span className="text-sm font-medium text-slate-600 flex items-center gap-2">
+                    <Wallet className="w-4 h-4 text-purple-500" />
+                    Comissões pagas aos vendedores
+                  </span>
+                  <div className="text-right">
+                    <span className="font-bold text-purple-600">
+                      −{formatBRL(margemEquipe.comissaoTotal)}
+                    </span>
+                    <span className="text-xs text-muted-foreground ml-2">
+                      {margemEquipe.pctComissoes.toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-purple-400 h-2 transition-all duration-700"
+                    style={{ width: `${Math.min(100, margemEquipe.pctComissoes)}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Margem Líquida — destaque final */}
+              <div className="mt-4 bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl p-4">
+                <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
+                  <div>
+                    <p className="text-xs uppercase tracking-wider text-green-700 font-bold">
+                      Margem Líquida da Agência
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      O que sobra de fato para a PCD após pagar custos + comissões
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span
+                      className={cn(
+                        "text-3xl font-black",
+                        margemEquipe.margemLiquida >= 0 ? "text-green-700" : "text-red-600",
+                      )}
+                    >
+                      {formatBRL(margemEquipe.margemLiquida)}
+                    </span>
+                    <div
+                      className={cn(
+                        "text-xs font-bold",
+                        margemEquipe.margemLiquida >= 0 ? "text-green-700" : "text-red-600",
+                      )}
+                    >
+                      {margemEquipe.pctMargemLiquida.toFixed(1)}% da receita
+                    </div>
+                  </div>
+                </div>
+
+                {margemEquipe.pctMargemLiquida >= 30 && (
+                  <div className="mt-2 text-xs text-green-700 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-green-500" />
+                    Margem saudável — operação rentável
+                  </div>
+                )}
+                {margemEquipe.pctMargemLiquida >= 15 &&
+                  margemEquipe.pctMargemLiquida < 30 && (
+                    <div className="mt-2 text-xs text-amber-700 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-amber-500" />
+                      Margem moderada — atenção aos descontos
+                    </div>
+                  )}
+                {margemEquipe.pctMargemLiquida < 15 &&
+                  margemEquipe.pctMargemLiquida >= 0 && (
+                    <div className="mt-2 text-xs text-orange-700 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-orange-500" />
+                      Margem apertada — revisar precificação
+                    </div>
+                  )}
+                {margemEquipe.pctMargemLiquida < 0 && (
+                  <div className="mt-2 text-xs text-red-700 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-red-500" />
+                    ⚠️ Operação no prejuízo — comissões maiores que a margem bruta
+                  </div>
+                )}
+              </div>
+
+              {/* Sumário por venda */}
+              <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-slate-100">
+                <div className="text-center">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                    Ticket médio
+                  </p>
+                  <p className="text-base font-bold text-slate-900">
+                    {formatBRL(margemEquipe.receitaTotal / Math.max(1, margemEquipe.vendas))}
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                    Lucro / venda
+                  </p>
+                  <p className="text-base font-bold text-amber-600">
+                    {formatBRL(margemEquipe.margemBruta / Math.max(1, margemEquipe.vendas))}
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                    Líquido / venda
+                  </p>
+                  <p
+                    className={cn(
+                      "text-base font-bold",
+                      margemEquipe.margemLiquida >= 0 ? "text-green-700" : "text-red-600",
+                    )}
+                  >
+                    {formatBRL(margemEquipe.margemLiquida / Math.max(1, margemEquipe.vendas))}
+                  </p>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </Card>
 
       {/* Row 2 — Gráfico + Meta */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">

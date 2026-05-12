@@ -15,6 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 import { localClient } from "@/api/localClient";
 import { ClientOriginBadge } from "@/components/ClientOriginBadge";
+import { computePricingTotals } from "@/lib/pricingCalculator";
 
 const STATUS_STYLES = {
   Enviado: "bg-blue-100 text-blue-700 border-blue-200",
@@ -489,6 +490,14 @@ function QuoteRow({ quote, onView }) {
 }
 
 function QuoteDetailContent({ quote }) {
+  const totals = computePricingTotals(quote);
+  const multiPax = totals.passengers >= 2;
+  const renderPerPaxHint = (perPax) =>
+    multiPax ? (
+      <div className="text-[10px] text-muted-foreground">
+        {formatBRL(perPax)} × {totals.passengers}
+      </div>
+    ) : null;
   return (
     <div className="space-y-4 text-sm">
       <Section title="Cliente">
@@ -529,9 +538,25 @@ function QuoteDetailContent({ quote }) {
 
       <Section title="Precificação">
         <Row label="Tipo" value={quote.pricing?.type === "milhas" ? `Milhas — ${quote.pricing?.program || "—"}` : "Dinheiro"} />
-        <Row label="Custo" value={formatBRL(quote.pricing?.cost_brl)} />
-        <Row label="Nipon" value={formatBRL(quote.pricing?.nipon_value)} />
-        <Row label="Venda" value={formatBRL(quote.pricing?.sale_value)} />
+        <Row
+          label="Custo total"
+          value={
+            <div className="text-right">
+              <div>{formatBRL(totals.costTotal)}</div>
+              {renderPerPaxHint(totals.costPerPax)}
+            </div>
+          }
+        />
+        <Row
+          label="Nipon (mínimo)"
+          value={
+            <div className="text-right">
+              <div>{formatBRL(totals.niponTotal)}</div>
+              {renderPerPaxHint(totals.niponPerPax)}
+            </div>
+          }
+        />
+        <Row label="Venda" value={formatBRL(totals.saleTotal || quote.total_value)} />
       </Section>
 
       <Separator />

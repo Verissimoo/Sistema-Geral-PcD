@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { localClient } from "@/api/localClient";
 import { supabase } from "@/lib/supabase";
 import {
@@ -42,6 +42,8 @@ export function EmissionDialog({ quote, open, onClose, onSuccess }) {
   const [proofFile, setProofFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  // Trava síncrona contra clique duplo (setLoading é assíncrono).
+  const isSubmittingRef = useRef(false);
 
   useEffect(() => {
     if (open) {
@@ -80,6 +82,7 @@ export function EmissionDialog({ quote, open, onClose, onSuccess }) {
   };
 
   const handleSubmit = async () => {
+    if (isSubmittingRef.current) return;
     setError("");
     if (!formData.payment_method) {
       setError("Selecione a forma de pagamento.");
@@ -96,6 +99,7 @@ export function EmissionDialog({ quote, open, onClose, onSuccess }) {
       setError("Anexe o comprovante de pagamento.");
       return;
     }
+    isSubmittingRef.current = true;
     setLoading(true);
 
     try {
@@ -130,6 +134,7 @@ export function EmissionDialog({ quote, open, onClose, onSuccess }) {
       console.error(err);
       setError("Erro ao enviar: " + (err.message || "tente novamente"));
     } finally {
+      isSubmittingRef.current = false;
       setLoading(false);
     }
   };

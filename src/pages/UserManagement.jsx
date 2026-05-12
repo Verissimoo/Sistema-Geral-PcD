@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   Users, UserPlus, Pencil, ShieldCheck, ShieldOff, Lock,
   Crown, AlertCircle, Eye, EyeOff, Trash2, Phone, Mail, Handshake,
@@ -139,6 +139,9 @@ export default function UserManagement() {
   };
 
   const [saving, setSaving] = useState(false);
+  // Trava síncrona — fecha a janela em que setSaving ainda não rerenderizou.
+  const isSavingRef = useRef(false);
+  const isDeletingRef = useRef(false);
 
   const handleSave = async () => {
     const err = validate();
@@ -146,7 +149,8 @@ export default function UserManagement() {
       setFormError(err);
       return;
     }
-    if (saving) return;
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
     setSaving(true);
     try {
       const username = form.username.trim().toLowerCase();
@@ -246,6 +250,7 @@ export default function UserManagement() {
       setDialogOpen(false);
       await reload();
     } finally {
+      isSavingRef.current = false;
       setSaving(false);
     }
   };
@@ -286,7 +291,8 @@ export default function UserManagement() {
       });
       return;
     }
-    if (deleting) return;
+    if (isDeletingRef.current) return;
+    isDeletingRef.current = true;
     setDeleting(true);
     try {
       // Parceiro: desvincula empresa antes de excluir (mantém o registro da empresa)
@@ -316,6 +322,7 @@ export default function UserManagement() {
         variant: "destructive",
       });
     } finally {
+      isDeletingRef.current = false;
       setDeleting(false);
     }
   };

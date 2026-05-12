@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   FileStack, Search, Eye, FileText, Download,
   AlertTriangle, Clock, ShoppingCart, DollarSign, TrendingUp, Handshake,
-  PlusCircle,
+  PlusCircle, RefreshCw,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,8 @@ import { cn } from "@/lib/utils";
 import { localClient } from "@/api/localClient";
 import { openQuoteInNewTab } from "@/lib/generateQuoteHTML";
 import { CAREER_LEVELS } from "@/lib/careerPlan";
+import { computePricingTotals, computeCommission, buildCommissionSnapshot } from "@/lib/pricingCalculator";
+import { checkMilesPriceFreshness, FROZEN_STATUSES } from "@/lib/priceFreshness";
 
 const STATUSES = [
   "Enviado",
@@ -103,6 +105,7 @@ export default function GerenteOrcamentos() {
 
   const [quotes, setQuotes] = useState([]);
   const [users, setUsers] = useState([]);
+  const [milesTable, setMilesTable] = useState([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "Todos");
   const [sellerFilter, setSellerFilter] = useState("Todos");
@@ -112,14 +115,62 @@ export default function GerenteOrcamentos() {
   const [detailQuote, setDetailQuote] = useState(null);
 
   const reload = async () => {
-    const [quotesList, usersList] = await Promise.all([
+    const [quotesList, usersList, mt] = await Promise.all([
       localClient.entities.Quotes.list(),
       localClient.entities.Users.list(),
+      localClient.entities.MilesTable.list(),
     ]);
     setQuotes(quotesList || []);
     setUsers(usersList || []);
+    setMilesTable(mt || []);
   };
   useEffect(() => { reload(); }, []);
+
+  // Reprecifica usando o preço atual da tabela — só para não-congelados.
+  const handleRecalculatePrice = async (quote, freshness) => {
+    if (!freshness || freshness.isFresh) return;
+    if (FROZEN_STATUSES.has(quote.status)) {
+      toast({
+        title: "Status congelado",
+        description: "Cotações emitidas/canceladas/recusadas não podem ser reprecificadas.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const ok = window.confirm(
+      `Atualizar o preço deste orçamento de ${formatBRL(freshness.usedPrice)}/mil para ${formatBRL(freshness.currentPrice)}/mil?\n\n` +
+        "O custo será recalculado, mas o valor de venda ao cliente permanece. Margem e comissão são recalculados."
+    );
+    if (!ok) return;
+
+    const newCostPerThousand = Number(freshness.currentPrice) || 0;
+    const milesQty = Number(quote.pricing?.miles_qty) || 0;
+    const newCostBrl = (milesQty / 1000) * newCostPerThousand;
+    const tentativePricing = {
+      ...(quote.pricing || {}),
+      miles_value_per_thousand: newCostPerThousand,
+      cost_brl: newCostBrl,
+      cost_brl_calc: newCostBrl,
+      reprecified_at: new Date().toISOString(),
+    };
+    const derived = computePricingTotals({ ...quote, pricing: tentativePricing });
+    const newPricing = { ...tentativePricing, nipon_value: derived.niponPerPax };
+    const newCommission = buildCommissionSnapshot({ ...quote, pricing: newPricing });
+    const updated = await localClient.entities.Quotes.update(quote.id, {
+      pricing: newPricing,
+      commission: newCommission,
+    });
+    if (!updated) {
+      toast({ title: "Erro ao atualizar preço", variant: "destructive" });
+      return;
+    }
+    toast({
+      title: "Preço atualizado",
+      description: "Custo e comissão recalculados com base na tabela atual.",
+    });
+    setDetailQuote(updated);
+    await reload();
+  };
 
   // Sincroniza statusFilter no querystring
   useEffect(() => {
@@ -472,6 +523,8 @@ export default function GerenteOrcamentos() {
                 setDetailQuote(null);
                 navigate(`/vendedor/orcamento?from=${target.id}`);
               }}
+              milesTable={milesTable}
+              onRecalculatePrice={handleRecalculatePrice}
             />
           )}
         </DialogContent>
@@ -614,10 +667,76 @@ function QuoteRow({ quote, seller, onView, onChangeStatus, onPDF, onClickClient 
   );
 }
 
-function QuoteDetail({ quote, onPDF, onNewQuoteForClient }) {
+function QuoteDetail({
+  quote,
+  onPDF,
+  onNewQuoteForClient,
+  milesTable = [],
+  onRecalculatePrice,
+}) {
   const isParceiro = quote.recipient_type === "parceiro";
+  const totals = computePricingTotals(quote);
+  const commission = computeCommission(quote);
+  const multiPax = totals.passengers >= 2;
+  const renderPerPaxHint = (perPax) =>
+    multiPax ? (
+      <div className="text-[10px] text-muted-foreground">
+        {formatBRL(perPax)} × {totals.passengers}
+      </div>
+    ) : null;
+  const freshness = useMemo(
+    () => checkMilesPriceFreshness(quote, milesTable),
+    [quote, milesTable]
+  );
+  const isFrozen = FROZEN_STATUSES.has(quote.status);
   return (
     <div className="space-y-4 text-sm">
+      {!freshness.isFresh && (
+        <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-amber-900 mb-1">
+                Preço da {freshness.programName} mudou desde esta cotação
+                {freshness.multipleSegments &&
+                  ` (e em mais ${freshness.segmentsStale - 1} trecho${freshness.segmentsStale - 1 === 1 ? "" : "s"})`}
+              </p>
+              <p className="text-sm text-amber-800 mb-2">
+                Cotado a <strong>{formatBRL(freshness.usedPrice)}/mil</strong>, hoje custa{" "}
+                <strong>{formatBRL(freshness.currentPrice)}/mil</strong>
+                <span className={freshness.priceChange > 0 ? "text-red-600" : "text-green-600"}>
+                  {" "}
+                  ({freshness.priceChange > 0 ? "+" : ""}
+                  {formatBRL(freshness.priceChange)}/mil)
+                </span>
+                .
+              </p>
+              {isFrozen ? (
+                <p className="text-xs text-amber-700">
+                  Esta cotação já está em <strong>{quote.status}</strong> — os valores
+                  ficam congelados para auditoria.
+                </p>
+              ) : freshness.multipleSegments ? (
+                <p className="text-xs text-amber-700">
+                  Quebra de Trecho com múltiplos programas — a reprecificação precisa ser
+                  feita criando uma nova cotação derivada.
+                </p>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-amber-400 text-amber-700 hover:bg-amber-100"
+                  onClick={() => onRecalculatePrice?.(quote, freshness)}
+                >
+                  <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                  Atualizar preço para o valor atual
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {!isParceiro && onNewQuoteForClient && (
         <Button
           onClick={onNewQuoteForClient}
@@ -685,15 +804,42 @@ function QuoteDetail({ quote, onPDF, onNewQuoteForClient }) {
         ))}
       </DetailSection>
 
-      <DetailSection title="Precificação">
+      <DetailSection title={multiPax ? `Precificação · ${totals.passengers} passageiros` : "Precificação"}>
         <DetailRow
           label="Tipo"
           value={quote.pricing?.type === "milhas" ? `Milhas — ${quote.pricing?.program || "—"}` : "Dinheiro"}
         />
-        <DetailRow label="Custo" value={formatBRL(quote.pricing?.cost_brl)} />
-        <DetailRow label="Nipon" value={formatBRL(quote.pricing?.nipon_value)} />
-        <DetailRow label="Venda" value={formatBRL(quote.pricing?.sale_value)} />
-        <DetailRow label="Comissão total" value={formatBRL(quote.commission?.total)} />
+        <DetailRow
+          label="Custo total"
+          value={
+            <div className="text-right">
+              <div>{formatBRL(totals.costTotal)}</div>
+              {renderPerPaxHint(totals.costPerPax)}
+            </div>
+          }
+        />
+        <DetailRow
+          label="Nipon (mínimo)"
+          value={
+            <div className="text-right">
+              <div>{formatBRL(totals.niponTotal)}</div>
+              {renderPerPaxHint(totals.niponPerPax)}
+            </div>
+          }
+        />
+        <DetailRow label="Venda" value={formatBRL(totals.saleTotal || quote.total_value)} />
+        <DetailRow
+          label="Margem bruta"
+          value={
+            <span className={totals.margemBruta >= 0 ? "text-emerald-700" : "text-red-600"}>
+              {formatBRL(totals.margemBruta)}
+            </span>
+          }
+        />
+        <DetailRow
+          label={`Comissão total${commission.isCarteiraPropria ? " · Carteira própria 30%" : ""}`}
+          value={formatBRL(commission.total)}
+        />
       </DetailSection>
 
       <Separator />

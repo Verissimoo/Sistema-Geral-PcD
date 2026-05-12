@@ -67,11 +67,66 @@ const supabaseStore = (tableName, dateField = 'created_date') => ({
   },
 });
 
+// Quotes precisa de idempotência: o front pode disparar múltiplas chamadas em
+// paralelo (clique duplo no botão de "Gerar orçamento") e a coluna quote_number
+// tem UNIQUE constraint. Esta camada extra evita que o usuário veja erro de
+// "duplicate key" — se já existe um registro com o mesmo quote_number, devolve
+// o existente como sucesso.
+const quotesStore = supabaseStore('pcd_quotes');
+const Quotes = {
+  ...quotesStore,
+  create: async (record) => {
+    const { id: _ignored, quote_number, ...rest } = record || {};
+
+    if (quote_number) {
+      const { data: existing } = await supabase
+        .from('pcd_quotes')
+        .select('*')
+        .eq('quote_number', quote_number)
+        .maybeSingle();
+      if (existing) {
+        console.warn(
+          `[Quotes.create] ${quote_number} já existe — retornando registro existente em vez de duplicar.`
+        );
+        return existing;
+      }
+    }
+
+    const payload = quote_number ? { ...rest, quote_number } : { ...rest };
+    const { data, error } = await supabase
+      .from('pcd_quotes')
+      .insert([payload])
+      .select()
+      .single();
+
+    if (error) {
+      // 23505 = unique_violation. Pode acontecer em corrida real: dois inserts
+      // chegaram antes do select acima ver o outro. Tratamos como sucesso.
+      if (error.code === '23505' && quote_number) {
+        const { data: existing } = await supabase
+          .from('pcd_quotes')
+          .select('*')
+          .eq('quote_number', quote_number)
+          .maybeSingle();
+        if (existing) {
+          console.warn(
+            `[Quotes.create] corrida detectada em ${quote_number} — retornando registro vencedor.`
+          );
+          return existing;
+        }
+      }
+      console.error('Erro ao criar em pcd_quotes:', error);
+      return null;
+    }
+    return data;
+  },
+};
+
 export const localClient = {
   entities: {
     Users: supabaseStore('pcd_users'),
     Clients: supabaseStore('pcd_clients'),
-    Quotes: supabaseStore('pcd_quotes'),
+    Quotes,
     MilesTable: supabaseStore('pcd_miles_table', 'updated_date'),
     CommercialGoals: supabaseStore('pcd_commercial_goals'),
     Rituals: supabaseStore('pcd_rituals'),

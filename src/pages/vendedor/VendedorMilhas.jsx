@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Star, Plus, Pencil, Trash2, Layers, X, AlertTriangle, ChevronDown,
-  ChevronUp, TrendingUp, TrendingDown, Award, Clock,
+  ChevronUp, TrendingUp, TrendingDown, Award, Clock, History,
+  ArrowRight,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,9 +16,11 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import { localClient, seedMilesIfEmpty } from "@/api/localClient";
+import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/AuthContext";
 import {
   getMarginPercent, isOutdated, daysSinceUpdate,
@@ -49,13 +52,14 @@ const STOCK_CONFIG = {
 };
 
 export default function VendedorMilhas() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
   const { toast } = useToast();
   const [data, setData] = useState([]);
   const [expandedId, setExpandedId] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [activeTab, setActiveTab] = useState("atual");
 
   const loadData = useCallback(async () => {
     await seedMilesIfEmpty();
@@ -179,6 +183,32 @@ export default function VendedorMilhas() {
     };
 
     if (editing) {
+      // Registra histórico ANTES do update se cost/sale mudaram. Tolerância
+      // de 1 centavo evita logar mudanças apenas cosméticas (string vs num).
+      const oldCost = Number(editing.cost_per_thousand) || 0;
+      const oldSale = Number(editing.sale_per_thousand) || 0;
+      const priceChanged =
+        Math.abs(cost - oldCost) > 0.01 || Math.abs(sale - oldSale) > 0.01;
+      if (priceChanged) {
+        const { error: histErr } = await supabase
+          .from("pcd_miles_price_history")
+          .insert([
+            {
+              program_id: editing.id,
+              program_name: payload.program,
+              old_cost_per_thousand: oldCost,
+              new_cost_per_thousand: cost,
+              old_sale_per_thousand: oldSale,
+              new_sale_per_thousand: sale,
+              changed_by_id: user?.id || null,
+              changed_by_name: user?.name || null,
+            },
+          ]);
+        if (histErr) {
+          console.error("Falha ao registrar histórico de preço:", histErr);
+          // Não bloqueia o update — só perde a auditoria desta mudança.
+        }
+      }
       await localClient.entities.MilesTable.update(editing.id, payload);
       toast({ title: "Programa atualizado", description: payload.program });
     } else {
@@ -218,6 +248,18 @@ export default function VendedorMilhas() {
           </Button>
         )}
       </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="atual" className="gap-2">
+            <Star className="h-3.5 w-3.5" /> Preços atuais
+          </TabsTrigger>
+          <TabsTrigger value="historico" className="gap-2">
+            <History className="h-3.5 w-3.5" /> Histórico de mudanças
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="atual" className="space-y-4 mt-4">
 
       {/* Cards de resumo */}
       {summary && (
@@ -315,6 +357,13 @@ export default function VendedorMilhas() {
           </table>
         </div>
       </Card>
+
+        </TabsContent>
+
+        <TabsContent value="historico" className="mt-4">
+          <HistoricoPrecos active={activeTab === "historico"} />
+        </TabsContent>
+      </Tabs>
 
       {/* Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -743,5 +792,137 @@ function ProgramRow({ item, isAdmin, expanded, onToggleExpand, onEdit, onEditTie
         </tr>
       )}
     </>
+  );
+}
+
+// ─── Histórico de mudanças de preço ─────────────────────────────────
+function HistoricoPrecos({ active }) {
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!active) return;
+    let cancelled = false;
+    setLoading(true);
+    supabase
+      .from("pcd_miles_price_history")
+      .select("*")
+      .order("changed_at", { ascending: false })
+      .limit(100)
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          console.error("Erro ao carregar histórico:", error);
+          setHistory([]);
+        } else {
+          setHistory(data || []);
+        }
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [active]);
+
+  if (loading) {
+    return (
+      <Card className="border-border/50">
+        <CardContent className="py-12 text-center text-sm text-muted-foreground">
+          Carregando histórico...
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (history.length === 0) {
+    return (
+      <Card className="border-border/50">
+        <CardContent className="py-12 text-center text-sm text-muted-foreground">
+          Nenhuma alteração registrada ainda. As mudanças aparecem aqui após
+          editar o custo ou venda de um programa existente.
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="border-border/50 overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/30 border-b border-border">
+            <tr>
+              <Th>Data</Th>
+              <Th>Programa</Th>
+              <Th>Compra (de → para)</Th>
+              <Th>Venda (de → para)</Th>
+              <Th>Alterado por</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {history.map((h) => {
+              const oldCost = Number(h.old_cost_per_thousand) || 0;
+              const newCost = Number(h.new_cost_per_thousand) || 0;
+              const oldSale = Number(h.old_sale_per_thousand) || 0;
+              const newSale = Number(h.new_sale_per_thousand) || 0;
+              const costDiff = newCost - oldCost;
+              const saleDiff = newSale - oldSale;
+              const isCostIncrease = costDiff > 0;
+              const isSaleIncrease = saleDiff > 0;
+              return (
+                <tr key={h.id} className="border-b border-border/50 last:border-0 hover:bg-muted/30">
+                  <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
+                    {new Date(h.changed_at).toLocaleString("pt-BR", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </td>
+                  <td className="px-4 py-3 font-medium">{h.program_name}</td>
+                  <td className="px-4 py-3 font-mono text-xs">
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <span className="text-muted-foreground">{fmt(oldCost)}</span>
+                      <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                      <strong className={isCostIncrease ? "text-red-600" : "text-emerald-600"}>
+                        {fmt(newCost)}
+                      </strong>
+                    </div>
+                    <div
+                      className={cn(
+                        "text-[10px] mt-0.5",
+                        isCostIncrease ? "text-red-500" : "text-emerald-500"
+                      )}
+                    >
+                      {isCostIncrease ? "+" : ""}
+                      {fmt(costDiff)}/mil
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 font-mono text-xs">
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <span className="text-muted-foreground">{fmt(oldSale)}</span>
+                      <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                      <strong>{fmt(newSale)}</strong>
+                    </div>
+                    <div
+                      className={cn(
+                        "text-[10px] mt-0.5",
+                        isSaleIncrease ? "text-emerald-500" : "text-amber-500"
+                      )}
+                    >
+                      {isSaleIncrease ? "+" : ""}
+                      {fmt(saleDiff)}/mil
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-muted-foreground">
+                    {h.changed_by_name || "—"}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Card>
   );
 }

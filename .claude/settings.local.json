@@ -14,7 +14,20 @@
       "mcp__claude_ai_Supabase__apply_migration",
       "Bash(node -e \"require\\('fs'\\).readFileSync\\('./src/pages/vendedor/VendedorOrcamento.jsx','utf8'\\).split\\('\\\\n'\\).forEach\\(\\(l,i\\)=>{ if\\(l.includes\\('TabsContent value=\\\\\"new\\\\\"'\\)\\) console.log\\(i+1, l\\) }\\)\")",
       "Bash(npx --no-install eslint src/pages/vendedor/VendedorFerramentas.jsx src/lib/config.js)",
-      "Bash(echo \"---exit $?---\")"
+      "Bash(echo \"---exit $?---\")",
+      "Bash(node_modules/.bin/eslint src/api/localClient.js src/pages/vendedor/VendedorOrcamento.jsx src/components/EmissionDialog.jsx src/pages/suporte/SuporteEmissoes.jsx src/pages/UserManagement.jsx src/pages/parceiro/ParceiroOrcamentoDetalhe.jsx src/pages/parceiro/ParceiroEmpresa.jsx src/pages/Settings.jsx)",
+      "Bash(node_modules/.bin/eslint --rule '{\"unused-imports/no-unused-imports\":\"off\",\"unused-imports/no-unused-vars\":\"off\"}' src/api/localClient.js src/pages/vendedor/VendedorOrcamento.jsx src/components/EmissionDialog.jsx src/pages/suporte/SuporteEmissoes.jsx src/pages/UserManagement.jsx src/pages/parceiro/ParceiroOrcamentoDetalhe.jsx src/pages/parceiro/ParceiroEmpresa.jsx src/pages/Settings.jsx)",
+      "Bash(node_modules/.bin/vite build *)",
+      "Bash(node_modules/.bin/eslint src/pages/gerente/GerenteVendedorDetalhe.jsx)",
+      "Bash(node_modules/.bin/eslint src/pages/gerente/GerenteMetasComerciais.jsx)",
+      "Bash(node_modules/.bin/eslint src/lib/pricingCalculator.js src/pages/vendedor/VendedorOrcamento.jsx src/pages/vendedor/VendedorOrcamentos.jsx src/pages/vendedor/VendedorHome.jsx src/pages/vendedor/VendedorCarreira.jsx src/pages/gerente/GerenteVendedores.jsx src/pages/gerente/GerenteVendedorDetalhe.jsx src/pages/gerente/GerenteOrcamentos.jsx src/pages/gerente/GerenteClienteDetalhe.jsx src/pages/suporte/SuporteEmissoes.jsx src/pages/Settings.jsx)",
+      "Bash(git stash *)",
+      "Bash(node_modules/.bin/eslint src/pages/gerente/GerenteClienteDetalhe.jsx)",
+      "Bash(node_modules/.bin/eslint src/lib/pricingCalculator.js src/pages/Settings.jsx)",
+      "Bash(node_modules/.bin/eslint src/pages/Dashboard.jsx)",
+      "Bash(node_modules/.bin/eslint src/lib/priceFreshness.js src/pages/Settings.jsx src/pages/vendedor/VendedorMilhas.jsx src/pages/vendedor/VendedorOrcamentos.jsx src/pages/gerente/GerenteOrcamentos.jsx)",
+      "Bash(node_modules/.bin/eslint src/pages/vendedor/VendedorMilhas.jsx src/pages/vendedor/VendedorOrcamentos.jsx src/pages/gerente/GerenteOrcamentos.jsx)",
+      "Bash(node_modules/.bin/eslint src/lib/pricingCalculator.js src/pages/Settings.jsx src/pages/vendedor/VendedorOrcamento.jsx src/pages/vendedor/VendedorOrcamentos.jsx src/pages/gerente/GerenteOrcamentos.jsx)"
     ]
   }
 }

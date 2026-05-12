@@ -13,6 +13,7 @@ import {
 } from "@/data/culturaPCD";
 import { getRevenueQuotes, getMonthRevenue } from "@/lib/revenueHelper";
 import { filterCommercialQuotes } from "@/lib/commercialFilter";
+import { computeCommission } from "@/lib/pricingCalculator";
 import { CAREER_LEVELS } from "@/lib/careerPlan";
 import { cn } from "@/lib/utils";
 
@@ -79,8 +80,10 @@ export default function VendedorHome() {
     (s, q) => s + (Number(q.total_value) || 0),
     0,
   );
+  // Sempre recalcula via helper — quotes antigos podem ter commission.total
+  // gravado com a fórmula errada (pré-correção multi-pax).
   const comissaoMes = vendasMes.reduce(
-    (s, q) => s + (Number(q.commission?.total) || 0),
+    (s, q) => s + computeCommission(q).total,
     0,
   );
 

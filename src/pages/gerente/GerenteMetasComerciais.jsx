@@ -19,6 +19,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import { localClient, seedCommercialGoals } from "@/api/localClient";
 import { filterCommercialQuotes } from "@/lib/commercialFilter";
+import { getRevenueQuotes } from "@/lib/revenueHelper";
 
 const formatBRL = (v) =>
   Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -35,6 +36,11 @@ const monthMatches = (createdISO, monthStr) => {
   const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   return ym === monthStr;
 };
+
+// Data canônica de receita: alinhada com revenueHelper.getMonthRevenue —
+// usa a data efetiva de emissão; cai para issued_date e por fim created_date.
+const getIssuedDate = (q) =>
+  q?.emission_completed_date || q?.issued_date || q?.created_date || null;
 
 const getDaysInMonth = (monthStr) => {
   const [y, m] = monthStr.split("-").map(Number);
@@ -129,19 +135,23 @@ export default function GerenteMetasComerciais() {
   );
 
   // Apenas quotes de vendedor/gerente contam para metas comerciais.
+  // Suporte, admin e parceiro NÃO entram — filtro feito por seller_id × role.
   const commercialQuotes = useMemo(
     () => filterCommercialQuotes(quotes, users),
     [quotes, users]
   );
 
+  // Receita = só "Emitido", alocada pela data de emissão. Mesma definição usada
+  // em Dashboard, VendedorHome e Detalhe do Vendedor (via revenueHelper).
+  const revenueQuotes = useMemo(
+    () => getRevenueQuotes(commercialQuotes),
+    [commercialQuotes]
+  );
+
   const goalRevenue = (g) =>
-    commercialQuotes
-      .filter(
-        (q) =>
-          (q.status === "Aprovado" || q.status === "Emitido") &&
-          monthMatches(q.created_date, g.month)
-      )
-      .reduce((s, q) => s + (q.total_value || 0), 0);
+    revenueQuotes
+      .filter((q) => monthMatches(getIssuedDate(q), g.month))
+      .reduce((s, q) => s + (Number(q.total_value) || 0), 0);
 
   // Estado visual baseado no calendário real
   const getGoalVisualState = (goal) => {
@@ -322,7 +332,7 @@ export default function GerenteMetasComerciais() {
       {currentMonthGoal ? (
         <ActiveMonthCard
           goal={currentMonthGoal}
-          quotes={commercialQuotes}
+          quotes={revenueQuotes}
           isCurrentMonth={true}
         />
       ) : (
@@ -528,18 +538,15 @@ function Th({ children }) {
 }
 
 // ─── Card grande do mês ativo ───────────────────────────────────────
+// `quotes` aqui já vem pré-filtrado: somente role vendedor/gerente E
+// status "Emitido" (revenueQuotes em GerenteMetasComerciais).
 function ActiveMonthCard({ goal, quotes, isCurrentMonth = true }) {
   const target = Number(goal.monthly_target) || 0;
   const monthQuotes = useMemo(
-    () =>
-      quotes.filter(
-        (q) =>
-          (q.status === "Aprovado" || q.status === "Emitido") &&
-          monthMatches(q.created_date, goal.month)
-      ),
+    () => quotes.filter((q) => monthMatches(getIssuedDate(q), goal.month)),
     [quotes, goal.month]
   );
-  const revenue = monthQuotes.reduce((s, q) => s + (q.total_value || 0), 0);
+  const revenue = monthQuotes.reduce((s, q) => s + (Number(q.total_value) || 0), 0);
   const pct = target > 0 ? Math.min(100, (revenue / target) * 100) : 0;
   const missing = Math.max(0, target - revenue);
 
@@ -558,7 +565,7 @@ function ActiveMonthCard({ goal, quotes, isCurrentMonth = true }) {
   const dailyNeeded = remainingDays > 0 ? missing / remainingDays : 0;
   const onPace = dailyAvg >= dailyNeeded || pct >= 100;
 
-  // Breakdown semanal
+  // Breakdown semanal — usa a mesma data canônica de emissão.
   const weeks = useMemo(() => {
     const result = [
       { idx: 1, range: "1-7", revenue: 0 },
@@ -567,9 +574,11 @@ function ActiveMonthCard({ goal, quotes, isCurrentMonth = true }) {
       { idx: 4, range: `22-${totalDays}`, revenue: 0 },
     ];
     monthQuotes.forEach((q) => {
-      const d = new Date(q.created_date).getDate();
+      const issued = getIssuedDate(q);
+      if (!issued) return;
+      const d = new Date(issued).getDate();
       const widx = d <= 7 ? 0 : d <= 14 ? 1 : d <= 21 ? 2 : 3;
-      result[widx].revenue += q.total_value || 0;
+      result[widx].revenue += Number(q.total_value) || 0;
     });
     return result;
   }, [monthQuotes, totalDays]);

@@ -20,6 +20,7 @@ import {
   CAREER_LEVELS, getSellerStats, getCurrentLevel, getNextLevel,
   getBonusTier, getBonusValue,
 } from "@/lib/careerPlan";
+import { computeCommission } from "@/lib/pricingCalculator";
 
 const formatBRL = (v) =>
   (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -300,9 +301,11 @@ function CommissionsSection({ seller, quotes, currentLevel }) {
       const d = new Date(q.created_date);
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     });
+    // Recalcula sempre via helper para corrigir quotes legados que tinham
+    // commission.total gravado sem a multiplicação por passageiros.
     const doMesComComissao = doMes.map((q) => ({
       ...q,
-      comissaoCalculada: q.commission?.total || 0,
+      comissaoCalculada: computeCommission(q).total,
     }));
     const total = doMesComComissao.reduce((s, q) => s + q.comissaoCalculada, 0);
     const fixo = currentLevel.fixedSalary || 0;
