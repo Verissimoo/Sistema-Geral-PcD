@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { localClient } from "@/api/localClient";
 import { useAuth } from "@/lib/AuthContext";
+import PartnerLogo from "@/components/PartnerLogo";
 
 const formatBRL = (v) =>
   (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -110,28 +111,23 @@ export default function ParceiroOrcamentos() {
       {company ? (
         <Card className="overflow-hidden border-0 shadow-lg">
           <div
-            className="h-32 relative"
+            className="h-40 relative"
             style={{
               background: company.cover_image_url
                 ? `linear-gradient(135deg, ${company.primary_color || "#0B1E3D"}cc, ${company.primary_color || "#0B1E3D"}aa), url('${company.cover_image_url}') center/cover`
                 : `linear-gradient(135deg, ${company.primary_color || "#0B1E3D"}, ${company.secondary_color || "#F4A224"})`,
             }}
           >
+            <div className="absolute inset-0 bg-black/30" />
             <div className="absolute inset-0 flex items-center justify-between p-6 gap-4 flex-wrap">
               <div className="flex items-center gap-4 min-w-0">
-                {company.logo_url ? (
-                  <img
-                    src={company.logo_url}
-                    alt={company.name}
-                    className="h-16 max-w-[200px] object-contain bg-white/95 rounded-lg p-2"
-                  />
-                ) : (
-                  <div className="w-16 h-16 rounded-lg bg-white/90 flex items-center justify-center">
-                    <Building2 className="w-7 h-7 text-slate-700" />
-                  </div>
-                )}
+                <PartnerLogo
+                  src={company.logo_url}
+                  alt={company.name}
+                  variant="banner"
+                />
                 <div className="text-white min-w-0">
-                  <h2 className="text-2xl font-bold drop-shadow truncate">{company.name}</h2>
+                  <h2 className="text-2xl font-bold drop-shadow-md truncate">{company.name}</h2>
                   {company.cnpj && (
                     <p className="text-sm opacity-90 drop-shadow">CNPJ: {company.cnpj}</p>
                   )}

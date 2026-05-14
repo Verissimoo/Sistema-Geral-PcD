@@ -11,6 +11,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/lib/AuthContext";
 import { localClient } from "@/api/localClient";
 import { supabase } from "@/lib/supabase";
+import PartnerLogo from "@/components/PartnerLogo";
 
 const BUCKET = "pcd-partner-logos";
 
@@ -180,26 +181,29 @@ export default function ParceiroEmpresa() {
       {/* Preview da identidade visual */}
       <Card className="overflow-hidden border-border/50">
         <div
-          className="h-32 relative"
+          className="h-36 relative"
           style={{
             background: coverPreview
               ? `url(${coverPreview}) center/cover`
               : `linear-gradient(135deg, ${formData.primary_color}, ${formData.secondary_color})`,
           }}
         >
-          <div className="absolute inset-0 bg-black/30 flex items-center justify-between p-6">
-            {logoPreview ? (
-              <img
+          <div className="absolute inset-0 bg-black/30" />
+          <div className="absolute inset-0 flex items-center justify-between p-6 gap-4 flex-wrap">
+            <div className="flex items-center gap-4 min-w-0">
+              <PartnerLogo
                 src={logoPreview}
-                alt="Logo"
-                className="h-16 object-contain bg-white rounded-lg p-2"
+                alt={formData.name}
+                variant="preview"
               />
-            ) : (
-              <div className="text-white text-xl font-bold">
-                {formData.name || "Sua Empresa"}
+              <div className="text-white min-w-0">
+                <p className="text-xs uppercase tracking-wider opacity-80">Sua marca</p>
+                <p className="text-xl font-bold drop-shadow-md truncate">
+                  {formData.name || "Nome da empresa"}
+                </p>
               </div>
-            )}
-            <Badge style={{ background: formData.secondary_color, color: "#fff" }} className="border-0">
+            </div>
+            <Badge style={{ background: formData.secondary_color, color: "#fff" }} className="border-0 shrink-0">
               Preview
             </Badge>
           </div>
@@ -283,18 +287,18 @@ export default function ParceiroEmpresa() {
               <ImageIcon className="h-3.5 w-3.5" /> Logotipo
             </Label>
             <div className="flex items-start gap-4">
-              {logoPreview && (
-                <img
-                  src={logoPreview}
-                  alt="Logo"
-                  className="w-24 h-24 rounded-lg object-contain bg-slate-50 p-2 border"
-                />
-              )}
+              <PartnerLogo src={logoPreview} alt="Logo" variant="card" />
               <div className="flex-1">
-                <Input type="file" accept="image/*" onChange={handleLogoChange} />
-                <p className="text-xs text-muted-foreground mt-1">
-                  PNG ou JPG. Recomendado: fundo transparente, formato horizontal.
-                </p>
+                <Input
+                  type="file"
+                  accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                  onChange={handleLogoChange}
+                />
+                <div className="text-xs text-muted-foreground mt-2 space-y-0.5">
+                  <p>📐 <strong>Recomendado:</strong> PNG com fundo transparente</p>
+                  <p>🎨 <strong>Cores escuras</strong> aparecem melhor no banner (que tem overlay escuro)</p>
+                  <p>✨ A borda âmbar destaca sua logo automaticamente</p>
+                </div>
               </div>
             </div>
           </div>

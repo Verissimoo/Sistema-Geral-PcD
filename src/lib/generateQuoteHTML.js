@@ -650,6 +650,7 @@ export function generateQuoteHTML(data) {
   const brandName = isCustomBrand ? (company.name || "") : "PassagensComDesconto";
   const brandLogoUrl = isCustomBrand ? (company.logo_url || null) : null;
   const coverImageUrl = isCustomBrand ? (company.cover_image_url || null) : null;
+  const logoBorderColor = isCustomBrand ? (company.secondary_color || "#F4A224") : "#F4A224";
   const partnerContact = data.partner_client_data || {};
 
   const trechos = data.itinerary?.trechos || [];
@@ -711,7 +712,7 @@ ${SVG_ICONS}
   <div class="hd-partner">
     ${isCustomBrand
       ? (brandLogoUrl
-        ? `<img src="${esc(brandLogoUrl)}" alt="${esc(brandName)}" style="max-height:50px;max-width:220px;object-fit:contain;background:rgba(255,255,255,.95);padding:8px 12px;border-radius:8px;" />`
+        ? `<img src="${esc(brandLogoUrl)}" alt="${esc(brandName)}" style="height:64px;max-width:220px;width:auto;object-fit:contain;border:2px solid ${esc(logoBorderColor)};border-radius:12px;padding:6px;display:block;box-sizing:border-box;" />`
         : `<div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:22px;font-weight:900;color:#fff;letter-spacing:-.3px;line-height:1;">${esc(brandName)}</div>`)
       : `<div>
           <div style="font-family:'Plus Jakarta Sans',sans-serif;font-size:20px;font-weight:900;color:#fff;letter-spacing:-.3px;line-height:1;">Passagens<span style="color:#CC1B1B;">Com</span>Desconto</div>
