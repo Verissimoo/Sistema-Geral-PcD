@@ -1699,6 +1699,12 @@ Retorne APENAS o JSON, sem markdown nem comentários.`;
 // ─── Bloco 4 — Precificação ─────────────────────────────────────────
 function BlocoPrecificacao({ formData, setFormData }) {
   const [milesTable, setMilesTable] = useState([]);
+  // Modo de entrada da venda à parceira: 'valor' (input direto), 'rav' (acima
+  // do Nipon) ou 'desconto' (abaixo do Nipon). Os valores derivados sincronizam
+  // formData.pricing.sale_value via useEffect mais abaixo.
+  const [partnerPriceMode, setPartnerPriceMode] = useState("valor");
+  const [partnerRavValue, setPartnerRavValue] = useState(0);
+  const [partnerDescontoValue, setPartnerDescontoValue] = useState(0);
 
   useEffect(() => {
     (async () => {
@@ -2017,6 +2023,71 @@ function BlocoPrecificacao({ formData, setFormData }) {
   const aboveNipon = calc.saleTotal >= calc.nipon && calc.saleTotal > 0;
   const passengers = calc.passengers;
 
+  // ─── RAV/Desconto para parceiro ─────────────────────────────────
+  // Cálculo do valor final derivado quando o vendedor escolhe RAV ou
+  // Desconto. Em modo "valor", o sale_value já vem do input direto.
+  const niponTotal = calc.nipon;
+  const partnerSaleValue = useMemo(() => {
+    if (!isParceiroMode) return calc.saleTotal;
+    if (partnerPriceMode === "rav") {
+      return niponTotal + (Number(partnerRavValue) || 0);
+    }
+    if (partnerPriceMode === "desconto") {
+      return niponTotal - (Number(partnerDescontoValue) || 0);
+    }
+    return parseBR(formData.pricing.sale_value);
+  }, [isParceiroMode, partnerPriceMode, partnerRavValue, partnerDescontoValue, niponTotal, formData.pricing.sale_value, calc.saleTotal]);
+
+  // Sincroniza pricing.sale_value/sale_per quando o modo é RAV ou Desconto.
+  // No modo "valor", o input já escreve direto via setPricing e não devemos
+  // sobrescrever (geraria loop / sobrescrita do que o usuário digitou).
+  useEffect(() => {
+    if (!isParceiroMode) return;
+    if (partnerPriceMode === "valor") return;
+    setFormData((prev) => {
+      const cur = parseBR(prev.pricing.sale_value);
+      const target = Number(partnerSaleValue) || 0;
+      if (Math.abs(cur - target) < 0.01 && prev.pricing.sale_per === "total") {
+        return prev;
+      }
+      return {
+        ...prev,
+        pricing: { ...prev.pricing, sale_value: target, sale_per: "total" },
+      };
+    });
+  }, [isParceiroMode, partnerPriceMode, partnerSaleValue, setFormData]);
+
+  // Persiste RAV/Desconto/modo no pricing — leitura barata no consumo
+  // (BlocoGerar.persistQuote, relatórios e Quotes detail).
+  useEffect(() => {
+    if (!isParceiroMode) return;
+    const diff = partnerSaleValue - niponTotal;
+    const rav = diff > 0 ? diff : 0;
+    const desc = diff < 0 ? Math.abs(diff) : 0;
+    setFormData((prev) => {
+      const p = prev.pricing || {};
+      const same =
+        p.partner_price_mode === partnerPriceMode &&
+        Math.abs((Number(p.partner_rav) || 0) - rav) < 0.01 &&
+        Math.abs((Number(p.partner_desconto) || 0) - desc) < 0.01;
+      if (same) return prev;
+      return {
+        ...prev,
+        pricing: {
+          ...p,
+          partner_price_mode: partnerPriceMode,
+          partner_rav: rav,
+          partner_desconto: desc,
+        },
+      };
+    });
+  }, [isParceiroMode, partnerPriceMode, partnerSaleValue, niponTotal, setFormData]);
+
+  // No modo "valor", calcular automaticamente RAV/desconto para exibir.
+  const diferencaNipon = (parseBR(formData.pricing.sale_value)) - niponTotal;
+  const autoRav = diferencaNipon > 0 ? diferencaNipon : 0;
+  const autoDesconto = diferencaNipon < 0 ? Math.abs(diferencaNipon) : 0;
+
   return (
     <div className="space-y-6">
       {/* 4A - Tipo de emissão */}
@@ -2232,24 +2303,193 @@ function BlocoPrecificacao({ formData, setFormData }) {
         </CardContent>
       </Card>
 
-      {/* 4B - Aguardando precificação do parceiro */}
+      {/* 4B - Valor de venda à parceira (RAV/Desconto/Valor) */}
       {isParceiroMode && (
-        <Card className="bg-slate-100 border-2 border-dashed border-slate-300">
-          <CardContent className="p-5 text-center">
-            <p className="text-slate-700 font-semibold">⏳ Aguardando precificação do parceiro</p>
-            <p className="text-sm text-slate-500 mt-1">
-              O parceiro definirá o valor de venda final no portal dele.
-            </p>
-            <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+        <Card className="border-amber-200 bg-amber-50/50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <DollarSign className="h-4 w-4 text-amber-600" />
+              Valor de venda à parceira
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {/* Resumo Nipon — o que a parceira no mínimo paga */}
+            <div className="grid grid-cols-2 gap-3 text-sm">
               <div className="rounded-lg bg-white border border-slate-200 p-3">
                 <div className="text-[11px] uppercase text-muted-foreground tracking-wider">Custo total</div>
                 <div className="font-semibold mt-1">{formatBRL(calc.custoTotal)}</div>
               </div>
-              <div className="rounded-lg bg-white border border-slate-200 p-3">
-                <div className="text-[11px] uppercase text-muted-foreground tracking-wider">Valor Nipon</div>
-                <div className="font-semibold mt-1 text-primary">{formatBRL(calc.nipon)}</div>
+              <div className="rounded-lg bg-white border border-amber-200 p-3">
+                <div className="text-[11px] uppercase text-amber-700 tracking-wider">Nipon mínimo</div>
+                <div className="font-semibold mt-1 text-amber-700">{formatBRL(niponTotal)}</div>
               </div>
             </div>
+
+            {/* Tabs do modo de entrada */}
+            <div className="grid grid-cols-3 gap-1 bg-white rounded-md p-1 border border-amber-200">
+              <button
+                type="button"
+                onClick={() => setPartnerPriceMode("valor")}
+                className={cn(
+                  "px-3 py-1.5 rounded text-xs font-medium transition",
+                  partnerPriceMode === "valor"
+                    ? "bg-amber-500 text-white shadow-sm"
+                    : "text-slate-600 hover:bg-slate-50"
+                )}
+              >
+                Valor final
+              </button>
+              <button
+                type="button"
+                onClick={() => setPartnerPriceMode("rav")}
+                className={cn(
+                  "px-3 py-1.5 rounded text-xs font-medium transition",
+                  partnerPriceMode === "rav"
+                    ? "bg-green-500 text-white shadow-sm"
+                    : "text-slate-600 hover:bg-slate-50"
+                )}
+              >
+                + RAV
+              </button>
+              <button
+                type="button"
+                onClick={() => setPartnerPriceMode("desconto")}
+                className={cn(
+                  "px-3 py-1.5 rounded text-xs font-medium transition",
+                  partnerPriceMode === "desconto"
+                    ? "bg-red-500 text-white shadow-sm"
+                    : "text-slate-600 hover:bg-slate-50"
+                )}
+              >
+                − Desconto
+              </button>
+            </div>
+
+            {/* Modo VALOR — input direto */}
+            {partnerPriceMode === "valor" && (
+              <div className="space-y-2">
+                <Label>Valor que vou cobrar da parceira (total)</Label>
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder={formatBRL(niponTotal)}
+                  value={formData.pricing.sale_value}
+                  onChange={(e) =>
+                    setPricing({
+                      sale_value: sanitizeBRInput(e.target.value),
+                      sale_per: "total",
+                    })
+                  }
+                  className="text-lg font-semibold"
+                />
+                {parseBR(formData.pricing.sale_value) > 0 && (
+                  <div className="text-xs space-y-0.5">
+                    {autoRav > 0 && (
+                      <p className="text-green-700">
+                        + RAV de <strong>{formatBRL(autoRav)}</strong> sobre o Nipon
+                      </p>
+                    )}
+                    {autoDesconto > 0 && (
+                      <p className="text-red-700">
+                        − Desconto de <strong>{formatBRL(autoDesconto)}</strong> sobre o Nipon
+                      </p>
+                    )}
+                    {Math.abs(diferencaNipon) < 0.01 && (
+                      <p className="text-slate-500">Vendendo exatamente pelo Nipon</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Modo RAV */}
+            {partnerPriceMode === "rav" && (
+              <div className="space-y-2">
+                <Label>RAV — quanto acima do Nipon</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="0,00"
+                  value={partnerRavValue || ""}
+                  onChange={(e) => setPartnerRavValue(parseFloat(e.target.value) || 0)}
+                  className="text-lg font-semibold"
+                />
+                <div className="bg-white rounded p-2 text-xs space-y-1 border border-green-200">
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Nipon:</span>
+                    <span>{formatBRL(niponTotal)}</span>
+                  </div>
+                  <div className="flex justify-between text-green-700">
+                    <span>+ RAV:</span>
+                    <span className="font-bold">{formatBRL(partnerRavValue)}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-green-200 pt-1 mt-1 font-bold">
+                    <span>Valor final:</span>
+                    <span>{formatBRL(niponTotal + (Number(partnerRavValue) || 0))}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Modo DESCONTO */}
+            {partnerPriceMode === "desconto" && (
+              <div className="space-y-2">
+                <Label>Desconto — quanto abaixo do Nipon</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="0,00"
+                  value={partnerDescontoValue || ""}
+                  onChange={(e) => setPartnerDescontoValue(parseFloat(e.target.value) || 0)}
+                  className="text-lg font-semibold"
+                />
+                <div className="bg-white rounded p-2 text-xs space-y-1 border border-red-200">
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Nipon:</span>
+                    <span>{formatBRL(niponTotal)}</span>
+                  </div>
+                  <div className="flex justify-between text-red-700">
+                    <span>− Desconto:</span>
+                    <span className="font-bold">{formatBRL(partnerDescontoValue)}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-red-200 pt-1 mt-1 font-bold">
+                    <span>Valor final:</span>
+                    <span>{formatBRL(niponTotal - (Number(partnerDescontoValue) || 0))}</span>
+                  </div>
+                </div>
+                {Number(partnerDescontoValue) > 0 && (
+                  <p className="text-xs text-amber-700">
+                    ⚠️ Vendendo abaixo do Nipon. A PCD absorve {formatBRL(partnerDescontoValue)}.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Comparativo de comissão (igual ao card de cliente direto) */}
+            {calc.saleTotal > 0 && (
+              <Card className={cn(
+                calc.saleTotal >= calc.nipon
+                  ? "bg-emerald-500/5 border-emerald-500/30"
+                  : "bg-muted/40 border-border/60"
+              )}>
+                <CardContent className="p-3 space-y-1 text-xs">
+                  <Row label="Lucro Nipon (nipon − custo)" value={formatBRL(calc.lucroNipon)} />
+                  <Row
+                    label={`Comissão base (${(calc.baseRate * 100).toFixed(0)}% do lucro Nipon)${calc.isCarteiraPropria ? " · Carteira própria" : ""}`}
+                    value={formatBRL(calc.comissaoBase)}
+                  />
+                  <Row label="Excedente sobre Nipon" value={formatBRL(calc.excedente)} />
+                  <Row label="Comissão extra (45% do excedente)" value={formatBRL(calc.comissaoExtra)} />
+                  <Separator className="my-1.5" />
+                  <Row
+                    label="COMISSÃO TOTAL DO VENDEDOR"
+                    value={formatBRL(calc.comissaoTotal)}
+                    bold
+                    className={calc.saleTotal >= calc.nipon ? "text-emerald-700" : "text-foreground"}
+                  />
+                </CardContent>
+              </Card>
+            )}
           </CardContent>
         </Card>
       )}
@@ -3225,28 +3465,44 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
         ...formData,
         pricing: normalizedPricing,
       });
-      const niponBase = derivedTotals.niponPerPax;
+      const niponTotalDerived = derivedTotals.niponTotal;
       const pricingWithSyncedNipon = {
         ...normalizedPricing,
         nipon_value: derivedTotals.niponPerPax,
       };
 
-      // Para parceiro, sale_value provisório = nipon (será sobrescrito pelo parceiro).
-      const finalPricing = isParceiroMode
-        ? { ...pricingWithSyncedNipon, sale_value: niponBase }
-        : pricingWithSyncedNipon;
-      const finalTotalValue = isParceiroMode ? niponBase : totalValue;
+      // Para parceiro, o vendedor já definiu sale_value via RAV/Desconto/Valor
+      // no Bloco 4. Usamos esse valor diretamente — não sobrescrevemos com o
+      // Nipon (modelo antigo). O `partner_base_sale_value` top-level guarda o
+      // valor que a PCD cobra da parceira (floor de margem no portal dela).
+      let finalSaleValueForPartner = 0;
+      let finalPricing = pricingWithSyncedNipon;
+      let finalTotalValue = totalValue;
+
+      if (isParceiroMode) {
+        const partnerSale = Number(normalizedPricing.sale_value) || 0;
+        // Se o vendedor não definiu (vazio), assume Nipon como piso seguro.
+        finalSaleValueForPartner = partnerSale > 0 ? partnerSale : niponTotalDerived;
+        const diff = finalSaleValueForPartner - niponTotalDerived;
+        finalPricing = {
+          ...pricingWithSyncedNipon,
+          sale_value: finalSaleValueForPartner,
+          sale_per: "total",
+          partner_price_mode: normalizedPricing.partner_price_mode || "valor",
+          partner_rav: diff > 0 ? diff : 0,
+          partner_desconto: diff < 0 ? Math.abs(diff) : 0,
+        };
+        finalTotalValue = finalSaleValueForPartner;
+      }
 
       // Snapshot completo da comissão — auditoria + leitura barata no consumo.
-      // Para parceiro, a comissão final será calculada quando o parceiro
-      // definir o preço de venda; zeramos aqui.
-      const commissionSnapshot = isParceiroMode
-        ? { base: 0, extra: 0, total: 0 }
-        : buildCommissionSnapshot({
-            ...formData,
-            pricing: finalPricing,
-            total_value: finalTotalValue,
-          });
+      // Para parceiro também calcula comissão real: lucro da PCD é o que ela
+      // cobra da parceira menos o custo (Nipon × passageiros é o piso).
+      const commissionSnapshot = buildCommissionSnapshot({
+        ...formData,
+        pricing: finalPricing,
+        total_value: finalTotalValue,
+      });
 
       const quote = await localClient.entities.Quotes.create({
         quote_number: number,
@@ -3272,6 +3528,9 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
           ? { insurance: { active: false, value: 0 }, transfer: { active: false, value: 0 } }
           : normalizedServices,
         total_value: finalTotalValue,
+        // Valor que a PCD cobra da parceira — floor que a parceira vê no
+        // portal dela ao definir o preço final ao cliente final.
+        ...(isParceiroMode && { partner_base_sale_value: finalSaleValueForPartner }),
         commission: commissionSnapshot,
         seller_name: user?.name || "Equipe PCD",
         seller_id: user?.id || null,
@@ -3354,10 +3613,18 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
     const numberForPDF =
       persisted?.quote_number || savedQuote?.quote_number || quoteNumber;
     const normalized = buildNormalizedPayload();
-    const niponBase = Number(normalized.pricing?.nipon_value) || Number(normalized.pricing?.total_nipon) || 0;
-    const finalTotal = isParceiroMode ? niponBase : totalValue;
+    const niponBaseTotal =
+      Number(normalized.pricing?.total_nipon) ||
+      (Number(normalized.pricing?.nipon_value) || 0) *
+        Math.max(1, Number(formData.passengers) || 1);
+    // Para parceiro o PDF mostra o que ela paga: sale_value definido (RAV/desc/valor)
+    // ou Nipon como fallback se vazio. Não mais sobrescrevemos com Nipon cego.
+    const partnerSaleForPDF = isParceiroMode
+      ? (Number(normalized.pricing?.sale_value) || niponBaseTotal)
+      : 0;
+    const finalTotal = isParceiroMode ? partnerSaleForPDF : totalValue;
     const finalPricing = isParceiroMode
-      ? { ...normalized.pricing, sale_value: niponBase }
+      ? { ...normalized.pricing, sale_value: partnerSaleForPDF, sale_per: "total" }
       : normalized.pricing;
     openQuoteInNewTab({
       quote_number: numberForPDF,

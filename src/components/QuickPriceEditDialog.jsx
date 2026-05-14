@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -21,7 +22,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { localClient } from "@/api/localClient";
 import { computeCommission } from "@/lib/pricingCalculator";
 import { useAuth } from "@/lib/AuthContext";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Minus, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const formatBRL = (v) =>
@@ -43,13 +44,33 @@ export default function QuickPriceEditDialog({ open, onOpenChange, quote, onSave
   const { user } = useAuth();
   const { toast } = useToast();
   const [pricing, setPricing] = useState(null);
+  const [passengers, setPassengers] = useState(1);
+  const [partnerPriceMode, setPartnerPriceMode] = useState("valor"); // 'valor' | 'rav' | 'desconto'
+  const [partnerRavValue, setPartnerRavValue] = useState(0);
+  const [partnerDescontoValue, setPartnerDescontoValue] = useState(0);
   const [saving, setSaving] = useState(false);
+
+  const isPartner = quote?.recipient_type === "parceiro";
 
   // Clona o pricing ao abrir o dialog. Resetar pricing pra null ao fechar
   // garante que reabrir com outro quote partirá do snapshot correto.
   useEffect(() => {
     if (open && quote) {
-      setPricing(clonePricing(quote.pricing));
+      const clonedPricing = clonePricing(quote.pricing);
+      setPricing(clonedPricing);
+      setPassengers(Math.max(1, parseInt(quote.passengers, 10) || 1));
+
+      // Para parceiro, deduz o modo inicial pelo snapshot anterior (se existir)
+      if (quote.recipient_type === "parceiro") {
+        const savedMode = clonedPricing.partner_price_mode || "valor";
+        setPartnerPriceMode(savedMode);
+        setPartnerRavValue(Number(clonedPricing.partner_rav) || 0);
+        setPartnerDescontoValue(Number(clonedPricing.partner_desconto) || 0);
+      } else {
+        setPartnerPriceMode("valor");
+        setPartnerRavValue(0);
+        setPartnerDescontoValue(0);
+      }
     } else if (!open) {
       setPricing(null);
     }
@@ -63,15 +84,56 @@ export default function QuickPriceEditDialog({ open, onOpenChange, quote, onSave
     [quote]
   );
   const newTotals = useMemo(
-    () => (quote && pricing ? computeCommission({ ...quote, pricing }) : null),
-    [quote, pricing]
+    () =>
+      quote && pricing
+        ? computeCommission({ ...quote, pricing, passengers })
+        : null,
+    [quote, pricing, passengers]
   );
+
+  // Nipon usado pelos modos RAV/Desconto. É o nipon TOTAL (já × passageiros).
+  const niponTotal = newTotals?.niponTotal || 0;
+
+  // Valor de venda derivado para parceiro: em modo RAV/Desconto é calculado
+  // a partir do nipon ± valor; em modo "valor" usa pricing.sale_value direto.
+  const partnerSaleValue = useMemo(() => {
+    if (!isPartner) return Number(pricing?.sale_value) || 0;
+    if (partnerPriceMode === "rav") {
+      return niponTotal + (Number(partnerRavValue) || 0);
+    }
+    if (partnerPriceMode === "desconto") {
+      return niponTotal - (Number(partnerDescontoValue) || 0);
+    }
+    return Number(pricing?.sale_value) || 0;
+  }, [isPartner, partnerPriceMode, partnerRavValue, partnerDescontoValue, niponTotal, pricing?.sale_value]);
+
+  // Sincroniza pricing.sale_value quando muda o modo RAV/Desconto, para que
+  // o comparativo lá embaixo (que lê newTotals via pricing) reflita o valor.
+  // Em modo "valor" o input já escreve direto no pricing.sale_value.
+  useEffect(() => {
+    if (!isPartner) return;
+    if (partnerPriceMode === "valor") return;
+    setPricing((prev) => {
+      if (!prev) return prev;
+      const next = Number(partnerSaleValue) || 0;
+      if (Math.abs((Number(prev.sale_value) || 0) - next) < 0.01 && prev.sale_per === "total") {
+        return prev;
+      }
+      return { ...prev, sale_value: next, sale_per: "total" };
+    });
+  }, [isPartner, partnerPriceMode, partnerSaleValue]);
+
+  // Para o modo "Valor final": mostrar automaticamente quanto sai como RAV/desconto
+  const diferencaNipon = (Number(pricing?.sale_value) || 0) - niponTotal;
+  const autoRav = diferencaNipon > 0 ? diferencaNipon : 0;
+  const autoDesconto = diferencaNipon < 0 ? Math.abs(diferencaNipon) : 0;
 
   if (!open || !quote || !pricing || !oldTotals || !newTotals) return null;
 
   const isMilhas = pricing.type === "milhas";
   const isMultiProgram = pricing.multi_program === true;
   const isSplit = pricing.is_split === true;
+  const passengersChanged = passengers !== (parseInt(quote.passengers, 10) || 1);
 
   const updateField = (field, value) => {
     setPricing((prev) => ({ ...prev, [field]: value }));
@@ -114,19 +176,36 @@ export default function QuickPriceEditDialog({ open, onOpenChange, quote, onSave
     if (saving) return;
     setSaving(true);
     try {
-      const nc = computeCommission({ ...quote, pricing });
-      // Mantém o snapshot do nipon_value coerente com o cálculo dinâmico
-      // (mesmo padrão usado pelo gerador em persistQuote).
+      // Para parceiro: o valor de venda final é o calculado pelo modo (RAV/desconto/valor)
+      const finalSaleValue = isPartner
+        ? partnerSaleValue
+        : Number(pricing.sale_value) || 0;
+      const finalSalePer = isPartner ? "total" : pricing.sale_per || "total";
+
+      // Pricing final inclui o sale_value/sale_per consolidado, snapshot do
+      // nipon e — para parceiro — os campos auditáveis de RAV/Desconto/modo.
+      const finalDiff = finalSaleValue - niponTotal;
+      const pricingForCalc = { ...pricing, sale_value: finalSaleValue, sale_per: finalSalePer };
+      const nc = computeCommission({ ...quote, pricing: pricingForCalc, passengers });
+
       const pricingFinal = {
-        ...pricing,
+        ...pricingForCalc,
         nipon_value: nc.niponPerPax,
         cost_brl_calc: nc.costPerPax - (Number(pricing.tax) || 0),
-        // Atualiza flag de override pra refletir o novo cenário (gerente
-        // continua sendo notificado em criação, não em edição rápida).
         suggested_price: pricing.suggested_price || 0,
       };
 
-      const updated = await localClient.entities.Quotes.update(quote.id, {
+      if (isPartner) {
+        pricingFinal.partner_rav = finalDiff > 0 ? finalDiff : 0;
+        pricingFinal.partner_desconto = finalDiff < 0 ? Math.abs(finalDiff) : 0;
+        pricingFinal.partner_price_mode = partnerPriceMode;
+      }
+
+      // Para parceiro o total_value é o que a PCD cobra dele (= finalSaleValue).
+      // Esse mesmo valor também alimenta partner_base_sale_value (campo do
+      // portal do parceiro: floor de margem que ele vê ao precificar).
+      const updatePayload = {
+        passengers,
         pricing: pricingFinal,
         total_value: nc.saleTotal,
         commission: {
@@ -143,7 +222,13 @@ export default function QuickPriceEditDialog({ open, onOpenChange, quote, onSave
           recalculated_at: new Date().toISOString(),
           recalculated_by: user?.name || null,
         },
-      });
+      };
+
+      if (isPartner) {
+        updatePayload.partner_base_sale_value = finalSaleValue;
+      }
+
+      const updated = await localClient.entities.Quotes.update(quote.id, updatePayload);
 
       if (!updated) {
         toast({
@@ -176,14 +261,69 @@ export default function QuickPriceEditDialog({ open, onOpenChange, quote, onSave
             Atualizar valores · {quote.quote_number}
           </DialogTitle>
           <DialogDescription>
-            Cliente: <strong>{quote.client?.name || quote.partner_name || "—"}</strong>{" "}
-            · {quote.passengers}{" "}
-            {quote.passengers === 1 ? "passageiro" : "passageiros"} · Voos e datas
-            permanecem inalterados.
+            Voos e datas permanecem inalterados.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 my-2">
+          {/* === CLIENTE + PASSAGEIROS === */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <p className="text-sm font-semibold">
+                Cliente:{" "}
+                <span className="font-normal">
+                  {quote.client?.name || quote.partner_name || "—"}
+                </span>
+              </p>
+              <Badge variant="outline">
+                {isPartner ? "👥 Parceiro" : "👤 Cliente direto"}
+              </Badge>
+            </div>
+
+            <div className="grid grid-cols-[140px_1fr] gap-3 items-center">
+              <Label className="text-xs font-medium">Passageiros</Label>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setPassengers((p) => Math.max(1, p - 1))}
+                  disabled={passengers <= 1}
+                >
+                  <Minus className="w-3.5 h-3.5" />
+                </Button>
+                <Input
+                  type="number"
+                  min="1"
+                  max="9"
+                  value={passengers}
+                  onChange={(e) =>
+                    setPassengers(
+                      Math.max(1, Math.min(9, parseInt(e.target.value, 10) || 1))
+                    )
+                  }
+                  className="text-center h-8 w-16"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setPassengers((p) => Math.min(9, p + 1))}
+                  disabled={passengers >= 9}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </Button>
+                {passengersChanged && (
+                  <Badge variant="outline" className="text-amber-700 border-amber-400">
+                    Era {quote.passengers}
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* === MILHAS - SINGLE === */}
           {isMilhas && !isMultiProgram && !isSplit && (
             <div className="bg-slate-50 rounded-lg p-4 space-y-3">
@@ -425,41 +565,199 @@ export default function QuickPriceEditDialog({ open, onOpenChange, quote, onSave
             </div>
           )}
 
-          {/* === VALOR DE VENDA === */}
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-            <p className="text-sm font-semibold mb-3">Valor de venda ao cliente</p>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs">Modo</Label>
-                <Select
-                  value={pricing.sale_per || "total"}
-                  onValueChange={(v) => updateField("sale_per", v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="total">Total da operação</SelectItem>
-                    <SelectItem value="pessoa">Por pessoa</SelectItem>
-                  </SelectContent>
-                </Select>
+          {/* === VALOR DE VENDA — PARCEIRO (RAV/Desconto/Valor) === */}
+          {isPartner ? (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-3">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <p className="text-sm font-semibold">Valor de venda à parceira</p>
+                <p className="text-xs text-muted-foreground">
+                  Nipon mínimo:{" "}
+                  <strong>{formatBRL(niponTotal)}</strong>
+                </p>
               </div>
-              <div>
-                <Label className="text-xs">
-                  Valor {pricing.sale_per === "pessoa" ? "por pessoa" : "total"}
-                </Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={pricing.sale_value ?? ""}
-                  onChange={(e) =>
-                    updateField("sale_value", parseFloat(e.target.value) || 0)
-                  }
-                  className="font-bold"
-                />
+
+              {/* Tabs do modo de entrada */}
+              <div className="grid grid-cols-3 gap-1 bg-white rounded-md p-1">
+                <button
+                  type="button"
+                  onClick={() => setPartnerPriceMode("valor")}
+                  className={cn(
+                    "px-3 py-1.5 rounded text-xs font-medium transition",
+                    partnerPriceMode === "valor"
+                      ? "bg-amber-500 text-white shadow-sm"
+                      : "text-slate-600 hover:bg-slate-50"
+                  )}
+                >
+                  Valor final
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPartnerPriceMode("rav")}
+                  className={cn(
+                    "px-3 py-1.5 rounded text-xs font-medium transition",
+                    partnerPriceMode === "rav"
+                      ? "bg-green-500 text-white shadow-sm"
+                      : "text-slate-600 hover:bg-slate-50"
+                  )}
+                >
+                  + RAV
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPartnerPriceMode("desconto")}
+                  className={cn(
+                    "px-3 py-1.5 rounded text-xs font-medium transition",
+                    partnerPriceMode === "desconto"
+                      ? "bg-red-500 text-white shadow-sm"
+                      : "text-slate-600 hover:bg-slate-50"
+                  )}
+                >
+                  − Desconto
+                </button>
+              </div>
+
+              {/* Modo VALOR — input direto */}
+              {partnerPriceMode === "valor" && (
+                <div>
+                  <Label className="text-xs">Valor que vou cobrar (total)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={pricing.sale_value ?? ""}
+                    onChange={(e) =>
+                      setPricing((prev) => ({
+                        ...prev,
+                        sale_value: parseFloat(e.target.value) || 0,
+                        sale_per: "total",
+                      }))
+                    }
+                    className="font-bold"
+                    placeholder={formatBRL(niponTotal)}
+                  />
+                  {Number(pricing.sale_value) > 0 && (
+                    <div className="mt-2 text-xs">
+                      {autoRav > 0 && (
+                        <p className="text-green-700">
+                          + RAV de <strong>{formatBRL(autoRav)}</strong> sobre o Nipon
+                        </p>
+                      )}
+                      {autoDesconto > 0 && (
+                        <p className="text-red-700">
+                          − Desconto de <strong>{formatBRL(autoDesconto)}</strong> sobre o Nipon
+                        </p>
+                      )}
+                      {Math.abs(diferencaNipon) < 0.01 && (
+                        <p className="text-slate-500">Vendendo exatamente pelo Nipon</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Modo RAV */}
+              {partnerPriceMode === "rav" && (
+                <div className="space-y-2">
+                  <div>
+                    <Label className="text-xs">RAV — quanto acima do Nipon</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={partnerRavValue || ""}
+                      onChange={(e) => setPartnerRavValue(parseFloat(e.target.value) || 0)}
+                      className="font-bold"
+                      placeholder="0,00"
+                    />
+                  </div>
+                  <div className="bg-white rounded p-2 text-xs space-y-1 border border-green-200">
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Nipon:</span>
+                      <span>{formatBRL(niponTotal)}</span>
+                    </div>
+                    <div className="flex justify-between text-green-700">
+                      <span>+ RAV:</span>
+                      <span className="font-bold">{formatBRL(partnerRavValue)}</span>
+                    </div>
+                    <div className="flex justify-between border-t border-green-200 pt-1 mt-1 font-bold">
+                      <span>Valor final:</span>
+                      <span>{formatBRL(niponTotal + (Number(partnerRavValue) || 0))}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Modo DESCONTO */}
+              {partnerPriceMode === "desconto" && (
+                <div className="space-y-2">
+                  <div>
+                    <Label className="text-xs">Desconto — quanto abaixo do Nipon</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={partnerDescontoValue || ""}
+                      onChange={(e) => setPartnerDescontoValue(parseFloat(e.target.value) || 0)}
+                      className="font-bold"
+                      placeholder="0,00"
+                    />
+                  </div>
+                  <div className="bg-white rounded p-2 text-xs space-y-1 border border-red-200">
+                    <div className="flex justify-between">
+                      <span className="text-slate-600">Nipon:</span>
+                      <span>{formatBRL(niponTotal)}</span>
+                    </div>
+                    <div className="flex justify-between text-red-700">
+                      <span>− Desconto:</span>
+                      <span className="font-bold">{formatBRL(partnerDescontoValue)}</span>
+                    </div>
+                    <div className="flex justify-between border-t border-red-200 pt-1 mt-1 font-bold">
+                      <span>Valor final:</span>
+                      <span>{formatBRL(niponTotal - (Number(partnerDescontoValue) || 0))}</span>
+                    </div>
+                  </div>
+                  {Number(partnerDescontoValue) > 0 && (
+                    <p className="text-xs text-amber-700">
+                      ⚠️ Vendendo abaixo do Nipon. A PCD absorve{" "}
+                      {formatBRL(partnerDescontoValue)}.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <p className="text-sm font-semibold mb-3">Valor de venda ao cliente</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Modo</Label>
+                  <Select
+                    value={pricing.sale_per || "total"}
+                    onValueChange={(v) => updateField("sale_per", v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="total">Total da operação</SelectItem>
+                      <SelectItem value="pessoa">Por pessoa</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">
+                    Valor {pricing.sale_per === "pessoa" ? "por pessoa" : "total"}
+                  </Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={pricing.sale_value ?? ""}
+                    onChange={(e) =>
+                      updateField("sale_value", parseFloat(e.target.value) || 0)
+                    }
+                    className="font-bold"
+                  />
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* === COMPARATIVO === */}
           <div className="bg-slate-900 text-white rounded-lg p-4">

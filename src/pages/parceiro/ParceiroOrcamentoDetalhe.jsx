@@ -18,6 +18,7 @@ import { localClient } from "@/api/localClient";
 import { openQuoteInNewTab } from "@/lib/generateQuoteHTML";
 import { useAuth } from "@/lib/AuthContext";
 import { parseBR, sanitizeBRInput } from "@/lib/parseBR";
+import { sanitizeQuoteForPartner } from "@/lib/sanitizeQuoteForPartner";
 
 const formatBRL = (v) =>
   (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -52,17 +53,21 @@ export default function ParceiroOrcamentoDetalhe() {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      const q = await localClient.entities.Quotes.get(id);
-      if (!q) {
+      const raw = await localClient.entities.Quotes.get(id);
+      if (!raw) {
         toast({ title: "Orçamento não encontrado", variant: "destructive" });
         navigate("/parceiro/orcamentos", { replace: true });
         return;
       }
-      if (q.partner_id !== user?.id) {
+      if (raw.partner_id !== user?.id) {
         toast({ title: "Você não tem acesso a este orçamento", variant: "destructive" });
         navigate("/parceiro/orcamentos", { replace: true });
         return;
       }
+      // Sanitização defensiva: o state da página só recebe a versão sem
+      // custos/Nipon/RAV/comissão — assim React DevTools e Network também
+      // ficam limpos para a parceira inspecionando o DOM.
+      const q = sanitizeQuoteForPartner(raw);
       setQuote(q);
       if (q.partner_sale_value != null) {
         setSaleValue(
@@ -99,11 +104,14 @@ export default function ParceiroOrcamentoDetalhe() {
     if (user?.id) load();
   }, [id, user?.id, user?.name, user?.phone, user?.email, navigate, toast]);
 
+  // Floor de margem para a parceira = o que ela paga à PCD. NUNCA derivar de
+  // pricing.nipon_value (campo interno PCD que a sanitização remove); sempre
+  // ler do partner_base_sale_value (definido pelo vendedor via RAV/Desconto/Valor)
+  // com fallback para total_value (idem em quotes antigas).
   const niponBase = useMemo(() => {
     if (!quote) return 0;
     return (
-      Number(quote.pricing?.nipon_value) ||
-      Number(quote.pricing?.total_nipon) ||
+      Number(quote.partner_base_sale_value) ||
       Number(quote.total_value) ||
       0
     );
@@ -134,6 +142,10 @@ export default function ParceiroOrcamentoDetalhe() {
     isSavingRef.current = true;
     setSaving(true);
     try {
+      // IMPORTANTE: não enviamos `pricing` no update — o state local tem a
+      // versão sanitizada (sem cost_brl/nipon_value/RAV/etc), e re-gravá-la
+      // apagaria todos os campos internos da PCD. A parceira só escreve em
+      // campos top-level partner_* e total_value.
       const updates = {
         partner_sale_value: saleValueNumber,
         partner_client_data: {
@@ -146,17 +158,13 @@ export default function ParceiroOrcamentoDetalhe() {
         },
         partner_co_branding: coBranding,
         total_value: saleValueNumber,
-        pricing: {
-          ...(quote.pricing || {}),
-          sale_value: saleValueNumber,
-        },
       };
       const updated = await localClient.entities.Quotes.update(quote.id, updates);
       if (!updated) {
         toast({ title: "Erro ao salvar", variant: "destructive" });
         return;
       }
-      setQuote(updated);
+      setQuote(sanitizeQuoteForPartner(updated));
       toast({ title: "Orçamento atualizado!", description: "Valor e dados do cliente salvos." });
     } finally {
       isSavingRef.current = false;

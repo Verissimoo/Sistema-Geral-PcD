@@ -14,6 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { localClient } from "@/api/localClient";
 import { useAuth } from "@/lib/AuthContext";
+import { sanitizeQuotesForPartner } from "@/lib/sanitizeQuoteForPartner";
 import PartnerLogo from "@/components/PartnerLogo";
 
 const formatBRL = (v) =>
@@ -45,7 +46,8 @@ export default function ParceiroOrcamentos() {
       if (!user?.id) return;
       setLoading(true);
       const all = (await localClient.entities.Quotes.list()) || [];
-      setQuotes(all.filter((q) => q.partner_id === user.id));
+      const mine = all.filter((q) => q.partner_id === user.id);
+      setQuotes(sanitizeQuotesForPartner(mine));
       setLoading(false);
     };
     load();
