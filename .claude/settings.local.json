@@ -27,7 +27,8 @@
       "Bash(node_modules/.bin/eslint src/pages/Dashboard.jsx)",
       "Bash(node_modules/.bin/eslint src/lib/priceFreshness.js src/pages/Settings.jsx src/pages/vendedor/VendedorMilhas.jsx src/pages/vendedor/VendedorOrcamentos.jsx src/pages/gerente/GerenteOrcamentos.jsx)",
       "Bash(node_modules/.bin/eslint src/pages/vendedor/VendedorMilhas.jsx src/pages/vendedor/VendedorOrcamentos.jsx src/pages/gerente/GerenteOrcamentos.jsx)",
-      "Bash(node_modules/.bin/eslint src/lib/pricingCalculator.js src/pages/Settings.jsx src/pages/vendedor/VendedorOrcamento.jsx src/pages/vendedor/VendedorOrcamentos.jsx src/pages/gerente/GerenteOrcamentos.jsx)"
+      "Bash(node_modules/.bin/eslint src/lib/pricingCalculator.js src/pages/Settings.jsx src/pages/vendedor/VendedorOrcamento.jsx src/pages/vendedor/VendedorOrcamentos.jsx src/pages/gerente/GerenteOrcamentos.jsx)",
+      "Bash(npx --no-install vite build)"
     ]
   }
 }

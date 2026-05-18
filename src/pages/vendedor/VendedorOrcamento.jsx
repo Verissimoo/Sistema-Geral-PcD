@@ -356,7 +356,7 @@ function BlocoCliente({ formData, setFormData }) {
 
             {formData.partner_id && (
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-                <strong>ℹ️ Modo Parceiro:</strong> você preencherá apenas o custo e o sistema calculará o Nipon. O parceiro definirá o valor de venda final no portal dele.
+                <strong>ℹ️ Modo Parceiro:</strong> você define livremente o valor a cobrar da parceira. O Nipon aparece apenas como sugestão.
               </div>
             )}
           </TabsContent>
@@ -1699,12 +1699,6 @@ Retorne APENAS o JSON, sem markdown nem comentários.`;
 // ─── Bloco 4 — Precificação ─────────────────────────────────────────
 function BlocoPrecificacao({ formData, setFormData }) {
   const [milesTable, setMilesTable] = useState([]);
-  // Modo de entrada da venda à parceira: 'valor' (input direto), 'rav' (acima
-  // do Nipon) ou 'desconto' (abaixo do Nipon). Os valores derivados sincronizam
-  // formData.pricing.sale_value via useEffect mais abaixo.
-  const [partnerPriceMode, setPartnerPriceMode] = useState("valor");
-  const [partnerRavValue, setPartnerRavValue] = useState(0);
-  const [partnerDescontoValue, setPartnerDescontoValue] = useState(0);
 
   useEffect(() => {
     (async () => {
@@ -2023,70 +2017,30 @@ function BlocoPrecificacao({ formData, setFormData }) {
   const aboveNipon = calc.saleTotal >= calc.nipon && calc.saleTotal > 0;
   const passengers = calc.passengers;
 
-  // ─── RAV/Desconto para parceiro ─────────────────────────────────
-  // Cálculo do valor final derivado quando o vendedor escolhe RAV ou
-  // Desconto. Em modo "valor", o sale_value já vem do input direto.
+  // Nipon TOTAL — usado pelo card de valor livre do parceiro e como
+  // referência informativa nos snapshots de partner_rav/partner_desconto.
   const niponTotal = calc.nipon;
-  const partnerSaleValue = useMemo(() => {
-    if (!isParceiroMode) return calc.saleTotal;
-    if (partnerPriceMode === "rav") {
-      return niponTotal + (Number(partnerRavValue) || 0);
-    }
-    if (partnerPriceMode === "desconto") {
-      return niponTotal - (Number(partnerDescontoValue) || 0);
-    }
-    return parseBR(formData.pricing.sale_value);
-  }, [isParceiroMode, partnerPriceMode, partnerRavValue, partnerDescontoValue, niponTotal, formData.pricing.sale_value, calc.saleTotal]);
 
-  // Sincroniza pricing.sale_value/sale_per quando o modo é RAV ou Desconto.
-  // No modo "valor", o input já escreve direto via setPricing e não devemos
-  // sobrescrever (geraria loop / sobrescrita do que o usuário digitou).
+  // Snapshot informativo persistido: RAV/desconto derivados automaticamente
+  // do sale_value vs Nipon. Sem modo: tudo deriva direto do input.
   useEffect(() => {
     if (!isParceiroMode) return;
-    if (partnerPriceMode === "valor") return;
-    setFormData((prev) => {
-      const cur = parseBR(prev.pricing.sale_value);
-      const target = Number(partnerSaleValue) || 0;
-      if (Math.abs(cur - target) < 0.01 && prev.pricing.sale_per === "total") {
-        return prev;
-      }
-      return {
-        ...prev,
-        pricing: { ...prev.pricing, sale_value: target, sale_per: "total" },
-      };
-    });
-  }, [isParceiroMode, partnerPriceMode, partnerSaleValue, setFormData]);
-
-  // Persiste RAV/Desconto/modo no pricing — leitura barata no consumo
-  // (BlocoGerar.persistQuote, relatórios e Quotes detail).
-  useEffect(() => {
-    if (!isParceiroMode) return;
-    const diff = partnerSaleValue - niponTotal;
+    const venda = parseBR(formData.pricing.sale_value) || 0;
+    const diff = venda - niponTotal;
     const rav = diff > 0 ? diff : 0;
     const desc = diff < 0 ? Math.abs(diff) : 0;
     setFormData((prev) => {
       const p = prev.pricing || {};
       const same =
-        p.partner_price_mode === partnerPriceMode &&
         Math.abs((Number(p.partner_rav) || 0) - rav) < 0.01 &&
         Math.abs((Number(p.partner_desconto) || 0) - desc) < 0.01;
       if (same) return prev;
       return {
         ...prev,
-        pricing: {
-          ...p,
-          partner_price_mode: partnerPriceMode,
-          partner_rav: rav,
-          partner_desconto: desc,
-        },
+        pricing: { ...p, partner_rav: rav, partner_desconto: desc },
       };
     });
-  }, [isParceiroMode, partnerPriceMode, partnerSaleValue, niponTotal, setFormData]);
-
-  // No modo "valor", calcular automaticamente RAV/desconto para exibir.
-  const diferencaNipon = (parseBR(formData.pricing.sale_value)) - niponTotal;
-  const autoRav = diferencaNipon > 0 ? diferencaNipon : 0;
-  const autoDesconto = diferencaNipon < 0 ? Math.abs(diferencaNipon) : 0;
+  }, [isParceiroMode, formData.pricing.sale_value, niponTotal, setFormData]);
 
   return (
     <div className="space-y-6">
@@ -2303,193 +2257,136 @@ function BlocoPrecificacao({ formData, setFormData }) {
         </CardContent>
       </Card>
 
-      {/* 4B - Valor de venda à parceira (RAV/Desconto/Valor) */}
+      {/* 4B - Valor de venda à parceira (input livre + feedback contextual) */}
       {isParceiroMode && (
         <Card className="border-amber-200 bg-amber-50/50">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2">
               <DollarSign className="h-4 w-4 text-amber-600" />
-              Valor de venda à parceira
+              Valor da passagem para a parceira
             </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Você define livremente. Nipon é apenas referência sugerida.
+            </p>
           </CardHeader>
           <CardContent className="space-y-3">
-            {/* Resumo Nipon — o que a parceira no mínimo paga */}
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div className="rounded-lg bg-white border border-slate-200 p-3">
-                <div className="text-[11px] uppercase text-muted-foreground tracking-wider">Custo total</div>
-                <div className="font-semibold mt-1">{formatBRL(calc.custoTotal)}</div>
+            {/* Sugestão informativa: custo + Nipon como referência */}
+            <div className="bg-white/70 border border-slate-200 rounded-lg p-3 space-y-1 text-xs">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Custo total da PCD:</span>
+                <strong className="text-slate-700">{formatBRL(calc.custoTotal)}</strong>
               </div>
-              <div className="rounded-lg bg-white border border-amber-200 p-3">
-                <div className="text-[11px] uppercase text-amber-700 tracking-wider">Nipon mínimo</div>
-                <div className="font-semibold mt-1 text-amber-700">{formatBRL(niponTotal)}</div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Nipon (sugestão de venda):</span>
+                <strong className="text-amber-700">{formatBRL(niponTotal)}</strong>
               </div>
             </div>
 
-            {/* Tabs do modo de entrada */}
-            <div className="grid grid-cols-3 gap-1 bg-white rounded-md p-1 border border-amber-200">
+            {/* Input de valor livre */}
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">
+                Valor que vou cobrar da parceira (total)
+              </Label>
+              <Input
+                type="text"
+                inputMode="decimal"
+                placeholder={`Sugerido: ${formatBRL(niponTotal)}`}
+                value={formData.pricing.sale_value}
+                onChange={(e) =>
+                  setPricing({
+                    sale_value: sanitizeBRInput(e.target.value),
+                    sale_per: "total",
+                  })
+                }
+                className="text-lg font-semibold h-12"
+              />
               <button
                 type="button"
-                onClick={() => setPartnerPriceMode("valor")}
-                className={cn(
-                  "px-3 py-1.5 rounded text-xs font-medium transition",
-                  partnerPriceMode === "valor"
-                    ? "bg-amber-500 text-white shadow-sm"
-                    : "text-slate-600 hover:bg-slate-50"
-                )}
+                onClick={() =>
+                  setPricing({ sale_value: String(niponTotal), sale_per: "total" })
+                }
+                className="text-xs text-amber-600 hover:text-amber-700 underline"
               >
-                Valor final
-              </button>
-              <button
-                type="button"
-                onClick={() => setPartnerPriceMode("rav")}
-                className={cn(
-                  "px-3 py-1.5 rounded text-xs font-medium transition",
-                  partnerPriceMode === "rav"
-                    ? "bg-green-500 text-white shadow-sm"
-                    : "text-slate-600 hover:bg-slate-50"
-                )}
-              >
-                + RAV
-              </button>
-              <button
-                type="button"
-                onClick={() => setPartnerPriceMode("desconto")}
-                className={cn(
-                  "px-3 py-1.5 rounded text-xs font-medium transition",
-                  partnerPriceMode === "desconto"
-                    ? "bg-red-500 text-white shadow-sm"
-                    : "text-slate-600 hover:bg-slate-50"
-                )}
-              >
-                − Desconto
+                Usar valor sugerido (Nipon)
               </button>
             </div>
 
-            {/* Modo VALOR — input direto */}
-            {partnerPriceMode === "valor" && (
-              <div className="space-y-2">
-                <Label>Valor que vou cobrar da parceira (total)</Label>
-                <Input
-                  type="text"
-                  inputMode="decimal"
-                  placeholder={formatBRL(niponTotal)}
-                  value={formData.pricing.sale_value}
-                  onChange={(e) =>
-                    setPricing({
-                      sale_value: sanitizeBRInput(e.target.value),
-                      sale_per: "total",
-                    })
-                  }
-                  className="text-lg font-semibold"
-                />
-                {parseBR(formData.pricing.sale_value) > 0 && (
-                  <div className="text-xs space-y-0.5">
-                    {autoRav > 0 && (
-                      <p className="text-green-700">
-                        + RAV de <strong>{formatBRL(autoRav)}</strong> sobre o Nipon
-                      </p>
-                    )}
-                    {autoDesconto > 0 && (
-                      <p className="text-red-700">
-                        − Desconto de <strong>{formatBRL(autoDesconto)}</strong> sobre o Nipon
-                      </p>
-                    )}
-                    {Math.abs(diferencaNipon) < 0.01 && (
-                      <p className="text-slate-500">Vendendo exatamente pelo Nipon</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
+            {/* Feedback contextual: prejuízo / margem comprimida / lucro saudável */}
+            {(() => {
+              const venda = parseBR(formData.pricing.sale_value) || 0;
+              if (venda === 0) return null;
 
-            {/* Modo RAV */}
-            {partnerPriceMode === "rav" && (
-              <div className="space-y-2">
-                <Label>RAV — quanto acima do Nipon</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="0,00"
-                  value={partnerRavValue || ""}
-                  onChange={(e) => setPartnerRavValue(parseFloat(e.target.value) || 0)}
-                  className="text-lg font-semibold"
-                />
-                <div className="bg-white rounded p-2 text-xs space-y-1 border border-green-200">
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Nipon:</span>
-                    <span>{formatBRL(niponTotal)}</span>
+              const lucroBruto = venda - calc.custoTotal;
+              const acimaNipon = venda - niponTotal;
+
+              // CASO 1: prejuízo — venda abaixo do custo
+              if (venda < calc.custoTotal) {
+                const prejuizo = calc.custoTotal - venda;
+                return (
+                  <div className="bg-red-50 border-2 border-red-300 rounded-lg p-3">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="font-bold text-red-900 text-sm">⚠️ Venda abaixo do custo</p>
+                        <p className="text-xs text-red-700 mt-1">
+                          Você está vendendo {formatBRL(prejuizo)} <strong>abaixo do que a PCD pagou</strong>.
+                          Isso significa <strong>prejuízo direto</strong> de {formatBRL(prejuizo)}.
+                        </p>
+                        <p className="text-[10px] text-red-600 mt-1.5">
+                          Custo PCD: {formatBRL(calc.custoTotal)} · Sua venda: {formatBRL(venda)}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex justify-between text-green-700">
-                    <span>+ RAV:</span>
-                    <span className="font-bold">{formatBRL(partnerRavValue)}</span>
+                );
+              }
+
+              // CASO 2: entre custo e Nipon — margem comprimida
+              if (venda < niponTotal) {
+                const descontoNipon = niponTotal - venda;
+                return (
+                  <div className="bg-amber-50 border border-amber-300 rounded-lg p-3">
+                    <div className="flex items-start gap-2">
+                      <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="font-semibold text-amber-900 text-sm">
+                          Lucro de {formatBRL(lucroBruto)}
+                        </p>
+                        <p className="text-xs text-amber-700 mt-1">
+                          Você está vendendo {formatBRL(descontoNipon)} <strong>abaixo do Nipon sugerido</strong> — margem comprimida.
+                        </p>
+                        <p className="text-[10px] text-amber-600 mt-1.5">
+                          Custo: {formatBRL(calc.custoTotal)} → Venda: {formatBRL(venda)} ({((lucroBruto / venda) * 100).toFixed(1)}% margem)
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex justify-between border-t border-green-200 pt-1 mt-1 font-bold">
-                    <span>Valor final:</span>
-                    <span>{formatBRL(niponTotal + (Number(partnerRavValue) || 0))}</span>
+                );
+              }
+
+              // CASO 3: acima do Nipon — operação saudável
+              return (
+                <div className="bg-green-50 border-2 border-green-300 rounded-lg p-3">
+                  <div className="flex items-start gap-2">
+                    <Sparkles className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="font-bold text-green-900 text-sm">
+                        Lucro de {formatBRL(lucroBruto)} ({((lucroBruto / venda) * 100).toFixed(1)}% margem)
+                      </p>
+                      <p className="text-xs text-green-700 mt-1">
+                        {acimaNipon > 0 && (
+                          <>+{formatBRL(acimaNipon)} <strong>acima do Nipon sugerido</strong> — </>
+                        )}
+                        Operação saudável. PCD lucra {formatBRL(lucroBruto)} nessa venda.
+                      </p>
+                      <p className="text-[10px] text-green-600 mt-1.5">
+                        Custo: {formatBRL(calc.custoTotal)} → Venda: {formatBRL(venda)}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
-
-            {/* Modo DESCONTO */}
-            {partnerPriceMode === "desconto" && (
-              <div className="space-y-2">
-                <Label>Desconto — quanto abaixo do Nipon</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="0,00"
-                  value={partnerDescontoValue || ""}
-                  onChange={(e) => setPartnerDescontoValue(parseFloat(e.target.value) || 0)}
-                  className="text-lg font-semibold"
-                />
-                <div className="bg-white rounded p-2 text-xs space-y-1 border border-red-200">
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Nipon:</span>
-                    <span>{formatBRL(niponTotal)}</span>
-                  </div>
-                  <div className="flex justify-between text-red-700">
-                    <span>− Desconto:</span>
-                    <span className="font-bold">{formatBRL(partnerDescontoValue)}</span>
-                  </div>
-                  <div className="flex justify-between border-t border-red-200 pt-1 mt-1 font-bold">
-                    <span>Valor final:</span>
-                    <span>{formatBRL(niponTotal - (Number(partnerDescontoValue) || 0))}</span>
-                  </div>
-                </div>
-                {Number(partnerDescontoValue) > 0 && (
-                  <p className="text-xs text-amber-700">
-                    ⚠️ Vendendo abaixo do Nipon. A PCD absorve {formatBRL(partnerDescontoValue)}.
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* Comparativo de comissão (igual ao card de cliente direto) */}
-            {calc.saleTotal > 0 && (
-              <Card className={cn(
-                calc.saleTotal >= calc.nipon
-                  ? "bg-emerald-500/5 border-emerald-500/30"
-                  : "bg-muted/40 border-border/60"
-              )}>
-                <CardContent className="p-3 space-y-1 text-xs">
-                  <Row label="Lucro Nipon (nipon − custo)" value={formatBRL(calc.lucroNipon)} />
-                  <Row
-                    label={`Comissão base (${(calc.baseRate * 100).toFixed(0)}% do lucro Nipon)${calc.isCarteiraPropria ? " · Carteira própria" : ""}`}
-                    value={formatBRL(calc.comissaoBase)}
-                  />
-                  <Row label="Excedente sobre Nipon" value={formatBRL(calc.excedente)} />
-                  <Row label="Comissão extra (45% do excedente)" value={formatBRL(calc.comissaoExtra)} />
-                  <Separator className="my-1.5" />
-                  <Row
-                    label="COMISSÃO TOTAL DO VENDEDOR"
-                    value={formatBRL(calc.comissaoTotal)}
-                    bold
-                    className={calc.saleTotal >= calc.nipon ? "text-emerald-700" : "text-foreground"}
-                  />
-                </CardContent>
-              </Card>
-            )}
+              );
+            })()}
           </CardContent>
         </Card>
       )}
@@ -2665,7 +2562,6 @@ function BlocoPrecificacao({ formData, setFormData }) {
       )}
 
       {/* 4D - Concorrência */}
-      {!isParceiroMode && (
       <Card className="border-border/50 border-dashed">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
@@ -2737,7 +2633,6 @@ function BlocoPrecificacao({ formData, setFormData }) {
           </CardContent>
         )}
       </Card>
-      )}
 
       {/* 4E - Serviços adicionais */}
       {!isParceiroMode && (
@@ -3488,21 +3383,27 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
           ...pricingWithSyncedNipon,
           sale_value: finalSaleValueForPartner,
           sale_per: "total",
-          partner_price_mode: normalizedPricing.partner_price_mode || "valor",
           partner_rav: diff > 0 ? diff : 0,
           partner_desconto: diff < 0 ? Math.abs(diff) : 0,
         };
         finalTotalValue = finalSaleValueForPartner;
       }
 
-      // Snapshot completo da comissão — auditoria + leitura barata no consumo.
-      // Para parceiro também calcula comissão real: lucro da PCD é o que ela
-      // cobra da parceira menos o custo (Nipon × passageiros é o piso).
-      const commissionSnapshot = buildCommissionSnapshot({
-        ...formData,
-        pricing: finalPricing,
-        total_value: finalTotalValue,
-      });
+      // Parceiro não gera comissão para o vendedor PCD — gravamos um snapshot
+      // zerado com nota informativa. Cliente direto segue o cálculo padrão.
+      const commissionSnapshot = isParceiroMode
+        ? {
+            base: 0,
+            extra: 0,
+            total: 0,
+            base_rate: 0,
+            _note: "Sem comissão — venda a parceiro",
+          }
+        : buildCommissionSnapshot({
+            ...formData,
+            pricing: finalPricing,
+            total_value: finalTotalValue,
+          });
 
       const quote = await localClient.entities.Quotes.create({
         quote_number: number,
@@ -3523,7 +3424,7 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
         baggage: formData.baggage,
         pricing: finalPricing,
         additional: isParceiroMode ? null : normalizedAdditional,
-        competitor: isParceiroMode ? null : normalizedCompetitor,
+        competitor: normalizedCompetitor,
         services: isParceiroMode
           ? { insurance: { active: false, value: 0 }, transfer: { active: false, value: 0 } }
           : normalizedServices,
@@ -3646,7 +3547,7 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
       baggage: formData.baggage,
       pricing: finalPricing,
       additional: isParceiroMode ? null : normalized.additional,
-      competitor: isParceiroMode ? null : normalized.competitor,
+      competitor: normalized.competitor,
       services: isParceiroMode
         ? { insurance: { active: false, value: 0 }, transfer: { active: false, value: 0 } }
         : normalized.services,
@@ -3683,7 +3584,7 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
           <CardContent className="text-sm space-y-1">
             <div><strong>{formData.partner_name}</strong></div>
             <div className="text-muted-foreground">
-              O parceiro definirá o valor de venda final no portal dele.
+              Você definiu o valor que a PCD vai cobrar — o parceiro acrescentará a margem dele no portal.
             </div>
           </CardContent>
         </Card>
@@ -3728,9 +3629,11 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
             </>
           )}
           {isParceiroMode && (
-            <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2 mt-2">
-              ⏳ Valor de venda final e comissão serão definidos quando o parceiro precificar.
-            </div>
+            <Row
+              label="Valor cobrado da parceira"
+              value={formatBRL(parseBR(formData.pricing.sale_value))}
+              bold
+            />
           )}
         </CardContent>
       </Card>
@@ -3739,11 +3642,11 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
         <CardContent className="p-5 flex items-center justify-between">
           <div>
             <div className="text-xs opacity-80">
-              {isParceiroMode ? "VALOR NIPON (PROVISÓRIO)" : "VALOR TOTAL DA PROPOSTA"}
+              {isParceiroMode ? "VALOR COBRADO DA PARCEIRA" : "VALOR TOTAL DA PROPOSTA"}
             </div>
             <div className="text-2xl font-bold mt-1">
               {formatBRL(isParceiroMode
-                ? (formData.pricing.nipon_value || formData.pricing.total_nipon || 0)
+                ? (parseBR(formData.pricing.sale_value) || formData.pricing.nipon_value || 0)
                 : totalValue)}
             </div>
           </div>
