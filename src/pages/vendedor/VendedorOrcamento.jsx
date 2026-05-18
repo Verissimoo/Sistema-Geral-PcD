@@ -38,6 +38,9 @@ import { getCostForMiles, getSaleForMiles, getTierForMiles } from "@/lib/milesHe
 import { parseBR, sanitizeBRInput } from "@/lib/parseBR";
 import { normalizeItinerary } from "@/lib/normalizeItinerary";
 import { isNextDayArrival, calculateSegmentDuration } from "@/lib/timeParser";
+import { useEurBrlRate } from "@/hooks/useExchangeRate";
+import { convertEurToBrl, convertBrlToEur, formatEUR } from "@/lib/exchangeRate";
+import ExchangeRateBadge from "@/components/ExchangeRateBadge";
 
 // ─── Helpers ────────────────────────────────────────────────────────
 const toBase64 = (file) =>
@@ -148,7 +151,7 @@ function syncTrechoFromSegmentos(trecho) {
 const TICKET_TYPES = [
   { value: "Normal", help: "Bilhete padrão ponto a ponto" },
   { value: "Hidden City", help: "Passageiro desembarca antes do destino final do bilhete" },
-  { value: "Quebra de Trecho", help: "Bilhetes separados para trechos diferentes — mínimo 2h30m entre voos" },
+  { value: "Quebra de Trecho", help: "Bilhetes separados por voo — funciona em ida-volta ou só-ida com conexão (mínimo 2 voos)" },
   { value: "Imigração", help: "Pacote com voo + assessoria para imigração" },
 ];
 
@@ -1699,6 +1702,13 @@ Retorne APENAS o JSON, sem markdown nem comentários.`;
 // ─── Bloco 4 — Precificação ─────────────────────────────────────────
 function BlocoPrecificacao({ formData, setFormData }) {
   const [milesTable, setMilesTable] = useState([]);
+  // Moeda da operação: BRL (padrão) ou EUR (compra/venda em euro).
+  // Quando EUR, os inputs aceitam euro e o sistema converte para BRL
+  // via cotação ao vivo da AwesomeAPI — BRL é a moeda canônica do banco.
+  const [currency, setCurrency] = useState(formData.pricing?.currency || "BRL");
+  const { rate: eurBrlRate } = useEurBrlRate();
+  const eurRate = eurBrlRate?.rate || 0;
+  const isEur = currency === "EUR";
 
   useEffect(() => {
     (async () => {
@@ -1707,6 +1717,44 @@ function BlocoPrecificacao({ formData, setFormData }) {
     })();
   }, []);
 
+  // Persiste a moeda escolhida e a cotação no pricing — usado por persistQuote,
+  // PDF e relatórios. Atualiza apenas se mudou (evita loop).
+  useEffect(() => {
+    setFormData((prev) => {
+      const p = prev.pricing || {};
+      const sameCurrency = (p.currency || "BRL") === currency;
+      const sameRate = isEur && Math.abs((Number(p.exchange_rate_eur_brl) || 0) - eurRate) < 0.0001;
+      if (sameCurrency && (!isEur || sameRate)) return prev;
+      return {
+        ...prev,
+        pricing: {
+          ...p,
+          currency,
+          ...(isEur && eurRate > 0 ? {
+            exchange_rate_eur_brl: eurRate,
+            exchange_rate_snapshot_at: new Date().toISOString(),
+          } : {}),
+        },
+      };
+    });
+  }, [currency, eurRate, isEur, setFormData]);
+
+  // Helpers para inputs em EUR — converte do EUR digitado para BRL armazenado.
+  // Mantém também o snapshot em EUR (cost_eur, tax_eur, sale_value_eur) para
+  // exibição no PDF e auditoria do valor original cotado pelo vendedor.
+  const setEurField = (eurField, brlField, eurValue) => {
+    const eur = parseFloat(String(eurValue).replace(",", ".")) || 0;
+    const brl = eurRate > 0 ? eur * eurRate : 0;
+    setFormData((prev) => ({
+      ...prev,
+      pricing: {
+        ...prev.pricing,
+        [eurField]: eur,
+        [brlField]: brl ? brl.toFixed(2).replace(".", ",") : "",
+      },
+    }));
+  };
+
   const isSplit = formData.ticket_type === "Quebra de Trecho";
   const isParceiroMode = formData.recipient_type === "parceiro";
   const isMultiProgram = formData.pricing?.multi_program === true;
@@ -1714,19 +1762,52 @@ function BlocoPrecificacao({ formData, setFormData }) {
   // Multi-programa só faz sentido em IDA+VOLTA fora de Quebra de Trecho
   const canMultiProgram = !isSplit && trechosCount >= 2;
 
+  // Achata trechos × segmentos em "unidades de emissão" para Quebra de Trecho.
+  // Cada segmento (voo individual) vira um card de precificação separado, o
+  // que generaliza o caso só-ida-com-conexão (1 trecho × 2 segs = 2 cards) e
+  // mantém ida+volta single-segment (2 trechos × 1 seg cada = 2 cards).
+  const splitUnits = useMemo(() => {
+    const itinTrechos = formData.itinerary?.trechos || [];
+    const units = [];
+    for (const trecho of itinTrechos) {
+      const segs = Array.isArray(trecho.segmentos) && trecho.segmentos.length > 0
+        ? trecho.segmentos
+        : [trecho];
+      segs.forEach((seg, segIdx) => {
+        const tipoLabel = trecho.tipo === "ida" ? "Ida" : "Volta";
+        const segSuffix = segs.length > 1 ? ` ${segIdx + 1}` : "";
+        const origem = seg.origem_iata || trecho.origem_iata || "?";
+        const destino = seg.destino_iata || trecho.destino_iata || "?";
+        units.push({
+          key: `${trecho.tipo || "ida"}-${segIdx}`,
+          tipo: trecho.tipo || "ida",
+          segIdx,
+          label: `${tipoLabel}${segSuffix} — ${origem} → ${destino}`,
+        });
+      });
+    }
+    return units;
+  }, [formData.itinerary]);
+
+  // Quebra de Trecho: requer ≥2 voos totais (segmentos) — inclui só-ida-com-conexão.
+  const totalVoos = splitUnits.length;
+  const elegivelQuebraTrecho = totalVoos >= 2;
+
   // Inicialização automática do modo split conforme ticket_type / itinerário.
   useEffect(() => {
     if (isSplit) {
-      const trechos = formData.itinerary?.trechos || [];
       setFormData((prev) => {
         const existing = prev.pricing?.trechos || [];
-        const newTrechos = trechos.map((t, idx) => {
-          const label = `${t.tipo === "ida" ? "Ida" : "Volta"} — ${t.origem_iata || "?"} → ${t.destino_iata || "?"}`;
-          const prior = existing[idx];
+        const newTrechos = splitUnits.map((u, idx) => {
+          // Preserva entradas anteriores quando a posição/key coincide.
+          const prior = existing.find((x) => x.key === u.key) || existing[idx];
           return prior
-            ? { ...prior, label }
+            ? { ...prior, label: u.label, key: u.key, tipo: u.tipo, segIdx: u.segIdx }
             : {
-                label,
+                key: u.key,
+                label: u.label,
+                tipo: u.tipo,
+                segIdx: u.segIdx,
                 type: "milhas",
                 program_id: "",
                 program_name: "",
@@ -1754,7 +1835,7 @@ function BlocoPrecificacao({ formData, setFormData }) {
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSplit, formData.itinerary?.trechos?.length]);
+  }, [isSplit, totalVoos, splitUnits.map((u) => u.key).join("|")]);
 
   // Multi-programa só faz sentido enquanto !isSplit. Se mudar pra split, limpa.
   useEffect(() => {
@@ -2044,6 +2125,49 @@ function BlocoPrecificacao({ formData, setFormData }) {
 
   return (
     <div className="space-y-6">
+      {/* 4-Moeda — toggle BRL/EUR + badge de cotação ao vivo */}
+      <Card className={cn("border-border/50", isEur && "border-blue-300 bg-blue-50/30")}>
+        <CardContent className="p-3 flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <Label className="text-sm font-medium">Moeda da operação</Label>
+            <div className="flex gap-1 bg-slate-100 rounded-md p-0.5">
+              <button
+                type="button"
+                onClick={() => setCurrency("BRL")}
+                className={cn(
+                  "px-3 py-1.5 rounded text-xs font-medium transition",
+                  currency === "BRL"
+                    ? "bg-white shadow text-slate-900"
+                    : "text-slate-600 hover:bg-white/60"
+                )}
+              >
+                🇧🇷 Real (BRL)
+              </button>
+              <button
+                type="button"
+                onClick={() => setCurrency("EUR")}
+                className={cn(
+                  "px-3 py-1.5 rounded text-xs font-medium transition",
+                  currency === "EUR"
+                    ? "bg-white shadow text-slate-900"
+                    : "text-slate-600 hover:bg-white/60"
+                )}
+              >
+                🇪🇺 Euro (EUR)
+              </button>
+            </div>
+          </div>
+          {isEur && <ExchangeRateBadge compact />}
+        </CardContent>
+        {isEur && !eurRate && (
+          <CardContent className="pt-0 pb-3">
+            <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+              ⚠️ Cotação indisponível no momento. Aguarde alguns segundos ou volte para BRL.
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
       {/* 4A - Tipo de emissão */}
       <Card className="border-border/50">
         <CardHeader className="pb-3">
@@ -2164,14 +2288,25 @@ function BlocoPrecificacao({ formData, setFormData }) {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Taxa de embarque (R$)</Label>
+                  <Label>{isEur ? "Taxa de embarque (EUR)" : "Taxa de embarque (R$)"}</Label>
                   <Input
                     type="text"
                     inputMode="decimal"
-                    placeholder="Ex: 320,50"
-                    value={formData.pricing.tax}
-                    onChange={(e) => setPricing({ tax: sanitizeBRInput(e.target.value) })}
+                    placeholder={isEur ? "Ex: 50,00" : "Ex: 320,50"}
+                    value={isEur ? (formData.pricing.tax_eur ?? "") : formData.pricing.tax}
+                    onChange={(e) => {
+                      if (isEur) {
+                        setEurField("tax_eur", "tax", sanitizeBRInput(e.target.value));
+                      } else {
+                        setPricing({ tax: sanitizeBRInput(e.target.value) });
+                      }
+                    }}
                   />
+                  {isEur && eurRate > 0 && Number(formData.pricing.tax_eur) > 0 && (
+                    <p className="text-[11px] text-muted-foreground">
+                      ≈ {formatBRL(convertEurToBrl(formData.pricing.tax_eur, eurRate))}
+                    </p>
+                  )}
                 </div>
               </div>
               <Card className="bg-muted/40 border-border/50">
@@ -2209,24 +2344,46 @@ function BlocoPrecificacao({ formData, setFormData }) {
             <TabsContent value="dinheiro" className="space-y-4 mt-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-2">
-                  <Label>Preço de custo (R$)</Label>
+                  <Label>{isEur ? "Preço de custo (EUR)" : "Preço de custo (R$)"}</Label>
                   <Input
                     type="text"
                     inputMode="decimal"
-                    placeholder="Ex: 1.234,56"
-                    value={formData.pricing.cost_brl}
-                    onChange={(e) => setPricing({ cost_brl: sanitizeBRInput(e.target.value) })}
+                    placeholder={isEur ? "Ex: 200,00" : "Ex: 1.234,56"}
+                    value={isEur ? (formData.pricing.cost_eur ?? "") : formData.pricing.cost_brl}
+                    onChange={(e) => {
+                      if (isEur) {
+                        setEurField("cost_eur", "cost_brl", sanitizeBRInput(e.target.value));
+                      } else {
+                        setPricing({ cost_brl: sanitizeBRInput(e.target.value) });
+                      }
+                    }}
                   />
+                  {isEur && eurRate > 0 && Number(formData.pricing.cost_eur) > 0 && (
+                    <p className="text-[11px] text-muted-foreground">
+                      ≈ {formatBRL(convertEurToBrl(formData.pricing.cost_eur, eurRate))} (cotação R$ {eurRate.toFixed(4)})
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
-                  <Label>Taxa de embarque (R$)</Label>
+                  <Label>{isEur ? "Taxa de embarque (EUR)" : "Taxa de embarque (R$)"}</Label>
                   <Input
                     type="text"
                     inputMode="decimal"
-                    placeholder="Ex: 320,50"
-                    value={formData.pricing.tax}
-                    onChange={(e) => setPricing({ tax: sanitizeBRInput(e.target.value) })}
+                    placeholder={isEur ? "Ex: 50,00" : "Ex: 320,50"}
+                    value={isEur ? (formData.pricing.tax_eur ?? "") : formData.pricing.tax}
+                    onChange={(e) => {
+                      if (isEur) {
+                        setEurField("tax_eur", "tax", sanitizeBRInput(e.target.value));
+                      } else {
+                        setPricing({ tax: sanitizeBRInput(e.target.value) });
+                      }
+                    }}
                   />
+                  {isEur && eurRate > 0 && Number(formData.pricing.tax_eur) > 0 && (
+                    <p className="text-[11px] text-muted-foreground">
+                      ≈ {formatBRL(convertEurToBrl(formData.pricing.tax_eur, eurRate))}
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -2285,26 +2442,66 @@ function BlocoPrecificacao({ formData, setFormData }) {
             {/* Input de valor livre */}
             <div className="space-y-2">
               <Label className="text-sm font-semibold">
-                Valor que vou cobrar da parceira (total)
+                {isEur
+                  ? "Valor que vou cobrar da parceira (EUR, total)"
+                  : "Valor que vou cobrar da parceira (total)"}
               </Label>
               <Input
                 type="text"
                 inputMode="decimal"
-                placeholder={`Sugerido: ${formatBRL(niponTotal)}`}
-                value={formData.pricing.sale_value}
-                onChange={(e) =>
-                  setPricing({
-                    sale_value: sanitizeBRInput(e.target.value),
-                    sale_per: "total",
-                  })
+                placeholder={
+                  isEur
+                    ? (eurRate > 0
+                        ? `Sugerido: ${formatEUR(convertBrlToEur(niponTotal, eurRate))}`
+                        : "0,00")
+                    : `Sugerido: ${formatBRL(niponTotal)}`
                 }
+                value={isEur ? (formData.pricing.sale_value_eur ?? "") : formData.pricing.sale_value}
+                onChange={(e) => {
+                  if (isEur) {
+                    const eur = parseFloat(String(sanitizeBRInput(e.target.value)).replace(",", ".")) || 0;
+                    const brl = eurRate > 0 ? eur * eurRate : 0;
+                    setFormData((prev) => ({
+                      ...prev,
+                      pricing: {
+                        ...prev.pricing,
+                        sale_value_eur: eur,
+                        sale_value: brl,
+                        sale_per: "total",
+                      },
+                    }));
+                  } else {
+                    setPricing({
+                      sale_value: sanitizeBRInput(e.target.value),
+                      sale_per: "total",
+                    });
+                  }
+                }}
                 className="text-lg font-semibold h-12"
               />
+              {isEur && eurRate > 0 && Number(formData.pricing.sale_value_eur) > 0 && (
+                <p className="text-[11px] text-muted-foreground">
+                  ≈ {formatBRL(parseBR(formData.pricing.sale_value))} (cotação R$ {eurRate.toFixed(4)})
+                </p>
+              )}
               <button
                 type="button"
-                onClick={() =>
-                  setPricing({ sale_value: String(niponTotal), sale_per: "total" })
-                }
+                onClick={() => {
+                  if (isEur && eurRate > 0) {
+                    const eur = convertBrlToEur(niponTotal, eurRate);
+                    setFormData((prev) => ({
+                      ...prev,
+                      pricing: {
+                        ...prev.pricing,
+                        sale_value_eur: eur,
+                        sale_value: niponTotal,
+                        sale_per: "total",
+                      },
+                    }));
+                  } else {
+                    setPricing({ sale_value: String(niponTotal), sale_per: "total" });
+                  }
+                }}
                 className="text-xs text-amber-600 hover:text-amber-700 underline"
               >
                 Usar valor sugerido (Nipon)
@@ -2417,14 +2614,38 @@ function BlocoPrecificacao({ formData, setFormData }) {
 
           <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px] items-end">
             <div className="space-y-2">
-              <Label>Valor de venda ao cliente (R$) *</Label>
+              <Label>
+                {isEur
+                  ? "Valor de venda ao cliente (EUR) *"
+                  : "Valor de venda ao cliente (R$) *"}
+              </Label>
               <Input
                 type="text"
                 inputMode="decimal"
-                placeholder="Ex: 1.234,56"
-                value={formData.pricing.sale_value}
-                onChange={(e) => setPricing({ sale_value: sanitizeBRInput(e.target.value) })}
+                placeholder={isEur ? "Ex: 250,00" : "Ex: 1.234,56"}
+                value={isEur ? (formData.pricing.sale_value_eur ?? "") : formData.pricing.sale_value}
+                onChange={(e) => {
+                  if (isEur) {
+                    const eur = parseFloat(String(sanitizeBRInput(e.target.value)).replace(",", ".")) || 0;
+                    const brl = eurRate > 0 ? eur * eurRate : 0;
+                    setFormData((prev) => ({
+                      ...prev,
+                      pricing: {
+                        ...prev.pricing,
+                        sale_value_eur: eur,
+                        sale_value: brl,
+                      },
+                    }));
+                  } else {
+                    setPricing({ sale_value: sanitizeBRInput(e.target.value) });
+                  }
+                }}
               />
+              {isEur && eurRate > 0 && Number(formData.pricing.sale_value_eur) > 0 && (
+                <p className="text-[11px] text-muted-foreground">
+                  ≈ {formatBRL(parseBR(formData.pricing.sale_value))} (cotação R$ {eurRate.toFixed(4)})
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label className="text-xs">Cobrado por</Label>
@@ -2728,19 +2949,28 @@ function SplitPricing({ trechos, milesTable, onChange, passengers = 1 }) {
     );
   }
 
+  if (trechos.length === 1) {
+    return (
+      <div className="p-4 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
+        <strong>Quebra de Trecho precisa de 2+ voos.</strong> Adicione um segmento (escala) ou
+        volte ao tipo de bilhete <em>Normal</em> no Bloco 3.
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-sm">
         <Info className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
         <div className="text-amber-800 dark:text-amber-300">
-          <strong>Quebra de Trecho:</strong> cada trecho pode ser emitido com método
-          diferente (ex: ida em milhas Latam, volta em milhas Smiles, ou um trecho em milhas e outro em dinheiro).
+          <strong>Quebra de Trecho:</strong> cada voo pode ser emitido com método
+          diferente (ex: BSB→GRU em milhas Latam, GRU→MIA em milhas Smiles, ou um voo em milhas e outro em dinheiro).
         </div>
       </div>
 
       {trechos.map((trecho, idx) => (
         <TrechoPricingCard
-          key={idx}
+          key={trecho.key || idx}
           trecho={trecho}
           index={idx}
           milesTable={milesTable}

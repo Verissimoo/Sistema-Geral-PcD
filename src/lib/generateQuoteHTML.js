@@ -178,12 +178,16 @@ function buildFlightCard(trecho, data) {
 
     // Chegada do segmento (intermediária ou final)
     if (isLast) {
+      // Prioriza a data REAL de chegada do segmento — em voos noturnos que
+      // pousam no dia seguinte, ela difere da data de partida do trecho.
+      const arrivalDate = seg.data_chegada || seg.data_saida || dateStr;
+      const arrivalLong = formatDateLong(arrivalDate);
       tlPieces.push(`
         <div class="tl-stop" style="padding-bottom:0">
           <div class="tl-dot filled"><svg><use href="#ic-check"/></svg></div>
           <div class="tl-time">${esc(seg.horario_chegada || "--:--")}${nextDayBadge}</div>
           <div class="tl-place">${esc(seg.destino_cidade || "")} (${esc(seg.destino_iata || "")})</div>
-          ${dateLong ? `<div class="arr"><svg><use href="#ic-check"/></svg> Chegada confirmada — ${esc(dateLong)}</div>` : ""}
+          ${arrivalLong ? `<div class="arr"><svg><use href="#ic-check"/></svg> Chegada confirmada — ${esc(arrivalLong)}</div>` : ""}
         </div>`);
     } else {
       const proximo = segmentos[sIdx + 1];
@@ -301,6 +305,19 @@ function buildPriceSection(data, dataFormatada, brandName = "PassagensComDescont
   const total = Number(data.total_value) || 0;
   const safeBrand = esc(brandName);
 
+  // Suporte a EUR: quando pricing.currency === 'EUR', exibimos o valor primário
+  // em euro e a referência em BRL ao câmbio gravado no orçamento.
+  const isEur = data.pricing?.currency === "EUR";
+  const eurRate = Number(data.pricing?.exchange_rate_eur_brl) || 0;
+  const totalEur = Number(data.pricing?.sale_value_eur) || (eurRate > 0 ? total / eurRate : 0);
+  const fmtEUR = (v) =>
+    (Number(v) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const primaryPriceHtml = isEur
+    ? `<div class="ph-price"><span>€</span>${fmtEUR(totalEur)}</div>
+       <div class="ph-per" style="font-size:11px;opacity:.85;margin-top:2px;">≈ ${esc(formatBRL(total))} · câmbio R$ ${eurRate ? eurRate.toFixed(4) : "—"}</div>`
+    : `<div class="ph-price"><span>R$</span>${total.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+       <div class="ph-per">Total da proposta</div>`;
+
   if (data.competitor && Number(data.competitor.value) > 0) {
     const compValue = Number(data.competitor.value);
     const economia = compValue - total;
@@ -310,8 +327,7 @@ function buildPriceSection(data, dataFormatada, brandName = "PassagensComDescont
     <div class="price-highlight">
       <div class="ph-left">
         <div class="ph-label">Valor total — ${safeBrand}</div>
-        <div class="ph-price"><span>R$</span>${total.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-        <div class="ph-per">Total da proposta</div>
+        ${primaryPriceHtml}
       </div>
       <div class="ph-right">
         <div class="ph-vs">
@@ -371,8 +387,7 @@ function buildPriceSection(data, dataFormatada, brandName = "PassagensComDescont
     <div class="price-highlight">
       <div class="ph-left">
         <div class="ph-label">Valor total — ${safeBrand}</div>
-        <div class="ph-price"><span>R$</span>${total.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-        <div class="ph-per">Total da proposta</div>
+        ${primaryPriceHtml}
       </div>
       <div class="ph-right">
         <div class="ph-vs">
