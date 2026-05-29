@@ -70,7 +70,19 @@ export function computePricingTotals(quote) {
   // do single/split, então tratamos `niponPerPax` separado quando aplicável.
   let niponPerPaxMulti = null;
 
-  if (pricing.multi_program === true || pricing.multi_program === "true") {
+  if (pricing.type === "milhas_dinheiro") {
+    // Milhas + Dinheiro (tarifa híbrida Azul) — a passagem cobra milhas E um
+    // valor em reais simultaneamente. custo = milhas convertidas + parte em
+    // dinheiro + taxa. Diferente de Azul em milhas puro, AQUI aplicamos +10%
+    // no Nipon (regra de negócio descrita pela operação).
+    const milhas = toNumber(pricing.miles_qty);
+    const dinheiro = toNumber(pricing.cash_part);
+    const taxa = toNumber(pricing.tax);
+    const cpt = toNumber(pricing.cost_per_thousand);
+    const custoMilhas = (milhas / 1000) * cpt;
+    costPerPax = custoMilhas + dinheiro + taxa;
+    niponPerPaxMulti = costPerPax * 1.1; // sempre +10%, mesmo sendo Azul
+  } else if (pricing.multi_program === true || pricing.multi_program === "true") {
     // Multi-programa — cada trecho com programa próprio. Custo e nipon
     // POR PESSOA são a soma dos custos/nipons de cada trecho.
     const trechosPricing = Array.isArray(pricing.trechos_pricing) ? pricing.trechos_pricing : [];

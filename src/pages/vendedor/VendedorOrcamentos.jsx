@@ -864,8 +864,26 @@ function QuoteDetail({
       <Section title={multiPax ? `Precificação · ${totals.passengers} passageiros` : "Precificação"}>
         <Field
           label="Tipo"
-          value={quote.pricing?.type === "milhas" ? `Milhas — ${quote.pricing?.program || "—"}` : "Dinheiro"}
+          value={
+            quote.pricing?.type === "milhas"
+              ? `Milhas — ${quote.pricing?.program || "—"}`
+              : quote.pricing?.type === "milhas_dinheiro"
+                ? `Milhas + Dinheiro — ${quote.pricing?.program || quote.pricing?.program_name || "Azul"}`
+                : "Dinheiro"
+          }
         />
+        {quote.pricing?.type === "milhas_dinheiro" && (
+          <>
+            <Field
+              label="Milhas"
+              value={`${(quote.pricing?.miles_qty || 0).toLocaleString("pt-BR")} mi/pax`}
+            />
+            <Field
+              label="Parte em dinheiro"
+              value={`${formatBRL(quote.pricing?.cash_part || 0)}/pax`}
+            />
+          </>
+        )}
         <Field
           label="Custo total"
           value={

@@ -537,7 +537,7 @@ function QuoteDetailContent({ quote }) {
       </Section>
 
       <Section title="Precificação">
-        <Row label="Tipo" value={quote.pricing?.type === "milhas" ? `Milhas — ${quote.pricing?.program || "—"}` : "Dinheiro"} />
+        <Row label="Tipo" value={quote.pricing?.type === "milhas" ? `Milhas — ${quote.pricing?.program || "—"}` : quote.pricing?.type === "milhas_dinheiro" ? `Milhas + Dinheiro — ${quote.pricing?.program || quote.pricing?.program_name || "Azul"}` : "Dinheiro"} />
         <Row
           label="Custo total"
           value={

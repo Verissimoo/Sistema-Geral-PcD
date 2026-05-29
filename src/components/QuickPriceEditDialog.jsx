@@ -82,6 +82,7 @@ export default function QuickPriceEditDialog({ open, onOpenChange, quote, onSave
   if (!open || !quote || !pricing || !oldTotals || !newTotals) return null;
 
   const isMilhas = pricing.type === "milhas";
+  const isMilhasDinheiro = pricing.type === "milhas_dinheiro";
   const isMultiProgram = pricing.multi_program === true;
   const isSplit = pricing.is_split === true;
   const passengersChanged = passengers !== (parseInt(quote.passengers, 10) || 1);
@@ -491,8 +492,62 @@ export default function QuickPriceEditDialog({ open, onOpenChange, quote, onSave
             </div>
           )}
 
+          {/* === MILHAS + DINHEIRO (tarifa híbrida Azul) === */}
+          {isMilhasDinheiro && !isSplit && (
+            <div className="bg-slate-50 rounded-lg p-4 space-y-3">
+              <p className="text-sm font-semibold">
+                Milhas + Dinheiro · {pricing.program_name || pricing.program || "Azul"}
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Milhas (por pax)</Label>
+                  <Input
+                    type="number"
+                    value={pricing.miles_qty ?? ""}
+                    onChange={(e) =>
+                      updateField("miles_qty", parseFloat(e.target.value) || 0)
+                    }
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">R$/mil (custo)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={pricing.cost_per_thousand ?? ""}
+                    onChange={(e) =>
+                      updateField("cost_per_thousand", parseFloat(e.target.value) || 0)
+                    }
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Dinheiro (por pax)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={pricing.cash_part ?? ""}
+                    onChange={(e) =>
+                      updateField("cash_part", parseFloat(e.target.value) || 0)
+                    }
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Taxa (por pax)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={pricing.tax ?? ""}
+                    onChange={(e) =>
+                      updateField("tax", parseFloat(e.target.value) || 0)
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* === DINHEIRO === */}
-          {!isMilhas && !isSplit && (
+          {!isMilhas && !isMilhasDinheiro && !isSplit && (
             <div className="bg-slate-50 rounded-lg p-4">
               <p className="text-sm font-semibold mb-3">Compra em dinheiro</p>
               <div className="grid grid-cols-2 gap-3">

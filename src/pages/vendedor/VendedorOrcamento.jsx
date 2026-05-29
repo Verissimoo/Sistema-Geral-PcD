@@ -1977,6 +1977,14 @@ function BlocoPrecificacao({ formData, setFormData }) {
         cost_brl = (milhas / 1000) * appliedCostPerThousand;
         venda_base = (milhas / 1000) * appliedSalePerThousand;
         niponPorPessoa = venda_base + tax;
+      } else if (pr.type === "milhas_dinheiro") {
+        // Tarifa híbrida Azul — custo = milhas + parte em dinheiro; Nipon +10%
+        // sempre (mesmo Azul). cost_per_thousand vem fixo do programa selecionado.
+        const milhas = parseBR(pr.miles_qty);
+        const dinheiro = parseBR(pr.cash_part);
+        const cpt = Number(pr.cost_per_thousand) || appliedCostPerThousand;
+        cost_brl = (milhas / 1000) * cpt + dinheiro;
+        niponPorPessoa = (cost_brl + tax) * 1.10;
       } else {
         const cost = parseBR(pr.cost_brl);
         const base = cost + tax;
@@ -2228,8 +2236,9 @@ function BlocoPrecificacao({ formData, setFormData }) {
             value={formData.pricing.type}
             onValueChange={(v) => setPricing({ type: v })}
           >
-            <TabsList className="grid grid-cols-2 w-full max-w-sm">
+            <TabsList className="grid grid-cols-3 w-full max-w-md">
               <TabsTrigger value="milhas">Milhas</TabsTrigger>
+              <TabsTrigger value="milhas_dinheiro">Milhas + Dinheiro</TabsTrigger>
               <TabsTrigger value="dinheiro">Dinheiro</TabsTrigger>
             </TabsList>
 
@@ -2339,6 +2348,144 @@ function BlocoPrecificacao({ formData, setFormData }) {
                   />
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="milhas_dinheiro" className="space-y-4 mt-4">
+              {/* Aviso explicativo */}
+              <div className="bg-warning-subtle border border-warning/30 rounded-lg p-3">
+                <p className="font-semibold text-sm text-warning">Tarifa híbrida</p>
+                <p className="text-xs text-text-muted mt-0.5">
+                  Disponível apenas para programas Azul (Azul Pelo Mundo, Voe Azul) — a passagem
+                  cobra simultaneamente milhas e um valor em reais.
+                </p>
+              </div>
+
+              {/* Programa de milhas — APENAS Azul */}
+              <div className="space-y-2">
+                <Label>Programa de milhas (Azul)</Label>
+                <Select
+                  value={formData.pricing.program_id}
+                  onValueChange={(v) => {
+                    const program = milesTable.find((m) => m.id === v);
+                    setPricing({
+                      program_id: v,
+                      program_name: program?.program || "",
+                      cost_per_thousand: Number(program?.cost_per_thousand) || 0,
+                      sale_per_thousand: Number(program?.sale_per_thousand) || 0,
+                      is_azul: true,
+                    });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione programa Azul..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {milesTable
+                      .filter((m) => m.program?.toLowerCase().includes("azul"))
+                      .map((m) => (
+                        <SelectItem
+                          key={m.id}
+                          value={m.id}
+                          disabled={m.stock_status === "unavailable"}
+                        >
+                          {m.program} — {formatBRL(m.cost_per_thousand)}/mil
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                {milesTable.filter((m) => m.program?.toLowerCase().includes("azul")).length === 0 && (
+                  <p className="text-xs text-danger mt-1">
+                    Nenhum programa Azul cadastrado. Adicione em /gerente/milhas.
+                  </p>
+                )}
+              </div>
+
+              {/* Inputs lado a lado: milhas + dinheiro */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Milhas necessárias (por pax)</Label>
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="Ex: 20.000 ou 20000"
+                    value={formData.pricing.miles_qty}
+                    onChange={(e) => setPricing({ miles_qty: sanitizeBRInput(e.target.value) })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Valor em dinheiro (R$, por pax)</Label>
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="Ex: 2.500,00"
+                    value={formData.pricing.cash_part ?? ""}
+                    onChange={(e) => setPricing({ cash_part: sanitizeBRInput(e.target.value) })}
+                  />
+                </div>
+              </div>
+
+              {/* Taxa de embarque */}
+              <div className="space-y-2">
+                <Label>Taxa de embarque (R$, por pax)</Label>
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="Ex: 64,60"
+                  value={formData.pricing.tax}
+                  onChange={(e) => setPricing({ tax: sanitizeBRInput(e.target.value) })}
+                />
+              </div>
+
+              {/* Resumo do cálculo */}
+              {milesQtyParsed > 0 && (
+                <Card className="bg-muted/40 border-border/50">
+                  <CardContent className="p-4 space-y-1.5 text-sm">
+                    {(() => {
+                      const milhas = parseBR(formData.pricing.miles_qty);
+                      const dinheiro = parseBR(formData.pricing.cash_part);
+                      const taxa = parseBR(formData.pricing.tax);
+                      const cpt = Number(formData.pricing.cost_per_thousand) || 0;
+                      const custoMilhas = (milhas / 1000) * cpt;
+                      const custoTotal = custoMilhas + dinheiro + taxa;
+                      const niponPerPax = custoTotal * 1.1;
+                      const niponTotal = niponPerPax * passengers;
+                      const custoConsolidado = custoTotal * passengers;
+                      return (
+                        <>
+                          <Row
+                            label="Custo das milhas"
+                            value={`${milhas.toLocaleString("pt-BR")} × ${formatBRL(cpt)}/mil = ${formatBRL(custoMilhas)}`}
+                          />
+                          <Row label="Parte em dinheiro" value={formatBRL(dinheiro)} />
+                          <Row label={`Taxa de embarque${passengers >= 2 ? " · por pessoa" : ""}`} value={formatBRL(taxa)} />
+                          <Separator className="my-2" />
+                          <Row
+                            label={`Custo total${passengers >= 2 ? " · por pessoa" : ""}`}
+                            value={formatBRL(custoTotal)}
+                            muted
+                          />
+                          <Row
+                            label={`VALOR NIPON (custo × 1.10)${passengers >= 2 ? " · por pessoa" : " · venda mínima"}`}
+                            value={formatBRL(niponPerPax)}
+                            bold
+                            accent
+                          />
+                          {passengers >= 2 && (
+                            <>
+                              <Separator className="my-2" />
+                              <p className="text-[11px] uppercase tracking-wider text-text-muted font-medium">
+                                Totais ({passengers} passageiros)
+                              </p>
+                              <Row label="Custo total" value={formatBRL(custoConsolidado)} muted />
+                              <Row label="Nipon total sugerido" value={formatBRL(niponTotal)} bold accent />
+                            </>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
 
             <TabsContent value="dinheiro" className="space-y-4 mt-4">
@@ -3522,6 +3669,8 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
       miles_qty: parseBR(formData.pricing.miles_qty),
       tax: parseBR(formData.pricing.tax),
       cost_brl: Number(formData.pricing.cost_brl_calc) || parseBR(formData.pricing.cost_brl),
+      cash_part: parseBR(formData.pricing.cash_part),
+      cost_per_thousand: Number(formData.pricing.cost_per_thousand) || 0,
       sale_value: parseBR(formData.pricing.sale_value),
     };
     if (Array.isArray(normalizedPricing.trechos)) {

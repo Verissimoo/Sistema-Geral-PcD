@@ -285,7 +285,7 @@ function EmissionCard({ quote, expanded, onToggle, onEmit }) {
             </Section>
 
             <Section title={multiPax ? `Pricing · ${totals.passengers} passageiros` : "Pricing"}>
-              <Field label="Tipo" value={quote.pricing?.type === "milhas" ? `Milhas — ${quote.pricing?.program || "—"}` : "Dinheiro"} />
+              <Field label="Tipo" value={quote.pricing?.type === "milhas" ? `Milhas — ${quote.pricing?.program || "—"}` : quote.pricing?.type === "milhas_dinheiro" ? `Milhas + Dinheiro — ${quote.pricing?.program || quote.pricing?.program_name || "Azul"}` : "Dinheiro"} />
               <Field
                 label="Custo total"
                 value={
