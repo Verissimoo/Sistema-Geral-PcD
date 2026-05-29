@@ -113,8 +113,8 @@ export default function Sidebar({ open, onClose }) {
         className={cn(
           "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
           isActive
-            ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-            : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+            ? "bg-sidebar-active text-sidebar-active-foreground font-medium"
+            : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
         )}
       >
         <Icon className={cn("h-4.5 w-4.5 shrink-0", isActive && "text-sidebar-primary")} />
@@ -130,8 +130,8 @@ export default function Sidebar({ open, onClose }) {
         className={cn(
           "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors w-full text-left",
           isActive
-            ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-            : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+            ? "bg-sidebar-active text-sidebar-active-foreground font-medium"
+            : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
         )}
       >
         <Icon className={cn("h-4.5 w-4.5 shrink-0", isActive && "text-sidebar-primary")} />
@@ -161,8 +161,8 @@ export default function Sidebar({ open, onClose }) {
                 className={cn(
                   "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors",
                   isSubActive
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                    : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+                    ? "bg-sidebar-active text-sidebar-active-foreground font-medium"
+                    : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent"
                 )}
               >
                 <SubIcon className={cn("h-3.5 w-3.5 shrink-0", isSubActive && "text-sidebar-primary")} />
@@ -176,14 +176,14 @@ export default function Sidebar({ open, onClose }) {
   );
 
   const roleBadge = isAdmin
-    ? { label: "Administrador", className: "bg-[#0B1E3D] text-white hover:bg-[#0B1E3D]" }
+    ? { label: "Administrador", variant: "brand" }
     : isGerente
-      ? { label: "Gerente", className: "bg-purple-600 text-white hover:bg-purple-600" }
+      ? { label: "Gerente", variant: "accent" }
       : isParceiro
-        ? { label: "Parceiro", className: "bg-purple-600 text-white hover:bg-purple-600" }
+        ? { label: "Parceiro", variant: "info" }
         : isSuporte
-          ? { label: "Suporte", className: "bg-emerald-600 text-white hover:bg-emerald-600" }
-          : { label: "Vendedor", className: "bg-amber-500 text-white hover:bg-amber-500" };
+          ? { label: "Suporte", variant: "success" }
+          : { label: "Vendedor", variant: "warning" };
 
   return (
     <>
@@ -194,24 +194,19 @@ export default function Sidebar({ open, onClose }) {
         "fixed inset-y-0 left-0 z-50 w-64 bg-sidebar flex flex-col transition-transform duration-300 lg:static lg:translate-x-0",
         open ? "translate-x-0" : "-translate-x-full"
       )}>
-        <div className="h-16 flex items-center px-5 border-b border-sidebar-border shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-sidebar-primary flex items-center justify-center">
-              <Plane className="h-4 w-4 text-sidebar-primary-foreground" />
-            </div>
-            <div>
-              <span className="text-sm font-bold text-sidebar-foreground tracking-tight">
-                Passagens
-              </span>
-              <span className="text-sm font-bold text-sidebar-primary tracking-tight">
-                ComDesconto
-              </span>
-            </div>
+        <div className="h-16 flex items-center gap-2 px-4 border-b border-sidebar-border shrink-0">
+          <div className="flex-1 min-w-0 flex items-center" title="PassagensComDesconto">
+            <img
+              src="/brand/logo.png"
+              alt="PassagensComDesconto"
+              className="w-full h-auto max-h-10 object-contain object-left select-none"
+              draggable={false}
+            />
           </div>
           <Button
             variant="ghost"
             size="icon"
-            className="ml-auto lg:hidden text-sidebar-foreground"
+            className="lg:hidden text-sidebar-foreground shrink-0"
             onClick={onClose}
           >
             <X className="h-4 w-4" />
@@ -322,10 +317,8 @@ export default function Sidebar({ open, onClose }) {
                 {user?.name || "—"}
               </p>
               <Badge
-                className={cn(
-                  "h-4 mt-0.5 px-1.5 text-[9px] font-semibold border-0",
-                  roleBadge.className
-                )}
+                variant={roleBadge.variant}
+                className="h-4 mt-0.5 px-1.5 text-[9px] font-medium"
               >
                 {roleBadge.label}
               </Badge>

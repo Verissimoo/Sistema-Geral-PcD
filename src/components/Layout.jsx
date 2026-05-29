@@ -5,6 +5,7 @@ import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FollowUpAlert } from "./FollowUpAlert";
 import { NotificationBell } from "./NotificationBell";
+import ThemeToggle from "./ThemeToggle";
 import { useFollowUpEngine } from "@/lib/useFollowUpEngine";
 import { useAuth } from "@/lib/AuthContext";
 
@@ -26,11 +27,22 @@ export default function Layout() {
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <span className="ml-3 font-semibold text-sm lg:hidden">PassagensComDesconto</span>
-          <div className="ml-auto flex items-center gap-3">
+          <div
+            className="ml-3 lg:hidden rounded-md px-2.5 py-1 flex items-center"
+            style={{ background: "#0B1E3D" }}
+          >
+            <img
+              src="/brand/logo.png"
+              alt="PassagensComDesconto"
+              className="h-5 w-auto object-contain select-none"
+              draggable={false}
+            />
+          </div>
+          <div className="ml-auto flex items-center gap-2">
             <FollowUpAlert />
             <NotificationBell />
-            <span className="hidden sm:inline text-sm text-slate-600">
+            <ThemeToggle />
+            <span className="hidden sm:inline text-sm text-text-secondary ml-1">
               {user?.name}
             </span>
           </div>

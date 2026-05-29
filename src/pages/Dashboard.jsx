@@ -256,22 +256,10 @@ export default function Dashboard() {
     );
     const emitidas = periodQuotes.filter((q) => q.status === "Emitido");
     return [
-      {
-        label: "Em negociação",
-        count: negociacao.length,
-        color: "bg-blue-500",
-      },
-      { label: "Aprovadas", count: aprovadas.length, color: "bg-amber-500" },
-      {
-        label: "Aguardando emissão",
-        count: aguardando.length,
-        color: "bg-orange-500",
-      },
-      {
-        label: "Emitidas (receita)",
-        count: emitidas.length,
-        color: "bg-emerald-500",
-      },
+      { label: "Em negociação", count: negociacao.length, color: "bg-accent" },
+      { label: "Aprovadas", count: aprovadas.length, color: "bg-info" },
+      { label: "Aguardando emissão", count: aguardando.length, color: "bg-warning" },
+      { label: "Emitidas (receita)", count: emitidas.length, color: "bg-success" },
     ];
   }, [periodQuotes]);
 
@@ -317,8 +305,8 @@ export default function Dashboard() {
           type: "created",
           date: q.created_date,
           quote: q,
-          icon: "📄",
-          color: "text-blue-600",
+          icon: FileText,
+          color: "text-accent",
           label: "criou orçamento",
         });
       }
@@ -327,8 +315,8 @@ export default function Dashboard() {
           type: "issued",
           date: q.emission_completed_date || q.issued_date,
           quote: q,
-          icon: "✅",
-          color: "text-emerald-600",
+          icon: CheckCircle2,
+          color: "text-success",
           label: "emitiu",
         });
       }
@@ -342,8 +330,10 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Dashboard Gerencial</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
+            Dashboard Gerencial
+          </h1>
+          <p className="text-sm text-text-muted mt-1">
             Visão geral da operação — PassagensComDesconto
           </p>
         </div>
@@ -351,7 +341,7 @@ export default function Dashboard() {
         <div className="flex items-center gap-2 flex-wrap">
           <Select value={periodo} onValueChange={setPeriodo}>
             <SelectTrigger className="w-48">
-              <Calendar className="w-4 h-4 mr-2 text-muted-foreground" />
+              <Calendar className="w-4 h-4 mr-2 text-text-muted" />
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -373,7 +363,7 @@ export default function Dashboard() {
                 }
                 className="w-40"
               />
-              <span className="text-muted-foreground">até</span>
+              <span className="text-text-muted">até</span>
               <Input
                 type="date"
                 value={periodoCustom.end}
@@ -399,8 +389,8 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <MetricCard
           icon={FileText}
-          iconColor="text-blue-600"
-          iconBg="bg-blue-50"
+          iconColor="text-accent"
+          iconBg="bg-accent-subtle"
           label="Cotações"
           value={periodQuotes.length}
           subtext="No período selecionado"
@@ -409,14 +399,14 @@ export default function Dashboard() {
 
         <MetricCard
           icon={CheckCircle2}
-          iconColor="text-emerald-600"
-          iconBg="bg-emerald-50"
+          iconColor="text-success"
+          iconBg="bg-success-subtle"
           label="Vendas Emitidas"
           value={totalEmitidos}
           subtext={formatBRL(totalRevenue)}
           extra={
             pipelineQuotes.length > 0 && (
-              <span className="text-xs text-amber-600 font-medium">
+              <span className="text-xs text-warning font-medium tabular-nums">
                 + {pipelineQuotes.length} em pipeline ({formatBRL(pipelineValue)})
               </span>
             )
@@ -425,8 +415,8 @@ export default function Dashboard() {
 
         <MetricCard
           icon={TrendingUp}
-          iconColor="text-amber-600"
-          iconBg="bg-amber-50"
+          iconColor="text-warning"
+          iconBg="bg-warning-subtle"
           label="Taxa de Conversão"
           value={
             periodQuotes.length > 0
@@ -438,8 +428,8 @@ export default function Dashboard() {
 
         <MetricCard
           icon={DollarSign}
-          iconColor="text-slate-700"
-          iconBg="bg-slate-100"
+          iconColor="text-text-secondary"
+          iconBg="bg-bg-elevated"
           label="Ticket Médio"
           value={
             totalEmitidos > 0
@@ -451,8 +441,8 @@ export default function Dashboard() {
 
         <MetricCard
           icon={Users}
-          iconColor="text-purple-600"
-          iconBg="bg-purple-50"
+          iconColor="text-info"
+          iconBg="bg-info-subtle"
           label="Vendedores Ativos"
           value={activeSellers.length}
           subtext={`${emFormacao} em formação`}
@@ -460,87 +450,89 @@ export default function Dashboard() {
       </div>
 
       {/* Margem da Equipe Comercial — cascata Receita → Custo → Comissão → Líquido */}
-      <Card className="overflow-hidden border-0 shadow-sm">
-        <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white p-5">
+      <Card>
+        <div className="border-b border-border px-6 py-4">
           <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
             <div className="flex items-center gap-2">
-              <PiggyBank className="w-5 h-5 text-amber-400" />
-              <h3 className="font-bold text-base">Margem da Equipe Comercial</h3>
+              <PiggyBank className="w-4 h-4 text-text-muted" />
+              <h3 className="text-base font-semibold text-text-primary">
+                Margem da Equipe Comercial
+              </h3>
             </div>
-            <Badge variant="outline" className="text-white border-white/30">
+            <Badge variant="outline">
               {margemEquipe.vendas}{" "}
               {margemEquipe.vendas === 1 ? "venda emitida" : "vendas emitidas"} no período
             </Badge>
           </div>
-          <p className="text-xs text-slate-300">
+          <p className="text-xs text-text-muted">
             Quanto a operação gerou de verdade — sem inflar com pipeline ou aprovados
           </p>
         </div>
 
-        <div className="p-6 bg-white">
+        <div className="p-6">
           {margemEquipe.vendas === 0 ? (
-            <div className="text-center py-8 text-muted-foreground text-sm">
+            <div className="text-center py-8 text-text-muted text-sm">
               Sem vendas emitidas no período selecionado.
             </div>
           ) : (
             <>
               {/* Receita Total — referência (100%) */}
-              <div className="mb-4 pb-4 border-b border-slate-100">
+              <div className="mb-4 pb-4 border-b border-border-subtle">
                 <div className="flex items-baseline justify-between mb-1 flex-wrap gap-2">
-                  <span className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                    <Receipt className="w-4 h-4 text-blue-600" />
+                  <span className="text-sm font-medium text-text-secondary flex items-center gap-2">
+                    <Receipt className="w-4 h-4 text-accent" />
                     Receita Total (100%)
                   </span>
-                  <span className="text-2xl font-black text-slate-900">
+                  <span className="text-2xl font-semibold text-text-primary tabular-nums">
                     {formatBRL(margemEquipe.receitaTotal)}
                   </span>
                 </div>
-                <div className="w-full bg-blue-500 h-2 rounded-full" />
+                <div className="w-full bg-accent h-2 rounded-full" />
               </div>
 
               {/* Custo Direto */}
               <div className="mb-3">
                 <div className="flex items-baseline justify-between mb-1 flex-wrap gap-2">
-                  <span className="text-sm font-medium text-slate-600 flex items-center gap-2">
-                    <TrendingDown className="w-4 h-4 text-red-500" />
+                  <span className="text-sm font-medium text-text-secondary flex items-center gap-2">
+                    <TrendingDown className="w-4 h-4 text-danger" />
                     Custo Direto (milhas + taxas)
                   </span>
                   <div className="text-right">
-                    <span className="font-bold text-red-600">
+                    <span className="font-semibold text-danger tabular-nums">
                       −{formatBRL(margemEquipe.custoTotal)}
                     </span>
-                    <span className="text-xs text-muted-foreground ml-2">
+                    <span className="text-xs text-text-muted ml-2 tabular-nums">
                       {margemEquipe.pctCusto.toFixed(1)}%
                     </span>
                   </div>
                 </div>
-                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                <div className="w-full bg-bg-elevated rounded-full h-2 overflow-hidden">
                   <div
-                    className="bg-red-400 h-2 transition-all duration-700"
+                    className="bg-danger h-2 transition-all duration-700"
                     style={{ width: `${Math.min(100, margemEquipe.pctCusto)}%` }}
                   />
                 </div>
               </div>
 
               {/* Margem Bruta (antes das comissões) */}
-              <div className="mb-4 pb-4 border-b border-slate-100">
+              <div className="mb-4 pb-4 border-b border-border-subtle">
                 <div className="flex items-baseline justify-between mb-1 flex-wrap gap-2">
-                  <span className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-amber-600" />
+                  <span className="text-sm font-medium text-text-secondary flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-warning" />
                     Margem Bruta (antes das comissões)
                   </span>
                   <div className="text-right">
-                    <span className="text-xl font-black text-amber-600">
+                    <span className="text-xl font-semibold text-warning tabular-nums">
                       {formatBRL(margemEquipe.margemBruta)}
                     </span>
-                    <span className="text-xs text-amber-600 font-semibold ml-2">
+                    <span className="text-xs text-warning font-medium ml-2 tabular-nums">
                       {margemEquipe.pctMargemBruta.toFixed(1)}%
                     </span>
                   </div>
                 </div>
-                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                <div className="w-full bg-bg-elevated rounded-full h-2 overflow-hidden">
                   <div
-                    className="bg-gradient-to-r from-amber-400 to-amber-500 h-2 transition-all duration-700"
+                    className="bg-warning h-2 transition-all duration-700"
                     style={{
                       width: `${Math.min(100, Math.max(0, margemEquipe.pctMargemBruta))}%`,
                     }}
@@ -551,51 +543,51 @@ export default function Dashboard() {
               {/* Comissões pagas */}
               <div className="mb-3">
                 <div className="flex items-baseline justify-between mb-1 flex-wrap gap-2">
-                  <span className="text-sm font-medium text-slate-600 flex items-center gap-2">
-                    <Wallet className="w-4 h-4 text-purple-500" />
+                  <span className="text-sm font-medium text-text-secondary flex items-center gap-2">
+                    <Wallet className="w-4 h-4 text-info" />
                     Comissões pagas aos vendedores
                   </span>
                   <div className="text-right">
-                    <span className="font-bold text-purple-600">
+                    <span className="font-semibold text-info tabular-nums">
                       −{formatBRL(margemEquipe.comissaoTotal)}
                     </span>
-                    <span className="text-xs text-muted-foreground ml-2">
+                    <span className="text-xs text-text-muted ml-2 tabular-nums">
                       {margemEquipe.pctComissoes.toFixed(1)}%
                     </span>
                   </div>
                 </div>
-                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                <div className="w-full bg-bg-elevated rounded-full h-2 overflow-hidden">
                   <div
-                    className="bg-purple-400 h-2 transition-all duration-700"
+                    className="bg-info h-2 transition-all duration-700"
                     style={{ width: `${Math.min(100, margemEquipe.pctComissoes)}%` }}
                   />
                 </div>
               </div>
 
               {/* Margem Líquida — destaque final */}
-              <div className="mt-4 bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl p-4">
+              <div className="mt-4 bg-success-subtle border border-success/30 rounded-lg p-4">
                 <div className="flex items-baseline justify-between mb-2 flex-wrap gap-2">
                   <div>
-                    <p className="text-xs uppercase tracking-wider text-green-700 font-bold">
+                    <p className="text-[11px] uppercase tracking-wider text-success font-medium">
                       Margem Líquida da Agência
                     </p>
-                    <p className="text-[10px] text-muted-foreground">
+                    <p className="text-xs text-text-muted">
                       O que sobra de fato para a PCD após pagar custos + comissões
                     </p>
                   </div>
                   <div className="text-right">
                     <span
                       className={cn(
-                        "text-3xl font-black",
-                        margemEquipe.margemLiquida >= 0 ? "text-green-700" : "text-red-600",
+                        "text-3xl font-semibold tabular-nums",
+                        margemEquipe.margemLiquida >= 0 ? "text-success" : "text-danger",
                       )}
                     >
                       {formatBRL(margemEquipe.margemLiquida)}
                     </span>
                     <div
                       className={cn(
-                        "text-xs font-bold",
-                        margemEquipe.margemLiquida >= 0 ? "text-green-700" : "text-red-600",
+                        "text-xs font-medium tabular-nums",
+                        margemEquipe.margemLiquida >= 0 ? "text-success" : "text-danger",
                       )}
                     >
                       {margemEquipe.pctMargemLiquida.toFixed(1)}% da receita
@@ -604,59 +596,59 @@ export default function Dashboard() {
                 </div>
 
                 {margemEquipe.pctMargemLiquida >= 30 && (
-                  <div className="mt-2 text-xs text-green-700 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-green-500" />
+                  <div className="mt-2 text-xs text-success flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-success" />
                     Margem saudável — operação rentável
                   </div>
                 )}
                 {margemEquipe.pctMargemLiquida >= 15 &&
                   margemEquipe.pctMargemLiquida < 30 && (
-                    <div className="mt-2 text-xs text-amber-700 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-amber-500" />
+                    <div className="mt-2 text-xs text-warning flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-warning" />
                       Margem moderada — atenção aos descontos
                     </div>
                   )}
                 {margemEquipe.pctMargemLiquida < 15 &&
                   margemEquipe.pctMargemLiquida >= 0 && (
-                    <div className="mt-2 text-xs text-orange-700 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-orange-500" />
+                    <div className="mt-2 text-xs text-warning flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-warning" />
                       Margem apertada — revisar precificação
                     </div>
                   )}
                 {margemEquipe.pctMargemLiquida < 0 && (
-                  <div className="mt-2 text-xs text-red-700 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-red-500" />
-                    ⚠️ Operação no prejuízo — comissões maiores que a margem bruta
+                  <div className="mt-2 text-xs text-danger flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-danger" />
+                    Operação no prejuízo — comissões maiores que a margem bruta
                   </div>
                 )}
               </div>
 
               {/* Sumário por venda */}
-              <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-slate-100">
+              <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-border-subtle">
                 <div className="text-center">
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                  <p className="text-[11px] uppercase tracking-wider text-text-muted font-medium">
                     Ticket médio
                   </p>
-                  <p className="text-base font-bold text-slate-900">
+                  <p className="text-base font-semibold text-text-primary tabular-nums">
                     {formatBRL(margemEquipe.receitaTotal / Math.max(1, margemEquipe.vendas))}
                   </p>
                 </div>
                 <div className="text-center">
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                  <p className="text-[11px] uppercase tracking-wider text-text-muted font-medium">
                     Lucro / venda
                   </p>
-                  <p className="text-base font-bold text-amber-600">
+                  <p className="text-base font-semibold text-warning tabular-nums">
                     {formatBRL(margemEquipe.margemBruta / Math.max(1, margemEquipe.vendas))}
                   </p>
                 </div>
                 <div className="text-center">
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+                  <p className="text-[11px] uppercase tracking-wider text-text-muted font-medium">
                     Líquido / venda
                   </p>
                   <p
                     className={cn(
-                      "text-base font-bold",
-                      margemEquipe.margemLiquida >= 0 ? "text-green-700" : "text-red-600",
+                      "text-base font-semibold tabular-nums",
+                      margemEquipe.margemLiquida >= 0 ? "text-success" : "text-danger",
                     )}
                   >
                     {formatBRL(margemEquipe.margemLiquida / Math.max(1, margemEquipe.vendas))}
@@ -673,11 +665,11 @@ export default function Dashboard() {
         <Card className="lg:col-span-3 p-6">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="font-bold text-base flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-slate-700" />
+              <h3 className="text-base font-semibold text-text-primary flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-text-muted" />
                 Cotações vs Vendas
               </h3>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-text-muted mt-1">
                 Últimos {periodDates.days} dias · Vendas conta apenas orçamentos Emitidos
               </p>
             </div>
@@ -687,10 +679,10 @@ export default function Dashboard() {
             <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
               {[100, 75, 50, 25, 0].map((pct) => (
                 <div key={pct} className="flex items-center gap-2">
-                  <span className="text-[10px] text-slate-400 w-6 text-right">
+                  <span className="text-[10px] text-text-muted w-6 text-right tabular-nums">
                     {Math.ceil((maxValue * pct) / 100)}
                   </span>
-                  <div className="flex-1 border-t border-dashed border-slate-200" />
+                  <div className="flex-1 border-t border-dashed border-border-subtle" />
                 </div>
               ))}
             </div>
@@ -709,14 +701,14 @@ export default function Dashboard() {
                     className="flex-1 flex flex-col items-center min-w-0 group relative"
                   >
                     <div className="w-full flex items-end justify-center gap-0.5 h-full">
-                      <div className="absolute -top-14 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 shadow-lg">
-                        <div className="font-semibold">{day.label}</div>
-                        <div className="text-blue-300">Cotações: {day.cotacoes}</div>
-                        <div className="text-emerald-300">Vendas: {day.vendas}</div>
+                      <div className="absolute -top-14 left-1/2 -translate-x-1/2 bg-bg-overlay text-text-primary text-xs rounded-md px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-10 shadow-md border border-border">
+                        <div className="font-medium">{day.label}</div>
+                        <div className="text-accent tabular-nums">Cotações: {day.cotacoes}</div>
+                        <div className="text-success tabular-nums">Vendas: {day.vendas}</div>
                       </div>
 
                       <div
-                        className="bg-gradient-to-t from-blue-500 to-blue-400 rounded-t-sm hover:from-blue-600 hover:to-blue-500 transition-all"
+                        className="bg-accent rounded-t-sm transition-colors"
                         style={{
                           height: `${cotPct}%`,
                           width: "40%",
@@ -724,7 +716,7 @@ export default function Dashboard() {
                         }}
                       />
                       <div
-                        className="bg-gradient-to-t from-emerald-500 to-emerald-400 rounded-t-sm hover:from-emerald-600 hover:to-emerald-500 transition-all"
+                        className="bg-success rounded-t-sm transition-colors"
                         style={{
                           height: `${venPct}%`,
                           width: "40%",
@@ -733,7 +725,7 @@ export default function Dashboard() {
                       />
                     </div>
                     {showLabel && (
-                      <span className="text-[10px] text-slate-500 mt-1.5 whitespace-nowrap">
+                      <span className="text-[10px] text-text-muted mt-1.5 whitespace-nowrap tabular-nums">
                         {day.label}
                       </span>
                     )}
@@ -743,29 +735,29 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-100 flex-wrap gap-2">
+          <div className="flex items-center justify-between mt-4 pt-3 border-t border-border-subtle flex-wrap gap-2">
             <div className="flex items-center gap-5">
               <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-sm bg-gradient-to-t from-blue-500 to-blue-400" />
-                <span className="text-xs font-medium text-slate-700">
+                <span className="w-3 h-3 rounded-sm bg-accent" />
+                <span className="text-xs font-medium text-text-secondary">
                   Cotações criadas
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-sm bg-gradient-to-t from-emerald-500 to-emerald-400" />
-                <span className="text-xs font-medium text-slate-700">
+                <span className="w-3 h-3 rounded-sm bg-success" />
+                <span className="text-xs font-medium text-text-secondary">
                   Vendas emitidas
                 </span>
               </div>
             </div>
-            <div className="text-xs text-slate-500">
-              <span className="font-bold text-slate-900">{totalCotacoes}</span>{" "}
+            <div className="text-xs text-text-muted">
+              <span className="font-semibold text-text-primary tabular-nums">{totalCotacoes}</span>{" "}
               cotações
-              <span className="mx-2 text-slate-300">·</span>
-              <span className="font-bold text-slate-900">{totalVendas}</span>{" "}
+              <span className="mx-2 text-border-strong">·</span>
+              <span className="font-semibold text-text-primary tabular-nums">{totalVendas}</span>{" "}
               vendas
-              <span className="mx-2 text-slate-300">·</span>
-              <span className="font-bold text-emerald-600">{conversao}%</span>{" "}
+              <span className="mx-2 text-border-strong">·</span>
+              <span className="font-semibold text-success tabular-nums">{conversao}%</span>{" "}
               conversão
             </div>
           </div>
@@ -782,8 +774,8 @@ export default function Dashboard() {
       {/* Row 3 — Funil + Top Performers */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <Card className="lg:col-span-2 p-6">
-          <h3 className="font-bold text-base mb-4 flex items-center gap-2">
-            <Filter className="w-5 h-5 text-slate-700" />
+          <h3 className="text-base font-semibold text-text-primary mb-4 flex items-center gap-2">
+            <Filter className="w-4 h-4 text-text-muted" />
             Funil de Conversão
           </h3>
 
@@ -796,15 +788,15 @@ export default function Dashboard() {
               return (
                 <div key={idx}>
                   <div className="flex justify-between items-baseline mb-1">
-                    <span className="text-sm font-medium">{stage.label}</span>
-                    <span className="text-sm">
-                      <strong>{stage.count}</strong>
-                      <span className="text-xs text-muted-foreground ml-1">
+                    <span className="text-sm font-medium text-text-secondary">{stage.label}</span>
+                    <span className="text-sm text-text-primary">
+                      <strong className="tabular-nums">{stage.count}</strong>
+                      <span className="text-xs text-text-muted ml-1 tabular-nums">
                         ({pct.toFixed(0)}%)
                       </span>
                     </span>
                   </div>
-                  <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                  <div className="w-full bg-bg-elevated rounded-full h-2 overflow-hidden">
                     <div
                       className={cn(stage.color, "h-2 rounded-full transition-all duration-700")}
                       style={{ width: `${pct}%` }}
@@ -817,8 +809,8 @@ export default function Dashboard() {
         </Card>
 
         <Card className="lg:col-span-3 p-6">
-          <h3 className="font-bold text-base mb-4 flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-amber-500" />
+          <h3 className="text-base font-semibold text-text-primary mb-4 flex items-center gap-2">
+            <Trophy className="w-4 h-4 text-text-muted" />
             Ranking de Vendedores —{" "}
             {periodo === "7"
               ? "Últimos 7 dias"
@@ -828,38 +820,38 @@ export default function Dashboard() {
           </h3>
 
           {topPerformers.length === 0 ? (
-            <p className="text-center text-muted-foreground py-6 text-sm">
+            <p className="text-center text-text-muted py-6 text-sm">
               Nenhum vendedor com atividade no período.
             </p>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-1">
               {topPerformers.map((seller, idx) => (
                 <div
                   key={seller.id}
                   onClick={() => navigate(`/gerente/vendedores/${seller.id}`)}
-                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+                  className="flex items-center gap-3 p-3 rounded-md hover:bg-bg-elevated cursor-pointer transition-colors"
                 >
                   <div
                     className={cn(
-                      "w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0",
-                      idx === 0 && "bg-amber-100 text-amber-700",
-                      idx === 1 && "bg-slate-200 text-slate-700",
-                      idx === 2 && "bg-orange-100 text-orange-700",
-                      idx > 2 && "bg-slate-100 text-slate-500",
+                      "w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm shrink-0 tabular-nums",
+                      idx === 0 && "bg-warning-subtle text-warning",
+                      idx === 1 && "bg-bg-elevated text-text-secondary",
+                      idx === 2 && "bg-brand-subtle text-brand",
+                      idx > 2 && "bg-bg-elevated text-text-muted",
                     )}
                   >
                     {idx + 1}
                   </div>
 
-                  <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center font-semibold text-xs text-slate-700 shrink-0">
+                  <div className="w-9 h-9 rounded-full bg-bg-elevated flex items-center justify-center font-medium text-xs text-text-secondary shrink-0">
                     {initials(seller.name)}
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm truncate">{seller.name}</p>
-                    <div className="w-full bg-slate-100 rounded-full h-1.5 mt-1">
+                    <p className="font-medium text-sm text-text-primary truncate">{seller.name}</p>
+                    <div className="w-full bg-bg-elevated rounded-full h-1.5 mt-1">
                       <div
-                        className="bg-gradient-to-r from-amber-500 to-amber-400 h-1.5 rounded-full"
+                        className="bg-brand h-1.5 rounded-full"
                         style={{
                           width: `${(seller.receita / maxSellerRevenue) * 100}%`,
                         }}
@@ -868,10 +860,10 @@ export default function Dashboard() {
                   </div>
 
                   <div className="text-right shrink-0">
-                    <p className="font-bold text-sm">
+                    <p className="font-semibold text-sm text-text-primary tabular-nums">
                       {formatBRL(seller.receita)}
                     </p>
-                    <p className="text-[10px] text-muted-foreground">
+                    <p className="text-[10px] text-text-muted tabular-nums">
                       {seller.vendas} vendas / {seller.cotacoes} cotações
                     </p>
                   </div>
@@ -884,48 +876,49 @@ export default function Dashboard() {
 
       {/* Row 4 — Atividade Recente */}
       <Card className="p-6">
-        <h3 className="font-bold text-base mb-4 flex items-center gap-2">
-          <Activity className="w-5 h-5 text-slate-700" />
+        <h3 className="text-base font-semibold text-text-primary mb-4 flex items-center gap-2">
+          <Activity className="w-4 h-4 text-text-muted" />
           Atividade Recente
         </h3>
 
         {recentActivity.length === 0 ? (
-          <p className="text-center text-muted-foreground py-6 text-sm">
+          <p className="text-center text-text-muted py-6 text-sm">
             Nenhuma atividade registrada ainda.
           </p>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-1">
             {recentActivity.map((ev, idx) => {
               const trecho = ev.quote.itinerary?.trechos?.[0];
               const seg = trecho?.segmentos?.[0];
               const origem = seg?.origem_iata || trecho?.origem_iata || "";
               const destino = seg?.destino_iata || trecho?.destino_iata || "";
               const rota = origem && destino ? `${origem} → ${destino}` : "";
+              const EvIcon = ev.icon;
 
               return (
                 <div
                   key={idx}
-                  className="flex items-center gap-3 py-2 border-b border-slate-100 last:border-0"
+                  className="flex items-center gap-3 py-2 border-b border-border-subtle last:border-0"
                 >
-                  <span className="text-lg shrink-0">{ev.icon}</span>
+                  <EvIcon className={cn("w-4 h-4 shrink-0", ev.color)} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm">
-                      <span className={cn("font-semibold", ev.color)}>
+                    <p className="text-sm text-text-secondary">
+                      <span className={cn("font-medium", ev.color)}>
                         {ev.quote.seller_name || "—"}
                       </span>{" "}
                       {ev.label}{" "}
-                      <span className="font-mono text-xs text-muted-foreground">
+                      <span className="font-mono text-xs text-text-muted">
                         {ev.quote.quote_number}
                       </span>
                       {rota && (
-                        <span className="text-muted-foreground"> · {rota}</span>
+                        <span className="text-text-muted"> · {rota}</span>
                       )}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-text-muted tabular-nums">
                       {formatBRL(ev.quote.total_value)}
                     </p>
                   </div>
-                  <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
+                  <span className="text-xs text-text-muted whitespace-nowrap shrink-0">
                     {timeAgo(ev.date)}
                   </span>
                 </div>
@@ -940,18 +933,18 @@ export default function Dashboard() {
 
 function MetricCard({ icon: Icon, iconColor, iconBg, label, value, subtext, extra, badge }) {
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md transition-shadow">
+    <div className="bg-bg-surface rounded-md border border-border p-5 transition-colors hover:bg-bg-elevated">
       <div className="flex items-center justify-between mb-3">
-        <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center", iconBg)}>
-          <Icon className={cn("w-5 h-5", iconColor)} />
+        <div className={cn("w-9 h-9 rounded-md flex items-center justify-center", iconBg)}>
+          <Icon className={cn("w-4 h-4", iconColor)} />
         </div>
         {badge && (
-          <span className="text-xs text-slate-400 font-medium">{badge}</span>
+          <span className="text-xs text-text-muted font-medium tabular-nums">{badge}</span>
         )}
       </div>
-      <p className="text-3xl font-black text-slate-900 mb-0.5">{value}</p>
-      <p className="text-xs text-slate-500 font-medium">{label}</p>
-      {subtext && <p className="text-xs text-slate-400 mt-2">{subtext}</p>}
+      <p className="text-3xl font-semibold text-text-primary mb-0.5 tabular-nums">{value}</p>
+      <p className="text-xs text-text-muted font-medium">{label}</p>
+      {subtext && <p className="text-xs text-text-muted mt-2 tabular-nums">{subtext}</p>}
       {extra && <div className="mt-1">{extra}</div>}
     </div>
   );
@@ -962,8 +955,8 @@ function MetaCard({ metaAtual, receitaMes, navigate }) {
   if (!metaAtual) {
     return (
       <Card className="lg:col-span-2 p-6 flex flex-col items-center justify-center text-center">
-        <Target className="w-12 h-12 text-slate-300 mb-3" />
-        <p className="text-sm text-muted-foreground mb-3">
+        <Target className="w-12 h-12 text-text-disabled mb-3" />
+        <p className="text-sm text-text-muted mb-3">
           Nenhuma meta para{" "}
           {now.toLocaleDateString("pt-BR", { month: "long" })}
         </p>
@@ -985,15 +978,15 @@ function MetaCard({ metaAtual, receitaMes, navigate }) {
   const necessarioDia = diasRestantes > 0 ? faltam / diasRestantes : 0;
 
   return (
-    <Card className="lg:col-span-2 p-6 bg-gradient-to-br from-slate-900 to-slate-800 text-white border-0">
+    <Card className="lg:col-span-2 p-6">
       <div className="flex items-center gap-2 mb-3">
-        <Target className="w-5 h-5 text-amber-400" />
-        <h3 className="font-bold text-base">Meta Comercial Ativa</h3>
+        <Target className="w-4 h-4 text-text-muted" />
+        <h3 className="text-base font-semibold text-text-primary">Meta Comercial Ativa</h3>
       </div>
-      <p className="text-xl font-bold mb-1">
+      <p className="text-lg font-semibold text-text-primary mb-1">
         {metaAtual.month_label || metaAtual.month}
       </p>
-      <p className="text-xs text-slate-300 mb-4">
+      <p className="text-xs text-text-muted mb-4">
         Meta mensal · {metaAtual.month}
       </p>
 
@@ -1004,7 +997,7 @@ function MetaCard({ metaAtual, receitaMes, navigate }) {
             cy="50"
             r="42"
             fill="none"
-            stroke="rgba(255,255,255,0.1)"
+            stroke="hsl(var(--bg-elevated))"
             strokeWidth="8"
           />
           <circle
@@ -1012,7 +1005,7 @@ function MetaCard({ metaAtual, receitaMes, navigate }) {
             cy="50"
             r="42"
             fill="none"
-            stroke={pct >= 100 ? "#10B981" : "#F4A224"}
+            stroke={pct >= 100 ? "hsl(var(--success))" : "hsl(var(--warning))"}
             strokeWidth="8"
             strokeLinecap="round"
             strokeDasharray={`${(pct * Math.PI * 84) / 100} ${Math.PI * 84}`}
@@ -1020,42 +1013,40 @@ function MetaCard({ metaAtual, receitaMes, navigate }) {
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className={cn("text-3xl font-black", pct >= 100 ? "text-emerald-400" : "text-amber-400")}>
+          <span className={cn("text-3xl font-semibold tabular-nums", pct >= 100 ? "text-success" : "text-warning")}>
             {Math.round(pct)}%
           </span>
-          <span className="text-[10px] text-slate-400 tracking-widest">ATINGIDO</span>
+          <span className="text-[10px] text-text-muted tracking-widest">ATINGIDO</span>
         </div>
       </div>
 
       <div className="text-center mb-3">
-        <p className="text-xl font-bold">{formatBRL(receitaMes)}</p>
-        <p className="text-xs text-slate-400">de {formatBRL(target)}</p>
+        <p className="text-lg font-semibold text-text-primary tabular-nums">{formatBRL(receitaMes)}</p>
+        <p className="text-xs text-text-muted tabular-nums">de {formatBRL(target)}</p>
       </div>
 
       {pct >= 100 ? (
-        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg px-3 py-2 text-sm text-center">
-          🎉 <strong className="text-emerald-400">Meta atingida!</strong>
+        <div className="bg-success-subtle border border-success/30 rounded-md px-3 py-2 text-sm text-center text-success">
+          <strong>Meta atingida!</strong>
         </div>
       ) : faltam > 0 ? (
-        <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2 text-sm text-center">
+        <div className="bg-warning-subtle border border-warning/30 rounded-md px-3 py-2 text-sm text-center text-text-secondary">
           Faltam{" "}
-          <strong className="text-amber-400">{formatBRL(faltam)}</strong>
+          <strong className="text-warning tabular-nums">{formatBRL(faltam)}</strong>
         </div>
       ) : null}
 
       <div className="grid grid-cols-2 gap-2 mt-3 text-xs">
         <div>
-          <p className="text-slate-400">Média atual</p>
-          <p className="font-bold">{formatBRL(mediaDiaria)}/dia</p>
+          <p className="text-text-muted">Média atual</p>
+          <p className="font-semibold text-text-primary tabular-nums">{formatBRL(mediaDiaria)}/dia</p>
         </div>
         <div>
-          <p className="text-slate-400">Necessário</p>
+          <p className="text-text-muted">Necessário</p>
           <p
             className={cn(
-              "font-bold",
-              mediaDiaria >= necessarioDia
-                ? "text-emerald-400"
-                : "text-red-400",
+              "font-semibold tabular-nums",
+              mediaDiaria >= necessarioDia ? "text-success" : "text-danger",
             )}
           >
             {formatBRL(necessarioDia)}/dia
@@ -1067,7 +1058,7 @@ function MetaCard({ metaAtual, receitaMes, navigate }) {
         variant="outline"
         size="sm"
         onClick={() => navigate("/gerente/metas")}
-        className="w-full mt-4 bg-transparent border-white/20 hover:bg-white/10 text-white"
+        className="w-full mt-4"
       >
         Ver escada completa <ArrowRight className="w-4 h-4 ml-1" />
       </Button>

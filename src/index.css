@@ -1,89 +1,183 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  :root {
+  /* ============================================================
+     DARK THEME (padrão)
+     - Background: cinza-azulado quase preto
+     - Vermelho institucional PCD como cor de ação
+     - Azul como acento/detalhe
+     - Texto branco com hierarquia de opacidade
+
+     Os tokens semânticos novos (--bg-*, --text-*, --brand-*, etc.)
+     são a fonte da verdade. Os tokens shadcn (--background, --card,
+     --primary, ...) são apelidados para os mesmos valores para que
+     todos os componentes existentes herdem o tema automaticamente.
+     ============================================================ */
+  :root,
+  .theme-dark {
+    /* --- Tokens semânticos novos --- */
+    --bg-base: 222 18% 8%;
+    --bg-surface: 222 16% 11%;
+    --bg-elevated: 222 14% 14%;
+    --bg-overlay: 222 12% 17%;
+
+    --border-subtle: 222 12% 18%;
+    --border-default: 222 12% 22%;
+    --border-strong: 222 12% 32%;
+
+    --text-primary: 0 0% 98%;
+    --text-secondary: 220 10% 75%;
+    --text-muted: 220 8% 55%;
+    --text-disabled: 220 6% 40%;
+
+    --brand-red: 0 75% 50%;
+    --brand-red-hover: 0 75% 45%;
+    --brand-red-subtle: 0 60% 16%;
+
+    --accent-blue: 217 91% 60%;
+    --accent-blue-hover: 217 91% 55%;
+    --accent-blue-subtle: 217 60% 18%;
+
+    --success: 142 60% 45%;
+    --success-subtle: 142 40% 15%;
+    --warning: 38 90% 55%;
+    --warning-subtle: 38 50% 16%;
+    --danger: 0 70% 55%;
+    --danger-subtle: 0 50% 16%;
+    --info: 217 60% 50%;
+    --info-subtle: 217 40% 16%;
+
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+    --shadow-md: 0 2px 4px rgb(0 0 0 / 0.4);
+    --shadow-lg: 0 4px 12px rgb(0 0 0 / 0.5);
+
     --font-inter: 'Inter', sans-serif;
-    --background: 220 20% 97%;
-    --foreground: 222 47% 11%;
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 224 80% 24%;
+    --radius: 0.5rem;
+
+    /* --- Apelidos shadcn (apontam para os tokens acima) --- */
+    --background: var(--bg-base);
+    --foreground: var(--text-primary);
+    --card: var(--bg-surface);
+    --card-foreground: var(--text-primary);
+    --popover: var(--bg-overlay);
+    --popover-foreground: var(--text-primary);
+    --primary: var(--brand-red);
     --primary-foreground: 0 0% 100%;
-    --secondary: 0 100% 40%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 220 14% 93%;
-    --muted-foreground: 220 9% 46%;
-    --accent: 0 100% 40%;
-    --accent-foreground: 222 47% 11%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 220 13% 89%;
-    --input: 220 13% 89%;
-    --ring: 224 80% 24%;
-    --chart-1: 224 80% 24%;
-    --chart-2: 0 100% 40%;
-    --chart-3: 173 58% 39%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --radius: 0.625rem;
-    --sidebar-background: 224 80% 14%;
-    --sidebar-foreground: 220 20% 90%;
-    --sidebar-primary: 0 100% 40%;
-    --sidebar-primary-foreground: 222 47% 11%;
-    --sidebar-accent: 224 60% 22%;
-    --sidebar-accent-foreground: 220 20% 95%;
-    --sidebar-border: 224 60% 20%;
-    --sidebar-ring: 0 100% 40%;
+    --secondary: var(--bg-elevated);
+    --secondary-foreground: var(--text-secondary);
+    --muted: var(--bg-elevated);
+    --muted-foreground: var(--text-muted);
+    --accent: var(--bg-elevated);
+    --accent-foreground: var(--text-primary);
+    --destructive: var(--danger);
+    --destructive-foreground: 0 0% 100%;
+    --border: var(--border-default);
+    --input: var(--border-default);
+    --ring: 0 75% 55%;
+
+    --chart-1: var(--brand-red);
+    --chart-2: var(--accent-blue);
+    --chart-3: var(--success);
+    --chart-4: var(--warning);
+    --chart-5: var(--info);
+
+    --sidebar-background: var(--bg-surface);
+    --sidebar-foreground: var(--text-secondary);
+    --sidebar-primary: var(--brand-red);
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: var(--bg-elevated);
+    --sidebar-accent-foreground: var(--text-primary);
+    --sidebar-border: var(--border-subtle);
+    --sidebar-ring: var(--brand-red);
+    --sidebar-active: var(--brand-red-subtle);
+    --sidebar-active-foreground: var(--text-primary);
   }
 
-  .dark {
-    --background: 222 47% 6%;
-    --foreground: 220 20% 95%;
-    --card: 222 47% 9%;
-    --card-foreground: 220 20% 95%;
-    --popover: 222 47% 9%;
-    --popover-foreground: 220 20% 95%;
-    --primary: 0 100% 40%;
-    --primary-foreground: 222 47% 11%;
-    --secondary: 224 60% 22%;
-    --secondary-foreground: 220 20% 95%;
-    --muted: 222 30% 14%;
-    --muted-foreground: 220 9% 55%;
-    --accent: 0 100% 40%;
-    --accent-foreground: 222 47% 11%;
-    --destructive: 0 62% 30%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 222 30% 18%;
-    --input: 222 30% 18%;
-    --ring: 0 100% 40%;
-    --chart-1: 0 100% 40%;
-    --chart-2: 224 80% 50%;
-    --chart-3: 173 58% 45%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --sidebar-background: 222 47% 6%;
-    --sidebar-foreground: 220 20% 90%;
-    --sidebar-primary: 0 100% 40%;
-    --sidebar-primary-foreground: 222 47% 11%;
-    --sidebar-accent: 222 30% 14%;
-    --sidebar-accent-foreground: 220 20% 95%;
-    --sidebar-border: 222 30% 14%;
-    --sidebar-ring: 0 100% 40%;
-  }
-}
+  /* ============================================================
+     LIGHT THEME (preservado como opção secundária)
+     ============================================================ */
+  .theme-light {
+    --bg-base: 0 0% 100%;
+    --bg-surface: 220 20% 98%;
+    --bg-elevated: 220 16% 96%;
+    --bg-overlay: 0 0% 100%;
 
-@layer base {
+    --border-subtle: 220 14% 92%;
+    --border-default: 220 13% 88%;
+    --border-strong: 220 13% 75%;
+
+    --text-primary: 222 47% 11%;
+    --text-secondary: 215 25% 27%;
+    --text-muted: 215 16% 47%;
+    --text-disabled: 215 10% 65%;
+
+    --brand-red: 0 75% 45%;
+    --brand-red-hover: 0 75% 40%;
+    --brand-red-subtle: 0 80% 96%;
+
+    --accent-blue: 217 91% 50%;
+    --accent-blue-hover: 217 91% 45%;
+    --accent-blue-subtle: 217 90% 96%;
+
+    --success: 142 71% 36%;
+    --success-subtle: 142 60% 95%;
+    --warning: 38 90% 45%;
+    --warning-subtle: 38 90% 95%;
+    --danger: 0 70% 45%;
+    --danger-subtle: 0 70% 95%;
+    --info: 217 60% 45%;
+    --info-subtle: 217 90% 96%;
+
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.06);
+    --shadow-md: 0 2px 4px rgb(0 0 0 / 0.08);
+    --shadow-lg: 0 4px 12px rgb(0 0 0 / 0.1);
+
+    --ring: 0 75% 50%;
+
+    /* Apelidos shadcn herdam os tokens acima via var() definidos em :root,
+       mas precisamos re-declarar os que mudam de fórmula no claro. */
+    --primary-foreground: 0 0% 100%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Menu lateral azul institucional no tema claro (texto claro sobre navy) */
+    --sidebar-background: 224 64% 16%;
+    --sidebar-foreground: 215 32% 80%;
+    --sidebar-primary: var(--brand-red);
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 224 48% 24%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 224 42% 24%;
+    --sidebar-ring: var(--brand-red);
+    --sidebar-active: 224 58% 32%;
+    --sidebar-active-foreground: 0 0% 100%;
+  }
+
+  /* Garante que os apelidos shadcn que usam var() sejam recalculados
+     no tema claro (CSS custom properties resolvem em cascata, então
+     redefinir os tokens-base acima já propaga para os apelidos). */
+
   * {
     @apply border-border outline-ring/50;
   }
+
+  html, body {
+    background: hsl(var(--bg-base));
+    color: hsl(var(--text-primary));
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
   body {
-    @apply bg-background text-foreground font-inter;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  .font-mono, code, pre, kbd, samp {
+    font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
   }
 }
 
@@ -93,5 +187,5 @@
 }
 
 .animate-fade-in {
-  animation: fade-in 0.5s ease-out;
+  animation: fade-in 0.4s ease-out;
 }

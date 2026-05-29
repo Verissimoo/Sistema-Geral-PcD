@@ -52,7 +52,8 @@ const STOCK_CONFIG = {
 };
 
 export default function VendedorMilhas() {
-  const { isAdmin, user } = useAuth();
+  const { isAdmin, isSuporte, user } = useAuth();
+  const canEdit = isAdmin || isSuporte;
   const { toast } = useToast();
   const [data, setData] = useState([]);
   const [expandedId, setExpandedId] = useState(null);
@@ -242,7 +243,7 @@ export default function VendedorMilhas() {
             Preços de custo e venda por programa de milhagem · Atualizado pela gestão
           </p>
         </div>
-        {isAdmin && (
+        {canEdit && (
           <Button onClick={openCreate} className="gap-2 shrink-0">
             <Plus className="h-4 w-4" /> Adicionar Programa
           </Button>
@@ -325,7 +326,7 @@ export default function VendedorMilhas() {
                 <Th>Margem</Th>
                 <Th>Variabilidade</Th>
                 <Th>Atualização</Th>
-                {isAdmin && <Th align="right">Ações</Th>}
+                {canEdit && <Th align="right">Ações</Th>}
               </tr>
             </thead>
             <tbody>
@@ -333,7 +334,7 @@ export default function VendedorMilhas() {
                 <ProgramRow
                   key={item.id}
                   item={item}
-                  isAdmin={isAdmin}
+                  isAdmin={canEdit}
                   expanded={expandedId === item.id}
                   onToggleExpand={() =>
                     setExpandedId(expandedId === item.id ? null : item.id)
@@ -346,7 +347,7 @@ export default function VendedorMilhas() {
               {data.length === 0 && (
                 <tr>
                   <td
-                    colSpan={isAdmin ? 7 : 6}
+                    colSpan={canEdit ? 7 : 6}
                     className="px-6 py-12 text-center text-sm text-muted-foreground"
                   >
                     Nenhum programa cadastrado

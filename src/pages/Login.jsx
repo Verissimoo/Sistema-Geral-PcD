@@ -61,14 +61,20 @@ export default function Login() {
     >
       <div className="w-full max-w-[420px] bg-white rounded-2xl shadow-2xl p-10">
         {/* Logo */}
-        <div className="text-center mb-1">
-          <div className="text-2xl font-extrabold tracking-tight" style={{ letterSpacing: "-0.3px" }}>
-            <span style={{ color: "#0B1E3D" }}>Passagens</span>
-            <span style={{ color: "#CC1B1B" }}>Com</span>
-            <span style={{ color: "#0B1E3D" }}>Desconto</span>
+        <div className="flex flex-col items-center mb-1">
+          <div
+            className="w-full rounded-xl px-6 py-5 flex items-center justify-center"
+            style={{ background: "#0B1E3D" }}
+          >
+            <img
+              src="/brand/logo.png"
+              alt="PassagensComDesconto"
+              className="h-12 w-auto object-contain select-none"
+              draggable={false}
+            />
           </div>
           <div
-            className="text-[11px] uppercase mt-1"
+            className="text-[11px] uppercase mt-3"
             style={{ color: "#6B7BA0", letterSpacing: "3px", fontWeight: 500 }}
           >
             Sistema Interno

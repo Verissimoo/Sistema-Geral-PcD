@@ -696,8 +696,14 @@ function CareerMap({ currentLevelCode }) {
             <Trophy className="h-10 w-10 text-amber-400" />
           </div>
           <div className="flex-1">
+            <img
+              src="/brand/logo.png"
+              alt="PassagensComDesconto"
+              className="h-7 md:h-8 w-auto object-contain select-none mb-3"
+              draggable={false}
+            />
             <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight mb-2">
-              Plano de Carreira PassagensComDesconto
+              Plano de Carreira
             </h2>
             <p className="text-sm text-white/70 max-w-2xl mb-4">
               Cada nível alcançado significa mais responsabilidade, mais reconhecimento e mais ganhos.
