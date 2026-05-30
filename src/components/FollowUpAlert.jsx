@@ -48,17 +48,17 @@ export function FollowUpAlert() {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="relative p-2 rounded-full hover:bg-slate-100 transition-colors"
+        className="relative p-2 rounded-full hover:bg-bg-elevated transition-colors"
         aria-label="Follow-ups pendentes"
       >
-        <Bell className="w-5 h-5 text-slate-600" />
-        <span className="absolute -top-1 -right-1 w-5 h-5 bg-amber-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
+        <Bell className="w-5 h-5 text-text-secondary" />
+        <span className="absolute -top-1 -right-1 w-5 h-5 bg-warning text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
           {pendentes.length}
         </span>
       </button>
 
       {open && (
-        <div className="absolute right-0 top-10 w-80 bg-white border border-border rounded-xl shadow-xl z-50">
+        <div className="absolute right-0 top-10 w-80 bg-bg-surface border border-border rounded-xl shadow-xl z-50">
           <div className="p-3 border-b border-border">
             <p className="font-semibold text-sm">Follow-ups pendentes</p>
             <p className="text-xs text-muted-foreground">
@@ -72,7 +72,7 @@ export function FollowUpAlert() {
               return (
                 <div
                   key={q.id}
-                  className="p-3 border-b last:border-0 border-border hover:bg-slate-50"
+                  className="p-3 border-b last:border-0 border-border hover:bg-bg-elevated"
                 >
                   <div className="flex justify-between items-start gap-2">
                     <div className="min-w-0">
@@ -126,7 +126,7 @@ function RegistrarFollowUpButton({ quote, onDone }) {
       onClick={handleRegistrar}
       disabled={loading}
       className={cn(
-        "text-xs px-2 py-1 bg-amber-500 text-white rounded font-medium hover:bg-amber-600 disabled:opacity-50 whitespace-nowrap shrink-0"
+        "text-xs px-2 py-1 bg-warning text-white rounded font-medium hover:bg-warning disabled:opacity-50 whitespace-nowrap shrink-0"
       )}
     >
       {loading ? "..." : "Registrar feito"}

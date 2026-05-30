@@ -26,19 +26,19 @@ const PRODUCT_TABS = [
 ];
 
 const PRODUCT_DOT_CLASSES = {
-  blue: "bg-blue-500",
-  red: "bg-red-500",
-  amber: "bg-amber-500",
-  emerald: "bg-emerald-500",
-  purple: "bg-purple-500",
+  blue: "bg-accent",
+  red: "bg-danger",
+  amber: "bg-warning",
+  emerald: "bg-success",
+  purple: "bg-accent",
 };
 
 const PRODUCT_BADGE_CLASSES = {
-  blue: "bg-blue-100 text-blue-700 border-blue-200",
-  red: "bg-red-100 text-red-700 border-red-200",
-  amber: "bg-amber-100 text-amber-700 border-amber-200",
-  emerald: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  purple: "bg-purple-100 text-purple-700 border-purple-200",
+  blue: "bg-accent/10 text-accent border-accent/30",
+  red: "bg-danger/10 text-danger border-danger/30",
+  amber: "bg-warning/10 text-warning border-warning/30",
+  emerald: "bg-success/10 text-success border-success/30",
+  purple: "bg-accent/10 text-accent border-accent/30",
 };
 
 // ─── Página ──────────────────────────────────────────────────────────
@@ -98,34 +98,34 @@ export default function VendedorCotacao() {
           {/* Hero navy */}
           <Card className="border-0 bg-[#0B1E3D] text-white overflow-hidden">
             <CardContent className="p-6 md:p-8">
-              <div className="flex items-center gap-2 text-amber-400 text-xs font-semibold uppercase tracking-[0.3em] mb-2">
+              <div className="flex items-center gap-2 text-warning text-xs font-semibold uppercase tracking-[0.3em] mb-2">
                 <Diamond className="h-3 w-3" /> Quem somos e como atuamos
               </div>
               <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-1">
-                Passagens<span className="text-red-500">Com</span>Desconto
+                Passagens<span className="text-danger">Com</span>Desconto
               </h2>
               <p className="text-white/60 text-sm mb-6">
                 Agência de viagens · Brasília-DF · CADASTUR: 62.830.477/0001-51
               </p>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-5 rounded-lg bg-white/5 border border-white/10">
+                <div className="p-5 rounded-lg bg-white/10 border border-white/10">
                   <div className="text-xs uppercase tracking-widest text-white/50 mb-2">Como funciona</div>
                   <p className="text-white/90 text-sm leading-relaxed">
                     Leads chegam prontos via marketing (Zenvia) — o vendedor foca em{" "}
                     <strong>atender, qualificar, cotar e fechar</strong>.
                   </p>
-                  <Badge className="mt-3 bg-amber-500 hover:bg-amber-500 text-[#0B1E3D] border-0">
+                  <Badge className="mt-3 bg-warning hover:bg-warning text-[#0B1E3D] border-0">
                     Sem prospecção ativa
                   </Badge>
                 </div>
 
-                <div className="p-5 rounded-lg bg-white/5 border border-white/10">
+                <div className="p-5 rounded-lg bg-white/10 border border-white/10">
                   <div className="text-xs uppercase tracking-widest text-white/50 mb-3">Fluxo padrão</div>
                   <div className="space-y-2">
                     {["Diagnosticar", "Comparar", "Apresentar", "Fechar", "Follow-up"].map((step, i, arr) => (
                       <div key={step} className="flex items-center gap-3">
-                        <div className="h-6 w-6 rounded-full bg-amber-500 text-[#0B1E3D] flex items-center justify-center text-xs font-bold">
+                        <div className="h-6 w-6 rounded-full bg-warning text-[#0B1E3D] flex items-center justify-center text-xs font-bold">
                           {i + 1}
                         </div>
                         <span className="text-white/90 text-sm font-medium">{step}</span>
@@ -179,12 +179,12 @@ export default function VendedorCotacao() {
             <SectionTitle icon={Plane} title="Companhias principais" />
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {[
-                { name: "LATAM", color: "from-red-500 to-pink-600", milheiro: "R$ 0,0285" },
-                { name: "GOL", color: "from-orange-500 to-amber-600", milheiro: "R$ 0,02" },
-                { name: "AZUL", color: "from-blue-500 to-blue-700", milheiro: "R$ 0,02" },
+                { name: "LATAM", color: "bg-danger", milheiro: "R$ 0,0285" },
+                { name: "GOL", color: "bg-warning", milheiro: "R$ 0,02" },
+                { name: "AZUL", color: "bg-accent", milheiro: "R$ 0,02" },
               ].map((c) => (
                 <Card key={c.name} className="border-border/50 overflow-hidden">
-                  <div className={cn("h-1 bg-gradient-to-r", c.color)} />
+                  <div className={cn("h-1", c.color)} />
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between mb-2">
                       <Badge variant="outline" className="font-bold tracking-wider">{c.name}</Badge>
@@ -199,13 +199,13 @@ export default function VendedorCotacao() {
           </div>
 
           {/* Regras fundamentais */}
-          <Card className="border-amber-300 bg-amber-50/60 dark:bg-amber-500/5">
+          <Card className="border-warning/30 bg-warning/10 dark:bg-warning/5">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2 text-amber-900 dark:text-amber-300">
+              <CardTitle className="text-base flex items-center gap-2 text-warning dark:text-warning">
                 <AlertTriangle className="h-4 w-4" /> Regras fundamentais
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2.5 text-sm text-amber-900 dark:text-amber-200">
+            <CardContent className="space-y-2.5 text-sm text-warning dark:text-warning">
               <RuleLine>
                 <strong>Prioridade:</strong> SEMPRE tentar vender em milhas quando a conta fechar melhor.
               </RuleLine>
@@ -231,7 +231,7 @@ export default function VendedorCotacao() {
                 <CardContent className="text-sm space-y-1.5">
                   {["PIX", "Cartão até 12x com juros", "Débito", "Composição"].map((m) => (
                     <div key={m} className="flex items-center gap-2">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> {m}
+                      <CheckCircle2 className="h-3.5 w-3.5 text-success" /> {m}
                     </div>
                   ))}
                 </CardContent>
@@ -245,17 +245,17 @@ export default function VendedorCotacao() {
                 <CardContent className="text-sm space-y-1.5">
                   {["PIX", "Cartão", "Débito", "TransferWise", "MB Way", "Composição PIX + Cartão"].map((m) => (
                     <div key={m} className="flex items-center gap-2">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> {m}
+                      <CheckCircle2 className="h-3.5 w-3.5 text-success" /> {m}
                     </div>
                   ))}
                 </CardContent>
               </Card>
             </div>
-            <Card className="border-amber-200 bg-amber-50/40 mt-3">
+            <Card className="border-warning/30 bg-warning/10 mt-3">
               <CardContent className="p-4 text-sm flex items-start gap-3">
-                <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                <AlertTriangle className="h-4 w-4 text-warning mt-0.5 shrink-0" />
                 <div>
-                  <strong className="text-amber-900 dark:text-amber-300">Boleto:</strong>{" "}
+                  <strong className="text-warning dark:text-warning">Boleto:</strong>{" "}
                   só quando permite cancelamento/reembolso, entrada cobre taxa de cancelamento e bilhete quitado 10 dias antes.
                 </div>
               </CardContent>
@@ -268,7 +268,7 @@ export default function VendedorCotacao() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Card className="border-border/50">
                 <CardHeader className="pb-2">
-                  <Badge className="w-fit mb-1 bg-purple-500 hover:bg-purple-500">Milhas</Badge>
+                  <Badge className="w-fit mb-1 bg-accent hover:bg-accent">Milhas</Badge>
                   <CardTitle className="text-base">Cálculo do custo</CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -279,14 +279,14 @@ export default function VendedorCotacao() {
               </Card>
               <Card className="border-border/50">
                 <CardHeader className="pb-2">
-                  <Badge className="w-fit mb-1 bg-emerald-600 hover:bg-emerald-600">Dinheiro</Badge>
+                  <Badge className="w-fit mb-1 bg-success hover:bg-success">Dinheiro</Badge>
                   <CardTitle className="text-base">Cálculo do preço</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   <div className="p-3 rounded-lg bg-muted/50 font-mono text-sm border border-border">
                     Preço venda = tarifa + 10%
                   </div>
-                  <div className="text-xs text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                  <div className="text-xs text-warning dark:text-warning flex items-center gap-1.5">
                     <AlertTriangle className="h-3.5 w-3.5" /> EXCEÇÃO AZUL: não aplicar 10%
                   </div>
                 </CardContent>
@@ -383,9 +383,9 @@ export default function VendedorCotacao() {
           <div>
             <SectionTitle icon={MessageSquare} title="Perguntas obrigatórias" />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Card className="border-emerald-300 bg-emerald-50/40 dark:bg-emerald-500/5">
+              <Card className="border-success/30 bg-success/10 dark:bg-success/5">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-emerald-800 dark:text-emerald-300">
+                  <CardTitle className="text-sm text-success dark:text-success">
                     Obrigatórias
                   </CardTitle>
                 </CardHeader>
@@ -399,15 +399,15 @@ export default function VendedorCotacao() {
                     "Orçamento máximo",
                   ].map((q) => (
                     <div key={q} className="flex items-center gap-2">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                      <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0" />
                       {q}
                     </div>
                   ))}
                 </CardContent>
               </Card>
-              <Card className="border-amber-300 bg-amber-50/40 dark:bg-amber-500/5">
+              <Card className="border-warning/30 bg-warning/10 dark:bg-warning/5">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-amber-800 dark:text-amber-300">
+                  <CardTitle className="text-sm text-warning dark:text-warning">
                     Qualificação
                   </CardTitle>
                 </CardHeader>
@@ -419,7 +419,7 @@ export default function VendedorCotacao() {
                     "Aceita conexão ou aeroporto alternativo?",
                   ].map((q) => (
                     <div key={q} className="flex items-center gap-2">
-                      <Sparkles className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                      <Sparkles className="h-3.5 w-3.5 text-warning shrink-0" />
                       {q}
                     </div>
                   ))}
@@ -440,7 +440,7 @@ export default function VendedorCotacao() {
                   "Fazer follow-up quando não fechar na primeira conversa",
                 ].map((c) => (
                   <div key={c} className="flex items-start gap-2 text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" /> {c}
+                    <CheckCircle2 className="h-4 w-4 text-success shrink-0 mt-0.5" /> {c}
                   </div>
                 ))}
               </CardContent>
@@ -450,9 +450,9 @@ export default function VendedorCotacao() {
           <div>
             <SectionTitle icon={Target} title="Erros comuns vs Boas práticas" />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Card className="border-red-300 bg-red-50/40 dark:bg-red-500/5">
+              <Card className="border-danger/30 bg-danger/10 dark:bg-danger/5">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-red-800 dark:text-red-300 flex items-center gap-2">
+                  <CardTitle className="text-sm text-danger dark:text-danger flex items-center gap-2">
                     <XCircle className="h-4 w-4" /> Erros
                   </CardTitle>
                 </CardHeader>
@@ -465,14 +465,14 @@ export default function VendedorCotacao() {
                     "Não fazer follow-up",
                   ].map((e) => (
                     <div key={e} className="flex items-start gap-2">
-                      <XCircle className="h-3.5 w-3.5 text-red-600 shrink-0 mt-0.5" /> {e}
+                      <XCircle className="h-3.5 w-3.5 text-danger shrink-0 mt-0.5" /> {e}
                     </div>
                   ))}
                 </CardContent>
               </Card>
-              <Card className="border-emerald-300 bg-emerald-50/40 dark:bg-emerald-500/5">
+              <Card className="border-success/30 bg-success/10 dark:bg-success/5">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+                  <CardTitle className="text-sm text-success dark:text-success flex items-center gap-2">
                     <CheckCircle2 className="h-4 w-4" /> Boas práticas
                   </CardTitle>
                 </CardHeader>
@@ -484,7 +484,7 @@ export default function VendedorCotacao() {
                     "Follow-up até decisão final",
                   ].map((b) => (
                     <div key={b} className="flex items-start gap-2">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" /> {b}
+                      <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0 mt-0.5" /> {b}
                     </div>
                   ))}
                 </CardContent>
@@ -501,7 +501,7 @@ export default function VendedorCotacao() {
             <SectionTitle icon={Wallet} title="Estrutura de comissões" />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {/* Tipo A */}
-              <Card className="border-2 border-[#0B1E3D]/40 bg-blue-50/40 dark:bg-blue-500/5">
+              <Card className="border-2 border-[#0B1E3D]/40 bg-accent/10 dark:bg-accent/5">
                 <CardHeader className="pb-3">
                   <Badge className="w-fit mb-2 bg-[#0B1E3D] text-white hover:bg-[#0B1E3D]">Tipo A</Badge>
                   <CardTitle className="text-base">Carteira Própria</CardTitle>
@@ -516,9 +516,9 @@ export default function VendedorCotacao() {
               </Card>
 
               {/* Tipo B */}
-              <Card className="border-2 border-amber-400 bg-amber-50/40 dark:bg-amber-500/5">
+              <Card className="border-2 border-warning/30 bg-warning/10 dark:bg-warning/5">
                 <CardHeader className="pb-3">
-                  <Badge className="w-fit mb-2 bg-amber-500 hover:bg-amber-500 text-white">Tipo B</Badge>
+                  <Badge className="w-fit mb-2 bg-warning hover:bg-warning text-white">Tipo B</Badge>
                   <CardTitle className="text-base">Lead de Marketing</CardTitle>
                   <p className="text-xs text-muted-foreground mt-1">
                     Vendas originadas pelo marketing interno (Zenvia)
@@ -615,7 +615,7 @@ function SectionTitle({ icon: Icon, title }) {
 function RuleLine({ children }) {
   return (
     <div className="flex items-start gap-2">
-      <div className="h-1.5 w-1.5 rounded-full bg-amber-600 mt-2 shrink-0" />
+      <div className="h-1.5 w-1.5 rounded-full bg-warning mt-2 shrink-0" />
       <div>{children}</div>
     </div>
   );
@@ -626,13 +626,13 @@ function CommissionRow({ label, value, highlight }) {
     <div className={cn(
       "flex items-center justify-between p-3 rounded-lg border",
       highlight
-        ? "bg-emerald-500/10 border-emerald-500/40"
+        ? "bg-success/10 border-success/30"
         : "bg-card border-border"
     )}>
       <span className="text-sm font-medium">{label}</span>
       <span className={cn(
         "font-bold text-sm",
-        highlight && "text-emerald-700 dark:text-emerald-400"
+        highlight && "text-success dark:text-success"
       )}>
         {value}
       </span>
@@ -669,7 +669,7 @@ function PlaybookHero({ accentColor, productName, subtitle, meta }) {
   return (
     <Card className="border-0 bg-[#0B1E3D] text-white overflow-hidden">
       <CardContent className="p-6 md:p-8">
-        <div className="flex items-center gap-2 text-amber-400 text-xs font-bold uppercase tracking-[0.3em] mb-3">
+        <div className="flex items-center gap-2 text-warning text-xs font-bold uppercase tracking-[0.3em] mb-3">
           <BookMarked className="h-3 w-3" /> Playbook de vendas
         </div>
         <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-2">
@@ -696,7 +696,7 @@ function PlaybookSection({ number, title, subtitle, children }) {
   return (
     <section className="space-y-4">
       <div className="flex items-start gap-4">
-        <div className="text-4xl md:text-5xl font-extrabold text-amber-500 leading-none tracking-tight">
+        <div className="text-4xl md:text-5xl font-extrabold text-warning leading-none tracking-tight">
           {number}
         </div>
         <div className="pt-1">
@@ -712,30 +712,30 @@ function PlaybookSection({ number, title, subtitle, children }) {
 function OfferGrid({ offer, dontOffer }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-      <Card className="border-emerald-300 bg-emerald-50/40 dark:bg-emerald-500/5">
+      <Card className="border-success/30 bg-success/10 dark:bg-success/5">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+          <CardTitle className="text-sm text-success dark:text-success flex items-center gap-2">
             <Plus className="h-4 w-4" /> Ofereça quando
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-1.5 text-sm">
           {offer.map((x) => (
             <div key={x} className="flex items-start gap-2">
-              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" /> {x}
+              <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0 mt-0.5" /> {x}
             </div>
           ))}
         </CardContent>
       </Card>
-      <Card className="border-red-300 bg-red-50/40 dark:bg-red-500/5">
+      <Card className="border-danger/30 bg-danger/10 dark:bg-danger/5">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm text-red-800 dark:text-red-300 flex items-center gap-2">
+          <CardTitle className="text-sm text-danger dark:text-danger flex items-center gap-2">
             <Minus className="h-4 w-4" /> Não ofereça quando
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-1.5 text-sm">
           {dontOffer.map((x) => (
             <div key={x} className="flex items-start gap-2">
-              <XCircle className="h-3.5 w-3.5 text-red-600 shrink-0 mt-0.5" /> {x}
+              <XCircle className="h-3.5 w-3.5 text-danger shrink-0 mt-0.5" /> {x}
             </div>
           ))}
         </CardContent>
@@ -766,14 +766,14 @@ function ProcessSteps({ steps }) {
 
 function FraseBase({ children }) {
   return (
-    <Card className="border-amber-300 bg-gradient-to-br from-amber-50 to-amber-100/40 dark:from-amber-500/10 dark:to-amber-500/5">
+    <Card className="border-warning/30 bg-warning/10">
       <CardContent className="p-5 flex items-start gap-3">
-        <Lightbulb className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+        <Lightbulb className="h-5 w-5 text-warning shrink-0 mt-0.5" />
         <div>
-          <div className="text-xs uppercase tracking-widest text-amber-700 dark:text-amber-400 font-bold mb-1">
+          <div className="text-xs uppercase tracking-widest text-warning dark:text-warning font-bold mb-1">
             Frase-base
           </div>
-          <p className="text-sm text-amber-900 dark:text-amber-100 italic">"{children}"</p>
+          <p className="text-sm text-warning dark:text-warning italic">"{children}"</p>
         </div>
       </CardContent>
     </Card>
@@ -784,9 +784,9 @@ function CriticalRules({ rules }) {
   return (
     <div className="space-y-2">
       {rules.map((r) => (
-        <Card key={r} className="border-red-300 border-l-4 border-l-red-600 bg-red-50/40 dark:bg-red-500/5">
-          <CardContent className="p-3 flex items-start gap-3 text-sm text-red-900 dark:text-red-200">
-            <AlertTriangle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+        <Card key={r} className="border-danger/30 border-l-4 border-l-red-600 bg-danger/10 dark:bg-danger/5">
+          <CardContent className="p-3 flex items-start gap-3 text-sm text-danger dark:text-danger">
+            <AlertTriangle className="h-4 w-4 text-danger shrink-0 mt-0.5" />
             {r}
           </CardContent>
         </Card>
@@ -798,30 +798,30 @@ function CriticalRules({ rules }) {
 function ErrorsExcellence({ errors, excellence }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-      <Card className="border-red-300 bg-red-50/40 dark:bg-red-500/5">
+      <Card className="border-danger/30 bg-danger/10 dark:bg-danger/5">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm text-red-800 dark:text-red-300 flex items-center gap-2">
+          <CardTitle className="text-sm text-danger dark:text-danger flex items-center gap-2">
             <XCircle className="h-4 w-4" /> Erros comuns
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-1.5 text-sm">
           {errors.map((e) => (
             <div key={e} className="flex items-start gap-2">
-              <XCircle className="h-3.5 w-3.5 text-red-600 shrink-0 mt-0.5" /> {e}
+              <XCircle className="h-3.5 w-3.5 text-danger shrink-0 mt-0.5" /> {e}
             </div>
           ))}
         </CardContent>
       </Card>
-      <Card className="border-emerald-300 bg-emerald-50/40 dark:bg-emerald-500/5">
+      <Card className="border-success/30 bg-success/10 dark:bg-success/5">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+          <CardTitle className="text-sm text-success dark:text-success flex items-center gap-2">
             <Award className="h-4 w-4" /> Vendedor excelente
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-1.5 text-sm">
           {excellence.map((x) => (
             <div key={x} className="flex items-start gap-2">
-              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" /> {x}
+              <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0 mt-0.5" /> {x}
             </div>
           ))}
         </CardContent>
@@ -836,7 +836,7 @@ function Quiz({ questions }) {
       {questions.map((q, i) => (
         <Card key={q} className="border-border/50">
           <CardContent className="p-4 flex items-start gap-3">
-            <div className="h-7 w-7 rounded-full bg-amber-100 text-amber-700 border border-amber-300 flex items-center justify-center text-xs font-bold shrink-0">
+            <div className="h-7 w-7 rounded-full bg-warning/10 text-warning border border-warning/30 flex items-center justify-center text-xs font-bold shrink-0">
               {i + 1}
             </div>
             <div className="text-sm flex items-start gap-2">
@@ -868,7 +868,7 @@ function ScenarioCard({ scenario, checklist, label }) {
         </div>
         {checklist.map((c) => (
           <div key={c} className="flex items-start gap-2">
-            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" /> {c}
+            <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0 mt-0.5" /> {c}
           </div>
         ))}
       </CardContent>
@@ -942,7 +942,7 @@ function PlaybookNacional() {
   return (
     <div className="space-y-8">
       <PlaybookHero
-        accentColor="text-blue-400"
+        accentColor="text-accent"
         productName="Passagem Nacional"
         subtitle="Treinamento, consulta rápida e execução comercial"
         meta={[
@@ -1034,9 +1034,9 @@ function PlaybookNacional() {
       </PlaybookSection>
 
       <PlaybookSection number="06" title="Skiplagging / Hidden City" subtitle="Risco e orientação">
-        <Card className="border-2 border-red-700 bg-red-950/5">
+        <Card className="border-2 border-danger/30 bg-danger/10">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2 text-red-700 dark:text-red-400">
+            <CardTitle className="text-sm flex items-center gap-2 text-danger dark:text-danger">
               <Skull className="h-4 w-4" /> Atenção máxima ao oferecer
             </CardTitle>
           </CardHeader>
@@ -1049,7 +1049,7 @@ function PlaybookNacional() {
               "Companhias podem penalizar — nunca vender como opção sem risco.",
             ].map((r) => (
               <div key={r} className="flex items-start gap-2">
-                <AlertTriangle className="h-3.5 w-3.5 text-red-600 shrink-0 mt-0.5" /> {r}
+                <AlertTriangle className="h-3.5 w-3.5 text-danger shrink-0 mt-0.5" /> {r}
               </div>
             ))}
           </CardContent>
@@ -1110,7 +1110,7 @@ function PlaybookInternacional() {
   return (
     <div className="space-y-8">
       <PlaybookHero
-        accentColor="text-red-400"
+        accentColor="text-danger"
         productName="Passagem Internacional"
         subtitle="Treinamento, consulta rápida e execução comercial"
         meta={[
@@ -1232,9 +1232,9 @@ function PlaybookInternacional() {
       </PlaybookSection>
 
       <PlaybookSection number="06" title="Documentação por destino" subtitle="Tema obrigatório de conversa">
-        <Card className="border-amber-300 bg-amber-50/40 dark:bg-amber-500/5">
+        <Card className="border-warning/30 bg-warning/10 dark:bg-warning/5">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2 text-amber-800 dark:text-amber-300">
+            <CardTitle className="text-sm flex items-center gap-2 text-warning dark:text-warning">
               <FileWarning className="h-4 w-4" /> Verificar antes de fechar
             </CardTitle>
           </CardHeader>
@@ -1244,7 +1244,7 @@ function PlaybookInternacional() {
             <Row k="Colômbia" v="Pode exigir vacina febre amarela" />
             <Row k="México" v="Pode exigir autorização de entrada" />
             <Separator className="my-2" />
-            <div className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+            <div className="text-xs font-bold uppercase tracking-wider text-warning dark:text-warning">
               Passaporte válido é tema OBRIGATÓRIO de conversa.
             </div>
           </CardContent>
@@ -1263,9 +1263,9 @@ function PlaybookInternacional() {
       </PlaybookSection>
 
       <PlaybookSection number="08" title="Skiplagging" subtitle="Mesmas regras do nacional">
-        <Card className="border-2 border-red-700 bg-red-950/5">
+        <Card className="border-2 border-danger/30 bg-danger/10">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2 text-red-700 dark:text-red-400">
+            <CardTitle className="text-sm flex items-center gap-2 text-danger dark:text-danger">
               <Skull className="h-4 w-4" /> Atenção máxima ao oferecer
             </CardTitle>
           </CardHeader>
@@ -1277,7 +1277,7 @@ function PlaybookInternacional() {
               "Companhias podem penalizar — nunca vender como opção sem risco.",
             ].map((r) => (
               <div key={r} className="flex items-start gap-2">
-                <AlertTriangle className="h-3.5 w-3.5 text-red-600 shrink-0 mt-0.5" /> {r}
+                <AlertTriangle className="h-3.5 w-3.5 text-danger shrink-0 mt-0.5" /> {r}
               </div>
             ))}
           </CardContent>
@@ -1342,9 +1342,9 @@ function PlaybookInternacional() {
       </PlaybookSection>
 
       <PlaybookSection number="12" title="Upsell" subtitle="Produtos que combinam">
-        <Card className="border-emerald-300 bg-emerald-50/40 dark:bg-emerald-500/5">
+        <Card className="border-success/30 bg-success/10 dark:bg-success/5">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+            <CardTitle className="text-sm text-success dark:text-success flex items-center gap-2">
               <TrendingUp className="h-4 w-4" /> Com quais produtos combina bem
             </CardTitle>
           </CardHeader>
@@ -1356,11 +1356,11 @@ function PlaybookInternacional() {
             ].map((u) => {
               const Icon = u.icon;
               return (
-                <div key={u.name} className="flex items-start gap-3 p-3 rounded-lg bg-white dark:bg-emerald-950/20 border border-emerald-200">
-                  <Icon className="h-5 w-5 text-emerald-600 shrink-0" />
+                <div key={u.name} className="flex items-start gap-3 p-3 rounded-lg bg-bg-surface dark:bg-success/10 border border-success/30">
+                  <Icon className="h-5 w-5 text-success shrink-0" />
                   <div>
-                    <div className="font-semibold text-emerald-900 dark:text-emerald-200">{u.name}</div>
-                    <div className="text-xs text-emerald-700/80 dark:text-emerald-300/80 mt-0.5">{u.desc}</div>
+                    <div className="font-semibold text-success dark:text-success">{u.name}</div>
+                    <div className="text-xs text-success dark:text-success mt-0.5">{u.desc}</div>
                   </div>
                 </div>
               );
@@ -1374,9 +1374,9 @@ function PlaybookInternacional() {
 
 function Row({ k, v }) {
   return (
-    <div className="flex items-start justify-between gap-3 py-1 border-b border-amber-200/50 last:border-0">
-      <span className="font-semibold text-amber-900 dark:text-amber-200 shrink-0">{k}</span>
-      <span className="text-amber-800 dark:text-amber-300/90 text-right">{v}</span>
+    <div className="flex items-start justify-between gap-3 py-1 border-b border-warning/30 last:border-0">
+      <span className="font-semibold text-warning dark:text-warning shrink-0">{k}</span>
+      <span className="text-warning dark:text-warning text-right">{v}</span>
     </div>
   );
 }
@@ -1394,7 +1394,7 @@ function BigBenefitCards({ benefits }) {
           <Card key={b.title} className="border-0 bg-[#0B1E3D] text-white overflow-hidden">
             <CardContent className="p-5">
               <div className="flex items-start justify-between mb-3">
-                <span className="text-3xl font-extrabold text-amber-400 leading-none tracking-tight">
+                <span className="text-3xl font-extrabold text-warning leading-none tracking-tight">
                   {String(i + 1).padStart(2, "0")}
                 </span>
                 {Icon && <Icon className="h-5 w-5 text-white/40" />}
@@ -1460,15 +1460,15 @@ function PlatformCard({ name, description, steps }) {
   return (
     <Card className="border-0 bg-[#0B1E3D] text-white">
       <CardContent className="p-6">
-        <div className="text-xs uppercase tracking-[0.3em] text-amber-400 font-bold mb-2">
+        <div className="text-xs uppercase tracking-[0.3em] text-warning font-bold mb-2">
           Plataforma
         </div>
         <div className="text-2xl font-extrabold mb-2">{name}</div>
         <p className="text-sm text-white/70 mb-5">{description}</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {steps.map((s, i) => (
-            <div key={s} className="flex items-start gap-3 p-3 rounded-lg bg-white/5 border border-white/10">
-              <span className="text-amber-400 font-bold text-sm">{String(i + 1).padStart(2, "0")}</span>
+            <div key={s} className="flex items-start gap-3 p-3 rounded-lg bg-white/10 border border-white/10">
+              <span className="text-warning font-bold text-sm">{String(i + 1).padStart(2, "0")}</span>
               <span className="text-sm text-white/90">{s}</span>
             </div>
           ))}
@@ -1495,9 +1495,9 @@ function TicketTiers({ tiers, footer }) {
         ))}
       </div>
       {footer && (
-        <Card className="border-emerald-300 bg-emerald-50/50 dark:bg-emerald-500/5">
-          <CardContent className="p-4 text-sm flex items-start gap-2 text-emerald-900 dark:text-emerald-200">
-            <TrendingUp className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" /> {footer}
+        <Card className="border-success/30 bg-success/10 dark:bg-success/5">
+          <CardContent className="p-4 text-sm flex items-start gap-2 text-success dark:text-success">
+            <TrendingUp className="h-4 w-4 text-success shrink-0 mt-0.5" /> {footer}
           </CardContent>
         </Card>
       )}
@@ -1510,16 +1510,16 @@ function ObjectionCards({ objections }) {
     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
       {objections.map((o, i) => (
         <Card key={o.q} className="border-border/50 overflow-hidden">
-          <div className="bg-red-500 h-1" />
+          <div className="bg-danger h-1" />
           <CardContent className="p-4">
             <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-2">
               Objeção {i + 1}
             </div>
-            <div className="text-sm italic font-semibold mb-3 text-red-700 dark:text-red-400">
+            <div className="text-sm italic font-semibold mb-3 text-danger dark:text-danger">
               "{o.q}"
             </div>
             <Separator className="my-2" />
-            <div className="text-[10px] uppercase tracking-widest text-emerald-700 dark:text-emerald-400 font-bold mb-1.5 flex items-center gap-1">
+            <div className="text-[10px] uppercase tracking-widest text-success dark:text-success font-bold mb-1.5 flex items-center gap-1">
               <ArrowRight className="h-3 w-3" /> Resposta
             </div>
             <p className="text-sm text-muted-foreground">{o.a}</p>
@@ -1533,30 +1533,30 @@ function ObjectionCards({ objections }) {
 function NunPromVerify({ never, always }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-      <Card className="border-red-300 bg-red-50/40 dark:bg-red-500/5">
+      <Card className="border-danger/30 bg-danger/10 dark:bg-danger/5">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm text-red-800 dark:text-red-300 flex items-center gap-2">
+          <CardTitle className="text-sm text-danger dark:text-danger flex items-center gap-2">
             <XCircle className="h-4 w-4" /> Nunca prometa
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-1.5 text-sm">
           {never.map((x) => (
             <div key={x} className="flex items-start gap-2">
-              <XCircle className="h-3.5 w-3.5 text-red-600 shrink-0 mt-0.5" /> {x}
+              <XCircle className="h-3.5 w-3.5 text-danger shrink-0 mt-0.5" /> {x}
             </div>
           ))}
         </CardContent>
       </Card>
-      <Card className="border-emerald-300 bg-emerald-50/40 dark:bg-emerald-500/5">
+      <Card className="border-success/30 bg-success/10 dark:bg-success/5">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+          <CardTitle className="text-sm text-success dark:text-success flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4" /> Sempre verifique
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-1.5 text-sm">
           {always.map((x) => (
             <div key={x} className="flex items-start gap-2">
-              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" /> {x}
+              <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0 mt-0.5" /> {x}
             </div>
           ))}
         </CardContent>
@@ -1573,7 +1573,7 @@ function PlaybookHotel() {
   return (
     <div className="space-y-8">
       <PlaybookHero
-        accentColor="text-amber-400"
+        accentColor="text-warning"
         productName="Hotel"
         subtitle="Guia completo para entender, posicionar e vender hospedagens com confiança e resultado"
         meta={[
@@ -1695,22 +1695,22 @@ function PlaybookHotel() {
           tiers={[
             {
               label: "Baixo",
-              badgeClass: "bg-blue-500 hover:bg-blue-500 text-white",
-              borderClass: "border-blue-200",
+              badgeClass: "bg-accent hover:bg-accent text-white",
+              borderClass: "border-accent/30",
               title: "Econômico",
               desc: "Hotéis 2-3 estrelas, pousadas. Foco em custo-benefício.",
             },
             {
               label: "Médio",
-              badgeClass: "bg-amber-500 hover:bg-amber-500 text-white",
-              borderClass: "border-amber-200",
+              badgeClass: "bg-warning hover:bg-warning text-white",
+              borderClass: "border-warning/30",
               title: "Intermediário",
               desc: "Hotéis 3-4 estrelas. Bom conforto, café incluso.",
             },
             {
               label: "Alto",
-              badgeClass: "bg-purple-500 hover:bg-purple-500 text-white",
-              borderClass: "border-purple-200",
+              badgeClass: "bg-accent hover:bg-accent text-white",
+              borderClass: "border-accent/30",
               title: "Premium",
               desc: "Resorts 5 estrelas, all-inclusive, suítes de luxo.",
             },
@@ -1781,7 +1781,7 @@ function PlaybookSeguro() {
   return (
     <div className="space-y-8">
       <PlaybookHero
-        accentColor="text-emerald-400"
+        accentColor="text-success"
         productName="Seguro Viagem"
         subtitle="Guia para entender, posicionar e vender seguro viagem com empatia e resultado"
         meta={[
@@ -1902,22 +1902,22 @@ function PlaybookSeguro() {
           tiers={[
             {
               label: "Baixo",
-              badgeClass: "bg-blue-500 hover:bg-blue-500 text-white",
-              borderClass: "border-blue-200",
+              badgeClass: "bg-accent hover:bg-accent text-white",
+              borderClass: "border-accent/30",
               title: "Cobertura básica",
               desc: "Viagens curtas, jovens até 60, cobertura essencial.",
             },
             {
               label: "Médio",
-              badgeClass: "bg-amber-500 hover:bg-amber-500 text-white",
-              borderClass: "border-amber-200",
+              badgeClass: "bg-warning hover:bg-warning text-white",
+              borderClass: "border-warning/30",
               title: "Cobertura ampla",
               desc: "Duração média, destinos com medicina cara, boa cobertura.",
             },
             {
               label: "Alto",
-              badgeClass: "bg-purple-500 hover:bg-purple-500 text-white",
-              borderClass: "border-purple-200",
+              badgeClass: "bg-accent hover:bg-accent text-white",
+              borderClass: "border-accent/30",
               title: "Cobertura premium",
               desc: "Viagens longas, acima de 60 anos, condições especiais.",
             },
@@ -1940,13 +1940,13 @@ function PlaybookSeguro() {
               "Explicar a diferença para o seguro do cartão",
             ]}
           />
-          <Card className="border-amber-300 bg-amber-50/50 dark:bg-amber-500/5">
+          <Card className="border-warning/30 bg-warning/10 dark:bg-warning/5">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-2 text-amber-800 dark:text-amber-300">
+              <CardTitle className="text-sm flex items-center gap-2 text-warning dark:text-warning">
                 <AlertTriangle className="h-4 w-4" /> Acionar em emergência
               </CardTitle>
             </CardHeader>
-            <CardContent className="text-sm text-amber-900 dark:text-amber-200">
+            <CardContent className="text-sm text-warning dark:text-warning">
               Contatar a seguradora pelo número da apólice <strong>ANTES</strong> de qualquer gasto médico.
               O cliente deve ligar primeiro, autorizar atendimento, e só então proceder.
             </CardContent>
@@ -1979,32 +1979,32 @@ function PlaybookSeguro() {
             É um valor a ser pago — porém é a segurança e tranquilidade para a sua viagem.
           </FraseBase>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <Card className="border-emerald-300 bg-emerald-50/40 dark:bg-emerald-500/5">
+            <Card className="border-success/30 bg-success/10 dark:bg-success/5">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-emerald-800 dark:text-emerald-300">
+                <CardTitle className="text-sm text-success dark:text-success">
                   Palavras que ajudam
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-1.5">
                   {["Segurança", "Tranquilidade", "Proteção", "Praticidade", "Economia", "Suporte"].map((w) => (
-                    <Badge key={w} variant="outline" className="bg-emerald-100/50 border-emerald-300 text-emerald-800">
+                    <Badge key={w} variant="outline" className="bg-success/10 border-success/30 text-success">
                       {w}
                     </Badge>
                   ))}
                 </div>
               </CardContent>
             </Card>
-            <Card className="border-red-300 bg-red-50/40 dark:bg-red-500/5">
+            <Card className="border-danger/30 bg-danger/10 dark:bg-danger/5">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-red-800 dark:text-red-300">
+                <CardTitle className="text-sm text-danger dark:text-danger">
                   Evitar
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-1 text-sm">
-                <div className="flex items-start gap-2"><XCircle className="h-3.5 w-3.5 text-red-600 mt-0.5 shrink-0" /> Termos técnicos sem explicação</div>
-                <div className="flex items-start gap-2"><XCircle className="h-3.5 w-3.5 text-red-600 mt-0.5 shrink-0" /> Promessas excessivas</div>
-                <div className="flex items-start gap-2"><XCircle className="h-3.5 w-3.5 text-red-600 mt-0.5 shrink-0" /> Linguagem insegura</div>
+                <div className="flex items-start gap-2"><XCircle className="h-3.5 w-3.5 text-danger mt-0.5 shrink-0" /> Termos técnicos sem explicação</div>
+                <div className="flex items-start gap-2"><XCircle className="h-3.5 w-3.5 text-danger mt-0.5 shrink-0" /> Promessas excessivas</div>
+                <div className="flex items-start gap-2"><XCircle className="h-3.5 w-3.5 text-danger mt-0.5 shrink-0" /> Linguagem insegura</div>
               </CardContent>
             </Card>
           </div>
@@ -2012,7 +2012,7 @@ function PlaybookSeguro() {
           <Card className="border-border/50">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
-                <Zap className="h-4 w-4 text-amber-500" /> Sinais de compra — o que fazer
+                <Zap className="h-4 w-4 text-warning" /> Sinais de compra — o que fazer
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-1.5 text-sm">
@@ -2031,9 +2031,9 @@ function PlaybookSeguro() {
             </CardContent>
           </Card>
 
-          <Card className="border-emerald-300 bg-emerald-50/40 dark:bg-emerald-500/5">
-            <CardContent className="p-4 text-sm flex items-start gap-2 text-emerald-900 dark:text-emerald-200">
-              <TrendingUp className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+          <Card className="border-success/30 bg-success/10 dark:bg-success/5">
+            <CardContent className="p-4 text-sm flex items-start gap-2 text-success dark:text-success">
+              <TrendingUp className="h-4 w-4 text-success shrink-0 mt-0.5" />
               <span>
                 <strong>Combina com:</strong> Aéreo · Hotel · Pacote turismo
               </span>
@@ -2071,9 +2071,9 @@ function PlaybookSeguro() {
               "Quais sinais de compra você reconhece na conversa?",
             ]}
           />
-          <Card className="border-amber-300 bg-amber-50/40 dark:bg-amber-500/5">
-            <CardContent className="p-4 text-sm flex items-start gap-2 text-amber-900 dark:text-amber-200">
-              <Sparkles className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+          <Card className="border-warning/30 bg-warning/10 dark:bg-warning/5">
+            <CardContent className="p-4 text-sm flex items-start gap-2 text-warning dark:text-warning">
+              <Sparkles className="h-4 w-4 text-warning shrink-0 mt-0.5" />
               <span>
                 Seguro viagem hoje = menos de 1% do faturamento ={" "}
                 <strong>enorme oportunidade de crescimento</strong>.
@@ -2094,7 +2094,7 @@ function PlaybookImigracao() {
   return (
     <div className="space-y-8">
       <PlaybookHero
-        accentColor="text-purple-400"
+        accentColor="text-accent"
         productName="Pacote Imigração"
         subtitle="Solução completa de viagem + assessoria de entrada no país"
         meta={[
@@ -2107,17 +2107,17 @@ function PlaybookImigracao() {
       />
 
       <PlaybookSection number="01" title="O que é o Pacote Imigração" subtitle="Definição estratégica">
-        <Card className="border-purple-300 bg-gradient-to-br from-purple-50 to-purple-100/40 dark:from-purple-500/10 dark:to-purple-500/5">
+        <Card className="border-accent/30 bg-accent/10">
           <CardContent className="p-5 space-y-3">
-            <p className="text-sm text-purple-900 dark:text-purple-100 leading-relaxed">
+            <p className="text-sm text-accent dark:text-accent leading-relaxed">
               <strong>Conjunto de 4 serviços estratégicos</strong> para facilitar entrada no país,
               reduzir riscos na imigração e evitar gastos desnecessários.
             </p>
-            <Badge className="bg-red-500 hover:bg-red-500 text-white gap-1">
+            <Badge className="bg-danger hover:bg-danger text-white gap-1">
               <AlertTriangle className="h-3 w-3" />
               NÃO é opcional para clientes de risco médio ou alto
             </Badge>
-            <p className="text-xs text-purple-800/80 dark:text-purple-200/80">
+            <p className="text-xs text-accent dark:text-accent">
               Apresentar como solução completa — não como item extra.
             </p>
           </CardContent>
@@ -2144,9 +2144,9 @@ function PlaybookImigracao() {
               })}
             </CardContent>
           </Card>
-          <Card className="border-emerald-300 bg-emerald-50/40 dark:bg-emerald-500/5">
-            <CardContent className="p-4 text-sm flex items-start gap-2 text-emerald-900 dark:text-emerald-200">
-              <TrendingUp className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+          <Card className="border-success/30 bg-success/10 dark:bg-success/5">
+            <CardContent className="p-4 text-sm flex items-start gap-2 text-success dark:text-success">
+              <TrendingUp className="h-4 w-4 text-success shrink-0 mt-0.5" />
               <strong>Quanto maior o risco percebido, maior o valor percebido do pacote.</strong>
             </CardContent>
           </Card>
@@ -2161,7 +2161,7 @@ function PlaybookImigracao() {
               icon: Plane,
               title: "Volta Cancelada",
               badge: "Serviço Principal",
-              badgeClass: "bg-purple-500 hover:bg-purple-500 text-white",
+              badgeClass: "bg-accent hover:bg-accent text-white",
               points: [
                 "Emite passagem de volta 4h antes do embarque",
                 "Cancela após o cliente passar pela imigração",
@@ -2174,7 +2174,7 @@ function PlaybookImigracao() {
               icon: Building2,
               title: "Reserva de Hotel e Seguro Viagem",
               badge: "Suporte documental",
-              badgeClass: "bg-blue-500 hover:bg-blue-500 text-white",
+              badgeClass: "bg-accent hover:bg-accent text-white",
               points: [
                 "Reserva e seguro compatíveis com o período declarado",
                 "Objetivo: reforçar narrativa, aumentar credibilidade",
@@ -2186,7 +2186,7 @@ function PlaybookImigracao() {
               icon: ClipboardList,
               title: "Assessoria Completa de Imigração",
               badge: "Preparação",
-              badgeClass: "bg-amber-500 hover:bg-amber-500 text-white",
+              badgeClass: "bg-warning hover:bg-warning text-white",
               points: [
                 "Orientação sobre perguntas frequentes",
                 "Como responder de forma segura e objetiva",
@@ -2200,7 +2200,7 @@ function PlaybookImigracao() {
               icon: Headphones,
               title: "Suporte 24h até Aprovação",
               badge: "Suporte ativo",
-              badgeClass: "bg-emerald-500 hover:bg-emerald-500 text-white",
+              badgeClass: "bg-success hover:bg-success text-white",
               points: [
                 "Suporte ativo até a imigração ser concluída com sucesso",
                 "Encerra somente após entrada autorizada",
@@ -2212,7 +2212,7 @@ function PlaybookImigracao() {
               <Card key={s.num} className="border-border/50">
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between mb-2">
-                    <span className="text-2xl font-extrabold text-amber-500 leading-none">
+                    <span className="text-2xl font-extrabold text-warning leading-none">
                       {s.num}
                     </span>
                     <Icon className="h-5 w-5 text-primary" />
@@ -2223,7 +2223,7 @@ function PlaybookImigracao() {
                 <CardContent className="space-y-1.5 text-sm">
                   {s.points.map((p) => (
                     <div key={p} className="flex items-start gap-2">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" /> {p}
+                      <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0 mt-0.5" /> {p}
                     </div>
                   ))}
                 </CardContent>
@@ -2234,32 +2234,32 @@ function PlaybookImigracao() {
       </PlaybookSection>
 
       <PlaybookSection number="04" title="Valor do Pacote" subtitle="Precificação e composição">
-        <Card className="border-amber-300 bg-amber-50/50 dark:bg-amber-500/5">
+        <Card className="border-warning/30 bg-warning/10 dark:bg-warning/5">
           <CardContent className="p-5 space-y-3 text-sm">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-amber-200/60">
-                <Banknote className="h-5 w-5 text-amber-700" />
+              <div className="p-2 rounded-lg bg-warning/10">
+                <Banknote className="h-5 w-5 text-warning" />
               </div>
               <div>
-                <div className="text-xs uppercase tracking-widest text-amber-700 dark:text-amber-400 font-bold">
+                <div className="text-xs uppercase tracking-widest text-warning dark:text-warning font-bold">
                   Valor mínimo
                 </div>
-                <div className="text-2xl font-extrabold text-amber-900 dark:text-amber-100">
-                  R$ 500 <span className="text-sm font-normal text-amber-800/70">por pessoa</span>
+                <div className="text-2xl font-extrabold text-warning dark:text-warning">
+                  R$ 500 <span className="text-sm font-normal text-warning">por pessoa</span>
                 </div>
               </div>
             </div>
-            <Separator className="bg-amber-200" />
-            <div className="text-amber-900 dark:text-amber-200">
+            <Separator className="bg-warning/10" />
+            <div className="text-warning dark:text-warning">
               <strong>Pode aumentar conforme:</strong> grau de risco · complexidade · urgência · necessidade de suporte intensivo.
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-2">
-              <div className="flex items-start gap-2 text-amber-900 dark:text-amber-200">
-                <CheckCircle2 className="h-3.5 w-3.5 text-amber-700 shrink-0 mt-0.5" />
+              <div className="flex items-start gap-2 text-warning dark:text-warning">
+                <CheckCircle2 className="h-3.5 w-3.5 text-warning shrink-0 mt-0.5" />
                 O valor deve ser <strong>SEMPRE</strong> incluso no total da cotação.
               </div>
-              <div className="flex items-start gap-2 text-amber-900 dark:text-amber-200">
-                <CheckCircle2 className="h-3.5 w-3.5 text-amber-700 shrink-0 mt-0.5" />
+              <div className="flex items-start gap-2 text-warning dark:text-warning">
+                <CheckCircle2 className="h-3.5 w-3.5 text-warning shrink-0 mt-0.5" />
                 O cliente compra <strong>solução completa</strong> — não pacote separado.
               </div>
             </div>
@@ -2284,18 +2284,18 @@ function PlaybookImigracao() {
 
       <PlaybookSection number="06" title="Geração de Valor" subtitle="O argumento central">
         <div className="space-y-3">
-          <Card className="border-emerald-300 bg-emerald-50/40 dark:bg-emerald-500/5">
-            <CardContent className="p-5 space-y-2 text-sm text-emerald-900 dark:text-emerald-200">
+          <Card className="border-success/30 bg-success/10 dark:bg-success/5">
+            <CardContent className="p-5 space-y-2 text-sm text-success dark:text-success">
               {[
                 "A passagem é apenas uma parte do processo.",
                 "O risco maior está na imigração.",
                 "O pacote protege o investimento do cliente.",
               ].map((p) => (
                 <div key={p} className="flex items-start gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" /> {p}
+                  <CheckCircle2 className="h-4 w-4 text-success shrink-0 mt-0.5" /> {p}
                 </div>
               ))}
-              <Separator className="my-2 bg-emerald-200" />
+              <Separator className="my-2 bg-success/10" />
               <p className="font-medium">
                 "O cliente que imigra está largando tudo no Brasil — precisa do pacote completo."
               </p>
@@ -2305,9 +2305,9 @@ function PlaybookImigracao() {
             </CardContent>
           </Card>
 
-          <Card className="border-2 border-amber-400 bg-gradient-to-br from-amber-50 to-amber-100/40">
-            <CardContent className="p-4 text-sm font-semibold text-amber-900 flex items-start gap-2">
-              <Lightbulb className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+          <Card className="border-2 border-warning/30 bg-warning/10">
+            <CardContent className="p-4 text-sm font-semibold text-warning flex items-start gap-2">
+              <Lightbulb className="h-4 w-4 text-warning shrink-0 mt-0.5" />
               Preço sem valor gera objeção. <strong>Valor bem explicado gera fechamento.</strong>
             </CardContent>
           </Card>
@@ -2324,7 +2324,7 @@ function PlaybookImigracao() {
               "Explicar benefícios, não apenas serviços",
             ].map((c) => (
               <div key={c} className="flex items-start gap-2 text-sm">
-                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" /> {c}
+                <CheckCircle2 className="h-4 w-4 text-success shrink-0 mt-0.5" /> {c}
               </div>
             ))}
           </CardContent>
@@ -2334,11 +2334,11 @@ function PlaybookImigracao() {
       <PlaybookSection number="08" title="Regra Final" subtitle="A síntese">
         <Card className="border-0 bg-[#0B1E3D] text-white overflow-hidden">
           <CardContent className="p-8 text-center space-y-3">
-            <Diamond className="h-8 w-8 text-amber-400 mx-auto" />
+            <Diamond className="h-8 w-8 text-warning mx-auto" />
             <p className="text-2xl md:text-3xl font-extrabold tracking-tight leading-tight">
               "O cliente não compra passagem.
               <br />
-              Ele compra <span className="text-amber-400">segurança</span>."
+              Ele compra <span className="text-warning">segurança</span>."
             </p>
             <p className="text-white/60 text-sm">
               O Pacote Imigração é parte essencial dessa segurança.

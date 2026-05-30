@@ -90,10 +90,10 @@ export default function VendedorCarreira() {
 
         <TabsContent value="progresso" className="space-y-6">
           {isAdmin && (
-            <Card className="border-amber-300 bg-amber-50/50 dark:bg-amber-500/5">
+            <Card className="border-warning/30 bg-warning/10 dark:bg-warning/5">
               <CardContent className="p-4 space-y-3">
-                <div className="flex items-start gap-3 text-sm text-amber-900 dark:text-amber-200">
-                  <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="flex items-start gap-3 text-sm text-warning dark:text-warning">
+                  <AlertCircle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
                   <span>
                     Você está logado como administrador. Selecione um vendedor
                     para ver o progresso dele.
@@ -173,7 +173,7 @@ function ProgressView({ seller, quotes }) {
           icon={<DollarSign className="h-4 w-4" />}
           label="Receita Mensal"
           value={formatBRL(stats.monthlyRevenue)}
-          color="text-emerald-600"
+          color="text-success"
         />
         <MetricCard
           icon={<Target className="h-4 w-4" />}
@@ -187,7 +187,7 @@ function ProgressView({ seller, quotes }) {
           icon={<DollarSign className="h-4 w-4" />}
           label="Receita Semanal"
           value={formatBRL(stats.weeklyRevenue)}
-          color="text-emerald-600"
+          color="text-success"
         />
         <MetricCard
           icon={<Target className="h-4 w-4" />}
@@ -226,9 +226,9 @@ function ProgressView({ seller, quotes }) {
           monthlyRevenue={stats.monthlyRevenue}
         />
       ) : (
-        <Card className="border-emerald-300 bg-emerald-50/40 dark:bg-emerald-500/5">
-          <CardContent className="p-5 text-sm text-emerald-900 dark:text-emerald-200 flex items-start gap-2">
-            <Trophy className="h-5 w-5 text-emerald-600 shrink-0" />
+        <Card className="border-success/30 bg-success/10 dark:bg-success/5">
+          <CardContent className="p-5 text-sm text-success dark:text-success flex items-start gap-2">
+            <Trophy className="h-5 w-5 text-success shrink-0" />
             Você atingiu o topo do plano de carreira atual.
           </CardContent>
         </Card>
@@ -255,7 +255,7 @@ function HeroLevel({ currentLevel, nextLevel, sellerName }) {
             </div>
             <div className="flex items-center gap-3 mb-2">
               <Badge
-                className="bg-white/20 hover:bg-white/20 text-white border-white/30 text-xs font-bold"
+                className="bg-white/20 hover:bg-white/30 text-white border-white/30 text-xs font-bold"
               >
                 {currentLevel.level}
               </Badge>
@@ -273,7 +273,7 @@ function HeroLevel({ currentLevel, nextLevel, sellerName }) {
               <div className="text-[10px] uppercase tracking-widest text-white/50 mb-1 font-semibold">
                 Próximo nível
               </div>
-              <div className="font-bold text-amber-400">
+              <div className="font-bold text-warning">
                 {nextLevel.level}
               </div>
               <div className="text-sm font-semibold">
@@ -319,33 +319,33 @@ function CommissionsSection({ seller, quotes, currentLevel }) {
 
   return (
     <div className="space-y-4">
-      <Card className="bg-slate-900 text-white border-0">
+      <Card className="bg-bg-elevated text-text-primary border-0">
         <CardContent className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
-              <p className="text-slate-400 text-xs uppercase tracking-wider mb-1">
+              <p className="text-text-muted text-xs uppercase tracking-wider mb-1">
                 Fixo mensal
               </p>
               <p className="text-2xl font-bold">{formatBRL(fixoMensal)}</p>
-              <p className="text-slate-500 text-xs">Nível {currentLevel.level}</p>
+              <p className="text-text-muted text-xs">Nível {currentLevel.level}</p>
             </div>
             <div>
-              <p className="text-slate-400 text-xs uppercase tracking-wider mb-1">
+              <p className="text-text-muted text-xs uppercase tracking-wider mb-1">
                 Comissões do mês
               </p>
-              <p className="text-2xl font-bold text-amber-400">
+              <p className="text-2xl font-bold text-warning">
                 {formatBRL(totalComissoes)}
               </p>
-              <p className="text-slate-500 text-xs">{vendidosMes.length} vendas</p>
+              <p className="text-text-muted text-xs">{vendidosMes.length} vendas</p>
             </div>
-            <div className="md:border-l border-slate-700 md:pl-6">
-              <p className="text-slate-400 text-xs uppercase tracking-wider mb-1">
+            <div className="md:border-l border-border-strong md:pl-6">
+              <p className="text-text-muted text-xs uppercase tracking-wider mb-1">
                 Total a receber
               </p>
-              <p className="text-3xl font-black text-green-400">
+              <p className="text-3xl font-semibold text-success">
                 {formatBRL(totalAReceber)}
               </p>
-              <p className="text-slate-500 text-xs">Fixo + comissões</p>
+              <p className="text-text-muted text-xs">Fixo + comissões</p>
             </div>
           </div>
         </CardContent>
@@ -355,7 +355,7 @@ function CommissionsSection({ seller, quotes, currentLevel }) {
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center justify-between">
             <span className="flex items-center gap-2">
-              <Wallet className="h-4 w-4 text-emerald-600" /> Comissões por venda
+              <Wallet className="h-4 w-4 text-success" /> Comissões por venda
             </span>
             <Badge variant="outline">
               {vendidosMes.length} venda{vendidosMes.length === 1 ? "" : "s"} este mês
@@ -386,7 +386,7 @@ function CommissionsSection({ seller, quotes, currentLevel }) {
                 return (
                   <div
                     key={q.id}
-                    className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-3 rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors"
+                    className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-3 rounded-lg bg-bg-elevated hover:bg-bg-elevated transition-colors"
                   >
                     <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 flex-1 min-w-0">
                       <div className="min-w-0">
@@ -408,12 +408,12 @@ function CommissionsSection({ seller, quotes, currentLevel }) {
                       <p className="text-sm text-muted-foreground">
                         {formatBRL(q.total_value)}
                       </p>
-                      <p className="text-base font-bold text-green-600">
+                      <p className="text-base font-bold text-success">
                         {formatBRL(q.comissaoCalculada)}
                       </p>
                       <Badge
                         variant="outline"
-                        className="text-xs text-green-700 border-green-300"
+                        className="text-xs text-success border-success/30"
                       >
                         {q.status}
                       </Badge>
@@ -459,7 +459,7 @@ function BonusTiers({ level, tier, bonusValue }) {
     <Card className="border-border/50">
       <CardHeader className="pb-3">
         <CardTitle className="text-sm flex items-center gap-2">
-          <Award className="h-4 w-4 text-amber-500" /> Bônus por desempenho
+          <Award className="h-4 w-4 text-warning" /> Bônus por desempenho
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -472,10 +472,10 @@ function BonusTiers({ level, tier, bonusValue }) {
                 className={cn(
                   "p-4 rounded-lg border transition-all",
                   reached
-                    ? t.color === "emerald" && "border-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 shadow-md shadow-emerald-500/20"
+                    ? t.color === "emerald" && "border-success/30 bg-success/10 dark:bg-success/10 shadow-md"
                     : "border-border bg-muted/30",
-                  reached && t.color === "amber" && "border-amber-400 bg-amber-50 dark:bg-amber-500/10 shadow-md shadow-amber-500/20",
-                  reached && t.color === "yellow" && "border-yellow-400 bg-yellow-50 dark:bg-yellow-500/10 shadow-md shadow-yellow-500/30"
+                  reached && t.color === "amber" && "border-warning/30 bg-warning/10 dark:bg-warning/10 shadow-md",
+                  reached && t.color === "yellow" && "border-warning/30 bg-warning/10 dark:bg-warning/10 shadow-md"
                 )}
               >
                 <div className="flex items-center justify-between mb-1">
@@ -488,7 +488,7 @@ function BonusTiers({ level, tier, bonusValue }) {
                   >
                     {t.key}
                   </Badge>
-                  {reached && <Sparkles className={cn("h-3.5 w-3.5", t.color === "emerald" && "text-emerald-600", t.color === "amber" && "text-amber-600", t.color === "yellow" && "text-yellow-600")} />}
+                  {reached && <Sparkles className={cn("h-3.5 w-3.5", t.color === "emerald" && "text-success", t.color === "amber" && "text-warning", t.color === "yellow" && "text-warning")} />}
                 </div>
                 <div className="text-xs text-muted-foreground">{t.label}</div>
                 <div className="text-lg font-bold mt-1">+ {formatBRL(t.value)}</div>
@@ -500,13 +500,13 @@ function BonusTiers({ level, tier, bonusValue }) {
           className={cn(
             "p-3 rounded-lg text-sm flex items-center gap-2 border",
             tier
-              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-300"
+              ? "bg-success/10 border-success/30 text-success dark:text-success"
               : "bg-muted/40 border-border text-muted-foreground"
           )}
         >
           {tier ? (
             <>
-              <Trophy className="h-4 w-4 text-emerald-600" />
+              <Trophy className="h-4 w-4 text-success" />
               <span>
                 Seu bônus este mês: <strong>{formatBRL(bonusValue)}</strong> ({tier} da meta)
               </span>
@@ -529,7 +529,7 @@ function RemunerationCard({ level, bonusValue }) {
     <Card className="border-border/50">
       <CardHeader className="pb-3">
         <CardTitle className="text-sm flex items-center gap-2">
-          <DollarSign className="h-4 w-4 text-emerald-600" /> Remuneração estimada
+          <DollarSign className="h-4 w-4 text-success" /> Remuneração estimada
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2 text-sm">
@@ -598,7 +598,7 @@ function CheckLine({ done, text }) {
   return (
     <div className="flex items-start gap-2 text-sm">
       {done ? (
-        <Check className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+        <Check className="h-4 w-4 text-success shrink-0 mt-0.5" />
       ) : (
         <Clock className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
       )}
@@ -661,8 +661,8 @@ function HistoryCards({ history, level }) {
                       className={cn(
                         "border",
                         reached
-                          ? "bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
-                          : "bg-red-100 text-red-700 border-red-200 hover:bg-red-100"
+                          ? "bg-success/10 text-success border-success/30 hover:bg-success/10"
+                          : "bg-danger/10 text-danger border-danger/30 hover:bg-danger/10"
                       )}
                     >
                       {reached ? "Atingiu" : "Não atingiu"}
@@ -690,10 +690,10 @@ function CareerMap({ currentLevelCode }) {
 
   return (
     <div className="space-y-6">
-      <Card className="border-0 bg-gradient-to-br from-[#0B1E3D] to-[#14285A] text-white">
+      <Card className="border-0 bg-[#0B1E3D] text-white">
         <CardContent className="p-6 md:p-8 flex flex-col md:flex-row md:items-center gap-6">
-          <div className="p-4 rounded-2xl bg-amber-400/20 border border-amber-400/30 shrink-0">
-            <Trophy className="h-10 w-10 text-amber-400" />
+          <div className="p-4 rounded-2xl bg-warning/20 border border-warning/30 shrink-0">
+            <Trophy className="h-10 w-10 text-warning" />
           </div>
           <div className="flex-1">
             <img
@@ -716,7 +716,7 @@ function CareerMap({ currentLevelCode }) {
               <span className="px-3 py-1.5 rounded-full bg-white/10 border border-white/20">
                 De Formação a Gerente Comercial
               </span>
-              <span className="px-3 py-1.5 rounded-full bg-amber-400/15 border border-amber-400/40 text-amber-200">
+              <span className="px-3 py-1.5 rounded-full bg-warning/15 border border-warning/30 text-warning">
                 Até R$ 1.200 de bônus mensal
               </span>
             </div>
@@ -851,7 +851,7 @@ function TimelineNode({ level, isCurrent, isPast, embedded }) {
                   </Badge>
                 )}
                 {isPast && (
-                  <Badge variant="outline" className="gap-1 border-emerald-400 text-emerald-700">
+                  <Badge variant="outline" className="gap-1 border-success/30 text-success">
                     <Check className="h-3 w-3" /> Concluído
                   </Badge>
                 )}

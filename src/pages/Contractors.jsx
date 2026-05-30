@@ -11,9 +11,9 @@ import { loadGoalsConfig } from "@/lib/goalsConfig";
 import ContractorFormDialog from "../components/contractors/ContractorFormDialog";
 
 const statusColors = {
-  "Ativo": "bg-green-100 text-green-700",
-  "Em revisão": "bg-amber-100 text-amber-700",
-  "Encerrado": "bg-red-100 text-red-700",
+  "Ativo": "bg-success/10 text-success",
+  "Em revisão": "bg-warning/10 text-warning",
+  "Encerrado": "bg-danger/10 text-danger",
 };
 
 export default function Contractors() {
@@ -107,7 +107,7 @@ export default function Contractors() {
                         {activeAutomations} projetos
                       </span>
                       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold ${
-                        monthlyPoints >= goal ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+                        monthlyPoints >= goal ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
                       }`}>
                         {monthlyPoints}/{goal} pts no mês
                       </span>

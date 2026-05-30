@@ -11,9 +11,9 @@ import ContractorFormDialog from "../components/contractors/ContractorFormDialog
 import { loadGoalsConfig, calcMonthlyEstimated } from "@/lib/goalsConfig";
 
 const statusColors = {
-  "Ativo": "bg-green-100 text-green-700",
-  "Em revisão": "bg-amber-100 text-amber-700",
-  "Encerrado": "bg-red-100 text-red-700",
+  "Ativo": "bg-success/10 text-success",
+  "Em revisão": "bg-warning/10 text-warning",
+  "Encerrado": "bg-danger/10 text-danger",
 };
 
 const fmt = (value) =>
@@ -28,13 +28,13 @@ function ValorMensalCard({ contractor, monthlyContracts }) {
 
   let statusColor, StatusIcon;
   if (monthlyContracts < goal) {
-    statusColor = "text-red-600";
+    statusColor = "text-danger";
     StatusIcon = AlertCircle;
   } else if (monthlyContracts === goal) {
-    statusColor = "text-blue-600";
+    statusColor = "text-accent";
     StatusIcon = CheckCircle;
   } else {
-    statusColor = "text-green-600";
+    statusColor = "text-success";
     StatusIcon = Trophy;
   }
 
@@ -90,7 +90,7 @@ function ValorMensalCard({ contractor, monthlyContracts }) {
             </div>
             {calc.bonusExtra > 0 && (
               <div>
-                <p className="font-medium text-green-600">Bônus excedente: +{fmt(calc.bonusExtra)}</p>
+                <p className="font-medium text-success">Bônus excedente: +{fmt(calc.bonusExtra)}</p>
                 <p className="text-xs text-muted-foreground">
                   {calc.excedente} pts × {fmt(config.bonus_per_extra_point)} cada
                 </p>
@@ -98,7 +98,7 @@ function ValorMensalCard({ contractor, monthlyContracts }) {
             )}
             {calc.bonusEspecial > 0 && (
               <div>
-                <p className="font-medium text-amber-600">Bônus especiais: +{fmt(calc.bonusEspecial)}</p>
+                <p className="font-medium text-warning">Bônus especiais: +{fmt(calc.bonusEspecial)}</p>
                 <p className="text-xs text-muted-foreground">Bônus pontuais configurados pelo gestor</p>
               </div>
             )}

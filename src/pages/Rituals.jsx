@@ -7,9 +7,9 @@ import { Plus, Calendar, CheckCircle } from "lucide-react";
 import RitualFormDialog from "../components/rituals/RitualFormDialog";
 
 const typeColors = {
-  "Planejamento mensal": "bg-blue-100 text-blue-700",
-  "Acompanhamento quinzenal": "bg-amber-100 text-amber-700",
-  "Fechamento mensal": "bg-green-100 text-green-700",
+  "Planejamento mensal": "bg-accent/10 text-accent",
+  "Acompanhamento quinzenal": "bg-warning/10 text-warning",
+  "Fechamento mensal": "bg-success/10 text-success",
 };
 
 export default function Rituals() {
@@ -99,7 +99,7 @@ export default function Rituals() {
                 <div className="flex items-center gap-2 mb-1">
                   <h3 className="text-sm font-medium truncate">{r.title}</h3>
                   <Badge variant="outline" className="text-xs">{r.type}</Badge>
-                  {r.completed && <CheckCircle className="h-3.5 w-3.5 text-green-500" />}
+                  {r.completed && <CheckCircle className="h-3.5 w-3.5 text-success" />}
                 </div>
                 <p className="text-xs text-muted-foreground">{r.contractor_name}</p>
               </div>

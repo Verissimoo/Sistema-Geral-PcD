@@ -374,7 +374,7 @@ export default function ParceiroEmpresa() {
           onClick={handleSave}
           disabled={saving}
           size="lg"
-          className="bg-amber-500 hover:bg-amber-600 text-white"
+          className="bg-warning hover:bg-warning text-white"
         >
           {saving ? (
             <>

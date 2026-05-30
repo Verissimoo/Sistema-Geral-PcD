@@ -59,23 +59,23 @@ const STATUS_LABELS = {
 };
 
 const STATUS_STYLES = {
-  Enviado: "bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-100",
-  "FollowUp Pendente": "bg-amber-100 text-amber-800 border-amber-400 hover:bg-amber-100 animate-pulse",
-  "FollowUp 1 Enviado": "bg-sky-100 text-sky-800 border-sky-300 hover:bg-sky-100",
-  "FollowUp 2 Enviado": "bg-blue-100 text-blue-800 border-blue-300 hover:bg-blue-100",
-  "FollowUp 3 Enviado": "bg-indigo-100 text-indigo-800 border-indigo-300 hover:bg-indigo-100",
-  Aprovado: "bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100",
-  "Aguardando Emissão": "bg-amber-100 text-amber-800 border-amber-400 hover:bg-amber-100",
-  Emitido: "bg-purple-100 text-purple-800 border-purple-300 hover:bg-purple-100",
-  Recusado: "bg-red-100 text-red-700 border-red-200 hover:bg-red-100",
-  Cancelado: "bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-100",
+  Enviado: "bg-accent/10 text-accent border-accent/30 hover:bg-accent/10",
+  "FollowUp Pendente": "bg-warning/10 text-warning border-warning/30 hover:bg-warning/10 animate-pulse",
+  "FollowUp 1 Enviado": "bg-accent/10 text-accent border-accent/30 hover:bg-accent/10",
+  "FollowUp 2 Enviado": "bg-accent/10 text-accent border-accent/30 hover:bg-accent/10",
+  "FollowUp 3 Enviado": "bg-accent/10 text-accent border-accent/30 hover:bg-accent/10",
+  Aprovado: "bg-success/10 text-success border-success/30 hover:bg-success/10",
+  "Aguardando Emissão": "bg-warning/10 text-warning border-warning/30 hover:bg-warning/10",
+  Emitido: "bg-accent/10 text-accent border-accent/30 hover:bg-accent/10",
+  Recusado: "bg-danger/10 text-danger border-danger/30 hover:bg-danger/10",
+  Cancelado: "bg-bg-elevated text-text-secondary border-border hover:bg-bg-elevated",
 };
 const TICKET_TYPES = ["Normal", "Hidden City", "Quebra de Trecho", "Imigração"];
 const TICKET_STYLES = {
-  Normal: "bg-gray-100 text-gray-700 border-gray-200",
-  "Hidden City": "bg-red-100 text-red-700 border-red-200",
-  "Quebra de Trecho": "bg-amber-100 text-amber-700 border-amber-200",
-  "Imigração": "bg-purple-100 text-purple-700 border-purple-200",
+  Normal: "bg-bg-elevated text-text-secondary border-border",
+  "Hidden City": "bg-danger/10 text-danger border-danger/30",
+  "Quebra de Trecho": "bg-warning/10 text-warning border-warning/30",
+  "Imigração": "bg-accent/10 text-accent border-accent/30",
 };
 
 const formatBRL = (v) =>
@@ -384,23 +384,23 @@ export default function GerenteOrcamentos() {
           value={summary.total}
         />
         <SummaryCard
-          icon={<DollarSign className="h-4 w-4 text-amber-600" />}
+          icon={<DollarSign className="h-4 w-4 text-warning" />}
           label="Valor Total"
           value={formatBRL(summary.totalValue)}
           isText
         />
         <SummaryCard
-          icon={<ShoppingCart className="h-4 w-4 text-emerald-600" />}
+          icon={<ShoppingCart className="h-4 w-4 text-success" />}
           label="Vendidos"
           value={summary.sold}
-          color="text-emerald-600"
+          color="text-success"
         />
         <SummaryCard
-          icon={<DollarSign className="h-4 w-4 text-emerald-600" />}
+          icon={<DollarSign className="h-4 w-4 text-success" />}
           label="Receita Vendida"
           value={formatBRL(summary.revenueSold)}
           isText
-          color="text-emerald-700"
+          color="text-success"
         />
         <SummaryCard
           icon={<TrendingUp className="h-4 w-4 text-primary" />}
@@ -412,12 +412,12 @@ export default function GerenteOrcamentos() {
 
       {/* Pendentes >48h */}
       {pendingOver48h.length > 0 && (
-        <Card className="border-amber-300 bg-amber-50/40 dark:bg-amber-500/5">
+        <Card className="border-warning/30 bg-warning/10 dark:bg-warning/5">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2 text-amber-800 dark:text-amber-300">
+            <CardTitle className="text-sm flex items-center gap-2 text-warning dark:text-warning">
               <AlertTriangle className="h-4 w-4" />
               Orçamentos Pendentes que Requerem Atenção
-              <Badge className="bg-amber-500 hover:bg-amber-500 text-white border-0">
+              <Badge className="bg-warning hover:bg-warning text-white border-0">
                 {pendingOver48h.length}
               </Badge>
             </CardTitle>
@@ -437,7 +437,7 @@ export default function GerenteOrcamentos() {
                   <span className="text-sm font-medium">{q.client?.name}</span>
                   <span className="text-xs text-muted-foreground">{route}</span>
                   <span className="font-bold text-sm ml-auto">{formatBRL(q.total_value)}</span>
-                  <Badge variant="outline" className="gap-1 border-amber-400 text-amber-700">
+                  <Badge variant="outline" className="gap-1 border-warning/30 text-warning">
                     <Clock className="h-3 w-3" /> Enviado {timeAgo(q.created_date)}
                   </Badge>
                   <Button size="sm" variant="outline" disabled className="gap-1.5 text-xs">
@@ -609,7 +609,7 @@ function QuoteRow({ quote, seller, onView, onChangeStatus, onPDF, onClickClient,
         {quote.recipient_type === "parceiro" ? (
           <div className="space-y-0.5">
             <div className="flex items-center gap-1.5">
-              <Badge className="bg-purple-100 text-purple-800 border border-purple-300 hover:bg-purple-100 gap-1 text-[10px]">
+              <Badge className="bg-accent/10 text-accent border border-accent/30 hover:bg-accent/10 gap-1 text-[10px]">
                 <Handshake className="h-3 w-3" /> Parceiro
               </Badge>
               <span className="font-medium text-sm">{quote.partner_name || "—"}</span>
@@ -705,10 +705,10 @@ function QuoteRow({ quote, seller, onView, onChangeStatus, onPDF, onClickClient,
               <button
                 type="button"
                 onClick={() => onQuickEdit?.()}
-                className="w-full text-left p-3 rounded-md hover:bg-amber-50 transition"
+                className="w-full text-left p-3 rounded-md hover:bg-warning/10 transition"
               >
                 <div className="flex items-center gap-2 mb-1">
-                  <RefreshCw className="w-4 h-4 text-amber-600" />
+                  <RefreshCw className="w-4 h-4 text-warning" />
                   <p className="font-semibold text-sm">Atualizar valores</p>
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -718,10 +718,10 @@ function QuoteRow({ quote, seller, onView, onChangeStatus, onPDF, onClickClient,
               <button
                 type="button"
                 onClick={() => onFullEdit?.()}
-                className="w-full text-left p-3 rounded-md hover:bg-blue-50 transition mt-1"
+                className="w-full text-left p-3 rounded-md hover:bg-accent/10 transition mt-1"
               >
                 <div className="flex items-center gap-2 mb-1">
-                  <FilePlus className="w-4 h-4 text-blue-600" />
+                  <FilePlus className="w-4 h-4 text-accent" />
                   <p className="font-semibold text-sm">Edição completa</p>
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -761,19 +761,19 @@ function QuoteDetail({
   return (
     <div className="space-y-4 text-sm">
       {!freshness.isFresh && (
-        <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-4">
+        <div className="bg-warning/10 border-2 border-warning/30 rounded-xl p-4">
           <div className="flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <AlertTriangle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
-              <p className="font-bold text-amber-900 mb-1">
+              <p className="font-bold text-warning mb-1">
                 Preço da {freshness.programName} mudou desde esta cotação
                 {freshness.multipleSegments &&
                   ` (e em mais ${freshness.segmentsStale - 1} trecho${freshness.segmentsStale - 1 === 1 ? "" : "s"})`}
               </p>
-              <p className="text-sm text-amber-800 mb-2">
+              <p className="text-sm text-warning mb-2">
                 Cotado a <strong>{formatBRL(freshness.usedPrice)}/mil</strong>, hoje custa{" "}
                 <strong>{formatBRL(freshness.currentPrice)}/mil</strong>
-                <span className={freshness.priceChange > 0 ? "text-red-600" : "text-green-600"}>
+                <span className={freshness.priceChange > 0 ? "text-danger" : "text-success"}>
                   {" "}
                   ({freshness.priceChange > 0 ? "+" : ""}
                   {formatBRL(freshness.priceChange)}/mil)
@@ -781,12 +781,12 @@ function QuoteDetail({
                 .
               </p>
               {isFrozen ? (
-                <p className="text-xs text-amber-700">
+                <p className="text-xs text-warning">
                   Esta cotação já está em <strong>{quote.status}</strong> — os valores
                   ficam congelados para auditoria.
                 </p>
               ) : freshness.multipleSegments ? (
-                <p className="text-xs text-amber-700">
+                <p className="text-xs text-warning">
                   Quebra de Trecho com múltiplos programas — a reprecificação precisa ser
                   feita criando uma nova cotação derivada.
                 </p>
@@ -794,7 +794,7 @@ function QuoteDetail({
                 <Button
                   size="sm"
                   variant="outline"
-                  className="border-amber-400 text-amber-700 hover:bg-amber-100"
+                  className="border-warning/30 text-warning hover:bg-warning/10"
                   onClick={() => onRecalculatePrice?.(quote, freshness)}
                 >
                   <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
@@ -810,7 +810,7 @@ function QuoteDetail({
         <Button
           onClick={onNewQuoteForClient}
           variant="outline"
-          className="w-full gap-2 border-amber-300 text-amber-700 hover:bg-amber-50 hover:text-amber-800"
+          className="w-full gap-2 border-warning/30 text-warning hover:bg-warning/10 hover:text-warning"
         >
           <PlusCircle className="h-4 w-4" /> Nova cotação para este cliente
         </Button>
@@ -855,7 +855,7 @@ function QuoteDetail({
               <Badge variant="outline" className="capitalize">{t.tipo}</Badge>
               <span className="font-medium">{t.companhia} {t.numero_voo}</span>
               {isHidden && (
-                <Badge className="bg-purple-100 text-purple-700 border-purple-300 text-[10px]">
+                <Badge className="bg-accent/10 text-accent border-accent/30 text-[10px]">
                   ✈️ Hidden City
                 </Badge>
               )}
@@ -873,14 +873,14 @@ function QuoteDetail({
                 {(!t.escalas || t.escalas === 0) && " · direto"}
               </div>
               <div className="text-right">
-                <div className={`font-bold ${isHidden ? "line-through text-slate-400" : ""}`}>
+                <div className={`font-bold ${isHidden ? "line-through text-text-muted" : ""}`}>
                   {t.horario_chegada}
                 </div>
-                <div className={`text-xs ${isHidden ? "line-through text-slate-400" : "text-muted-foreground"}`}>
+                <div className={`text-xs ${isHidden ? "line-through text-text-muted" : "text-muted-foreground"}`}>
                   {t.destino_cidade} ({t.destino_iata})
                 </div>
                 {isHidden && destinoReal && (
-                  <div className="text-[10px] text-purple-700 font-semibold mt-0.5">
+                  <div className="text-[10px] text-accent font-semibold mt-0.5">
                     Pax desce em {destinoReal.destino_iata}
                   </div>
                 )}
@@ -936,7 +936,7 @@ function QuoteDetail({
         <DetailRow
           label="Margem bruta"
           value={
-            <span className={totals.margemBruta >= 0 ? "text-emerald-700" : "text-red-600"}>
+            <span className={totals.margemBruta >= 0 ? "text-success" : "text-danger"}>
               {formatBRL(totals.margemBruta)}
             </span>
           }

@@ -151,17 +151,17 @@ export default function GerenteClientes() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <SummaryCard icon={<Users className="h-4 w-4" />} label="Total de Clientes" value={metrics.total} />
         <SummaryCard
-          icon={<ShoppingCart className="h-4 w-4 text-emerald-600" />}
+          icon={<ShoppingCart className="h-4 w-4 text-success" />}
           label="Que Compraram"
           value={metrics.buyers}
-          color="text-emerald-600"
+          color="text-success"
         />
         <SummaryCard
-          icon={<DollarSign className="h-4 w-4 text-amber-600" />}
+          icon={<DollarSign className="h-4 w-4 text-warning" />}
           label="Receita Total"
           value={formatBRL(metrics.revenue)}
           isText
-          color="text-amber-700"
+          color="text-warning"
         />
         <SummaryCard
           icon={<TrendingUp className="h-4 w-4 text-primary" />}
@@ -332,7 +332,7 @@ function ManageOriginsDialog({ open, onOpenChange }) {
           {origins.map((o) => (
             <div
               key={o.id}
-              className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
+              className="flex items-center justify-between p-3 bg-bg-elevated rounded-lg"
             >
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 <input
@@ -350,7 +350,7 @@ function ManageOriginsDialog({ open, onOpenChange }) {
               <button
                 type="button"
                 onClick={() => handleDelete(o.id)}
-                className="text-red-500 hover:text-red-700 p-1 shrink-0"
+                className="text-danger hover:text-danger p-1 shrink-0"
                 title="Excluir tipo"
               >
                 <Trash2 className="w-4 h-4" />
@@ -424,7 +424,7 @@ function ClientRow({ client, onView }) {
                 href={wa}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="h-6 w-6 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 flex items-center justify-center text-emerald-600 transition-colors"
+                className="h-6 w-6 rounded-md bg-success/10 hover:bg-success/20 flex items-center justify-center text-success transition-colors"
                 title="Abrir WhatsApp"
                 onClick={(e) => e.stopPropagation()}
               >
@@ -442,7 +442,7 @@ function ClientRow({ client, onView }) {
       <td className="px-4 py-3 text-sm font-medium">{client.quotesCount}</td>
       <td className="px-4 py-3 text-sm font-bold">
         {client.salesCount > 0 ? (
-          <span className="text-emerald-600">{client.salesCount}</span>
+          <span className="text-success">{client.salesCount}</span>
         ) : (
           <span className="text-muted-foreground font-normal">0</span>
         )}

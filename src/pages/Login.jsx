@@ -59,7 +59,7 @@ export default function Login() {
         background: "linear-gradient(135deg, hsl(224 80% 14%) 0%, hsl(224 60% 22%) 100%)",
       }}
     >
-      <div className="w-full max-w-[420px] bg-white rounded-2xl shadow-2xl p-10">
+      <div className="w-full max-w-[420px] bg-bg-surface rounded-2xl shadow-2xl p-10">
         {/* Logo */}
         <div className="flex flex-col items-center mb-1">
           <div
@@ -129,7 +129,7 @@ export default function Login() {
           </div>
 
           {error && (
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-danger/10 border border-danger/30 text-sm text-danger">
               <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
               <span>{error}</span>
             </div>

@@ -3,9 +3,9 @@ import { calculateScore, isFullyAccepted } from "@/lib/scoring";
 import { Clock, CheckCircle2, FileText } from "lucide-react";
 
 const valueColors = {
-  "Financeiro direto": "bg-green-100 text-green-700",
-  "Tempo/Produtividade": "bg-blue-100 text-blue-700",
-  "Experiência do cliente": "bg-purple-100 text-purple-700",
+  "Financeiro direto": "bg-success/10 text-success",
+  "Tempo/Produtividade": "bg-accent/10 text-accent",
+  "Experiência do cliente": "bg-accent/10 text-accent",
 };
 
 export default function ProjectCard({ project, onClick }) {
@@ -43,16 +43,16 @@ export default function ProjectCard({ project, onClick }) {
       </div>
 
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
-        <span className={`flex items-center gap-1 ${overdue ? "text-red-600 font-medium" : ""}`}>
+        <span className={`flex items-center gap-1 ${overdue ? "text-danger font-medium" : ""}`}>
           <Clock className="h-3 w-3" />
           {project.deadline || "Sem prazo"}
         </span>
         <span className="flex items-center gap-1">
-          <CheckCircle2 className={`h-3 w-3 ${accepted ? "text-green-600" : ""}`} />
+          <CheckCircle2 className={`h-3 w-3 ${accepted ? "text-success" : ""}`} />
           {acceptanceCount}/4
         </span>
         {(project.documentation_link || project.documentation_file) && (
-          <FileText className="h-3 w-3 text-blue-500" />
+          <FileText className="h-3 w-3 text-accent" />
         )}
       </div>
     </div>

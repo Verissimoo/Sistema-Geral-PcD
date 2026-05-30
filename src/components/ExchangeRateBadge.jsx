@@ -16,16 +16,16 @@ export default function ExchangeRateBadge({ compact = false }) {
   return (
     <div
       className={cn(
-        "inline-flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5",
+        "inline-flex items-center gap-2 bg-accent/10 border border-accent/30 rounded-lg px-3 py-1.5",
         compact ? "text-xs" : "text-sm"
       )}
     >
-      <span className="font-semibold text-blue-900">EUR/BRL</span>
-      <span className="font-bold text-blue-700">R$ {rate.rate.toFixed(4)}</span>
+      <span className="font-semibold text-accent">EUR/BRL</span>
+      <span className="font-bold text-accent">R$ {rate.rate.toFixed(4)}</span>
       <span
         className={cn(
           "flex items-center gap-0.5 text-[10px] font-medium",
-          isUp ? "text-red-600" : "text-green-600"
+          isUp ? "text-danger" : "text-success"
         )}
       >
         {isUp ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
@@ -35,7 +35,7 @@ export default function ExchangeRateBadge({ compact = false }) {
       <button
         type="button"
         onClick={refresh}
-        className="text-blue-500 hover:text-blue-700 transition"
+        className="text-accent hover:text-accent transition"
         title="Atualizar cotação"
       >
         <RefreshCw className="w-3 h-3" />

@@ -18,12 +18,12 @@ import { ClientOriginBadge } from "@/components/ClientOriginBadge";
 import { computePricingTotals } from "@/lib/pricingCalculator";
 
 const STATUS_STYLES = {
-  Enviado: "bg-blue-100 text-blue-700 border-blue-200",
-  Aprovado: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  "Aguardando Emissão": "bg-amber-100 text-amber-800 border-amber-400",
-  Emitido: "bg-purple-100 text-purple-800 border-purple-300",
-  Recusado: "bg-red-100 text-red-700 border-red-200",
-  Cancelado: "bg-gray-100 text-gray-700 border-gray-200",
+  Enviado: "bg-accent/10 text-accent border-accent/30",
+  Aprovado: "bg-success/10 text-success border-success/30",
+  "Aguardando Emissão": "bg-warning/10 text-warning border-warning/30",
+  Emitido: "bg-accent/10 text-accent border-accent/30",
+  Recusado: "bg-danger/10 text-danger border-danger/30",
+  Cancelado: "bg-bg-elevated text-text-secondary border-border",
 };
 
 const formatBRL = (v) =>
@@ -176,13 +176,13 @@ export default function GerenteClienteDetalhe() {
         text: `Cotação criada — ${q.quote_number || "—"}`,
         sub: `${formatBRL(q.total_value)} · ${q.seller_name || "—"}`,
         icon: FileText,
-        color: "text-blue-600",
-        bg: "bg-blue-100",
+        color: "text-accent",
+        bg: "bg-accent/10",
       });
       const statusFields = [
-        { f: "approved_date", label: "Aprovado", icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-100" },
-        { f: "issued_date", label: "Emitido", icon: Plane, color: "text-purple-600", bg: "bg-purple-100" },
-        { f: "rejected_date", label: "Recusado", icon: XCircle, color: "text-red-600", bg: "bg-red-100" },
+        { f: "approved_date", label: "Aprovado", icon: CheckCircle2, color: "text-success", bg: "bg-success/10" },
+        { f: "issued_date", label: "Emitido", icon: Plane, color: "text-accent", bg: "bg-accent/10" },
+        { f: "rejected_date", label: "Recusado", icon: XCircle, color: "text-danger", bg: "bg-danger/10" },
       ];
       statusFields.forEach((sf) => {
         if (q[sf.f]) {
@@ -235,7 +235,7 @@ export default function GerenteClienteDetalhe() {
           </div>
           {wa && (
             <a href={wa} target="_blank" rel="noopener noreferrer">
-              <Button className="gap-2 bg-emerald-600 hover:bg-emerald-700">
+              <Button className="gap-2 bg-success hover:bg-success">
                 <MessageCircle className="h-4 w-4" /> WhatsApp
               </Button>
             </a>
@@ -250,21 +250,21 @@ export default function GerenteClienteDetalhe() {
           label="Total Gasto"
           value={formatBRL(totalSpent)}
           subtext={`Em ${sold.length} ${sold.length === 1 ? "compra" : "compras"}`}
-          color="text-emerald-600"
+          color="text-success"
         />
         <MetricCard
           icon={<ShoppingCart className="h-4 w-4" />}
           label="Ticket Médio"
           value={formatBRL(avgTicket)}
           subtext={sold.length > 0 ? "Por compra" : "Sem compras"}
-          color="text-amber-600"
+          color="text-warning"
         />
         <MetricCard
           icon={<FileText className="h-4 w-4" />}
           label="Cotações Recebidas"
           value={quotes.length}
           subtext={`${pending} pendente${pending === 1 ? "" : "s"}`}
-          color="text-blue-600"
+          color="text-accent"
         />
         <MetricCard
           icon={<Calendar className="h-4 w-4" />}
@@ -285,7 +285,7 @@ export default function GerenteClienteDetalhe() {
             <Card key={family.headId} className="border-l-4 border-l-amber-400">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base flex items-center gap-2">
-                  <GitBranch className="h-4 w-4 text-amber-600" />
+                  <GitBranch className="h-4 w-4 text-warning" />
                   Histórico — {family.items.length} cotações
                 </CardTitle>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -296,11 +296,11 @@ export default function GerenteClienteDetalhe() {
                 {family.items.map((q, i) => (
                   <div
                     key={q.id}
-                    className="flex items-center justify-between p-2 rounded hover:bg-slate-50 cursor-pointer transition-colors"
+                    className="flex items-center justify-between p-2 rounded hover:bg-bg-elevated cursor-pointer transition-colors"
                     onClick={() => setDetailQuote(q)}
                   >
                     <div className="flex items-center gap-3">
-                      <span className="w-7 h-7 rounded-full bg-amber-100 text-amber-700 text-xs font-bold flex items-center justify-center">
+                      <span className="w-7 h-7 rounded-full bg-warning/10 text-warning text-xs font-bold flex items-center justify-center">
                         #{i + 1}
                       </span>
                       <div>
@@ -329,9 +329,9 @@ export default function GerenteClienteDetalhe() {
         </h2>
 
         {/* Compras realizadas */}
-        <Card className="border-emerald-300 bg-emerald-50/30 dark:bg-emerald-500/5">
+        <Card className="border-success/30 bg-success/10 dark:bg-success/5">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2 text-emerald-800 dark:text-emerald-300">
+            <CardTitle className="text-sm flex items-center gap-2 text-success dark:text-success">
               <CheckCircle2 className="h-4 w-4" /> Compras Realizadas ·{" "}
               <span className="font-normal">
                 {sold.length} {sold.length === 1 ? "compra" : "compras"} · Total: {formatBRL(totalSpent)}

@@ -220,7 +220,7 @@ function ContactRow({ client }) {
       <td className="px-4 py-3 text-right text-sm font-medium">{client.total_quotes}</td>
       <td className="px-4 py-3 text-right text-sm font-bold">
         {client.total_purchases > 0 ? (
-          <span className="text-emerald-600">{client.total_purchases}</span>
+          <span className="text-success">{client.total_purchases}</span>
         ) : (
           <span className="text-muted-foreground font-normal">0</span>
         )}
@@ -236,7 +236,7 @@ function ContactRow({ client }) {
               href={wa}
               target="_blank"
               rel="noopener noreferrer"
-              className="h-8 w-8 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 flex items-center justify-center text-emerald-600 transition-colors"
+              className="h-8 w-8 rounded-md bg-success/10 hover:bg-success/20 flex items-center justify-center text-success transition-colors"
               title="Abrir WhatsApp"
             >
               <MessageCircle className="h-4 w-4" />
@@ -245,7 +245,7 @@ function ContactRow({ client }) {
           {client.phone && (
             <a
               href={`tel:${client.phone}`}
-              className="h-8 w-8 rounded-md bg-blue-500/10 hover:bg-blue-500/20 flex items-center justify-center text-blue-600 transition-colors"
+              className="h-8 w-8 rounded-md bg-accent/10 hover:bg-accent/20 flex items-center justify-center text-accent transition-colors"
               title="Ligar"
             >
               <Phone className="h-4 w-4" />

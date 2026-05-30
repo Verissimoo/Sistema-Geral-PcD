@@ -56,9 +56,9 @@ const getMonthBounds = (monthStr) => {
 };
 
 const STATUS_BADGE = {
-  Ativa: "bg-amber-500 hover:bg-amber-500 text-white border-0",
+  Ativa: "bg-warning hover:bg-warning text-white border-0",
   Futura: "bg-muted text-muted-foreground hover:bg-muted border",
-  Concluída: "bg-emerald-500 hover:bg-emerald-500 text-white border-0",
+  Concluída: "bg-success hover:bg-success text-white border-0",
 };
 
 const STRETCH_TRIGGERS = [
@@ -189,7 +189,7 @@ export default function GerenteMetasComerciais() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge className="bg-amber-500 hover:bg-amber-500 text-white border-0 px-3 py-1.5">
+          <Badge className="bg-warning hover:bg-warning text-white border-0 px-3 py-1.5">
             <Calendar className="h-3.5 w-3.5 mr-1.5" />
             Mês ativo: {currentMonthLabel}
           </Badge>
@@ -203,13 +203,13 @@ export default function GerenteMetasComerciais() {
       <Card className="border-0 bg-[#0B1E3D] text-white overflow-hidden">
         <CardContent className="p-6 md:p-7">
           <div className="flex items-start gap-3 mb-4">
-            <div className="p-2 rounded-lg bg-amber-500/20 border border-amber-500/30 shrink-0">
-              <Sparkles className="h-5 w-5 text-amber-400" />
+            <div className="p-2 rounded-lg bg-warning/20 border border-warning/30 shrink-0">
+              <Sparkles className="h-5 w-5 text-warning" />
             </div>
             <p className="text-base leading-relaxed">
               A escada escolhida é <strong>agressiva, mas realista</strong>. Outubro tem meta
               oficial de <strong>R$ 200.000</strong>, mas a meta de gestão interna será{" "}
-              <strong className="text-amber-400">R$ 220.000</strong>.
+              <strong className="text-warning">R$ 220.000</strong>.
             </p>
           </div>
           <div className="flex flex-wrap gap-3 text-xs">
@@ -219,7 +219,7 @@ export default function GerenteMetasComerciais() {
             <span className="px-3 py-1.5 rounded-full bg-white/10 border border-white/20">
               R$ 30k → R$ 220k
             </span>
-            <span className="px-3 py-1.5 rounded-full bg-amber-400/15 border border-amber-400/40 text-amber-200">
+            <span className="px-3 py-1.5 rounded-full bg-warning/15 border border-warning/30 text-warning">
               Margem mínima: 15%
             </span>
           </div>
@@ -230,7 +230,7 @@ export default function GerenteMetasComerciais() {
       <Card className="border-border/50">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-amber-500" /> Escada visual
+            <TrendingUp className="h-4 w-4 text-warning" /> Escada visual
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -257,8 +257,8 @@ export default function GerenteMetasComerciais() {
                   key={g.id}
                   className={cn(
                     "shrink-0 w-[200px] border-2 transition-all flex flex-col justify-between",
-                    isCurrent && "border-amber-400 bg-white shadow-xl shadow-amber-500/20 ring-2 ring-amber-300/60",
-                    isPast && "border-emerald-400 bg-emerald-500/10",
+                    isCurrent && "border-warning/30 bg-bg-surface shadow-xl ring-2 ring-warning/40",
+                    isPast && "border-success/30 bg-success/10",
                     isFuture && "border-border bg-[#0B1E3D]/95 text-white opacity-90"
                   )}
                   style={{ height: `${height}px` }}
@@ -272,17 +272,17 @@ export default function GerenteMetasComerciais() {
                         {g.month_label}
                       </div>
                       {isCurrent && (
-                        <Badge className="bg-amber-500 hover:bg-amber-500 text-white text-[9px] border-0">
+                        <Badge className="bg-warning hover:bg-warning text-white text-[9px] border-0">
                           Mês Atual
                         </Badge>
                       )}
                       {isPast && (
-                        <Badge className="bg-emerald-500 hover:bg-emerald-500 text-white text-[9px] border-0 gap-1">
+                        <Badge className="bg-success hover:bg-success text-white text-[9px] border-0 gap-1">
                           <CheckCircle2 className="h-2.5 w-2.5" /> Concluído
                         </Badge>
                       )}
                       {isFuture && (
-                        <Badge className="bg-slate-500 hover:bg-slate-500 text-white text-[9px] border-0">
+                        <Badge className="bg-text-muted hover:bg-text-muted text-white text-[9px] border-0">
                           Futura
                         </Badge>
                       )}
@@ -297,8 +297,8 @@ export default function GerenteMetasComerciais() {
                       </div>
                       <div className={cn(
                         "text-base md:text-lg font-bold",
-                        isCurrent && "text-amber-600",
-                        isPast && "text-emerald-700"
+                        isCurrent && "text-warning",
+                        isPast && "text-success"
                       )}>
                         {formatBRLShort(g.monthly_target)}
                       </div>
@@ -336,11 +336,11 @@ export default function GerenteMetasComerciais() {
           isCurrentMonth={true}
         />
       ) : (
-        <Card className="border-amber-300 bg-amber-50 dark:bg-amber-500/10">
+        <Card className="border-warning/30 bg-warning/10 dark:bg-warning/10">
           <CardContent className="p-6 flex items-start gap-3">
-            <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+            <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
             <div className="space-y-1 flex-1">
-              <div className="font-semibold text-amber-700 dark:text-amber-300">
+              <div className="font-semibold text-warning dark:text-warning">
                 Nenhuma meta definida para {currentMonthLabel}
               </div>
               <p className="text-sm text-muted-foreground">
@@ -386,24 +386,24 @@ export default function GerenteMetasComerciais() {
                     key={g.id}
                     className={cn(
                       "border-b border-border/50",
-                      isCurrentMonth && "bg-amber-50 dark:bg-amber-500/10 font-medium"
+                      isCurrentMonth && "bg-warning/10 dark:bg-warning/10 font-medium"
                     )}
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-bold">{g.month_label}</span>
                         {isCurrentMonth && (
-                          <Badge className="bg-amber-500 hover:bg-amber-500 text-white text-[9px] border-0">
+                          <Badge className="bg-warning hover:bg-warning text-white text-[9px] border-0">
                             Mês atual
                           </Badge>
                         )}
                         {isActive && !isCurrentMonth && (
-                          <Badge className="bg-amber-400 hover:bg-amber-400 text-white text-[9px] border-0">
+                          <Badge className="bg-warning hover:bg-warning text-white text-[9px] border-0">
                             Ativa
                           </Badge>
                         )}
                         {isDone && (
-                          <Badge className="bg-emerald-500 hover:bg-emerald-500 text-white text-[9px] border-0">
+                          <Badge className="bg-success hover:bg-success text-white text-[9px] border-0">
                             ✓
                           </Badge>
                         )}
@@ -417,7 +417,7 @@ export default function GerenteMetasComerciais() {
                         </div>
                       )}
                       {g.month === "2026-10" && (
-                        <div className="text-[10px] text-amber-700 dark:text-amber-400 mt-1">
+                        <div className="text-[10px] text-warning dark:text-warning mt-1">
                           R$ 220k gestão / R$ 200k oficial
                         </div>
                       )}
@@ -475,7 +475,7 @@ export default function GerenteMetasComerciais() {
                       <td className="px-4 py-3 font-medium">
                         <div className="flex items-center gap-2">
                           {reached ? (
-                            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                            <CheckCircle2 className="h-4 w-4 text-success" />
                           ) : (
                             <Clock className="h-4 w-4 text-muted-foreground/60" />
                           )}
@@ -495,13 +495,13 @@ export default function GerenteMetasComerciais() {
 
           <div className="space-y-1">
             <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-              <Award className="h-3.5 w-3.5 text-amber-500" /> Cenários stretch
+              <Award className="h-3.5 w-3.5 text-warning" /> Cenários stretch
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
               {STRETCH_TRIGGERS.map((s) => (
-                <Card key={s.label} className="border-2 border-amber-300 bg-gradient-to-br from-amber-50 to-amber-100/40 dark:from-amber-500/10 dark:to-amber-500/5">
+                <Card key={s.label} className="border-2 border-warning/30 bg-warning/10">
                   <CardContent className="p-4 space-y-2">
-                    <Badge className="bg-amber-500 hover:bg-amber-500 text-white border-0 w-fit">
+                    <Badge className="bg-warning hover:bg-warning text-white border-0 w-fit">
                       {s.label}
                     </Badge>
                     <div className="text-sm font-medium">{s.condition}</div>
@@ -596,7 +596,7 @@ function ActiveMonthCard({ goal, quotes, isCurrentMonth = true }) {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Esquerda: progresso */}
           <div className="lg:col-span-2 space-y-4">
-            <div className="flex items-center gap-2 text-amber-400 text-xs font-bold uppercase tracking-[0.3em]">
+            <div className="flex items-center gap-2 text-warning text-xs font-bold uppercase tracking-[0.3em]">
               <Calendar className="h-3 w-3" /> {isCurrentMonth ? "Mês atual" : "Mês ativo"}
             </div>
             <div className="flex items-baseline gap-3 flex-wrap">
@@ -613,11 +613,11 @@ function ActiveMonthCard({ goal, quotes, isCurrentMonth = true }) {
                 </span>
                 <span className="text-sm text-white/60">de {formatBRL(target)}</span>
               </div>
-              <div className="h-3 rounded-full bg-white/10 overflow-hidden">
+              <div className="h-3 rounded-full bg-bg-surface overflow-hidden">
                 <div
                   className={cn(
                     "h-full transition-all duration-500",
-                    pct >= 100 ? "bg-emerald-400" : "bg-amber-400"
+                    pct >= 100 ? "bg-success" : "bg-warning"
                   )}
                   style={{ width: `${pct}%` }}
                 />
@@ -648,8 +648,8 @@ function ActiveMonthCard({ goal, quotes, isCurrentMonth = true }) {
               className={cn(
                 "p-3 rounded-lg text-sm flex items-center gap-2 border",
                 onPace
-                  ? "bg-emerald-500/15 border-emerald-400/40 text-emerald-200"
-                  : "bg-amber-500/15 border-amber-400/40 text-amber-200"
+                  ? "bg-success/15 border-success/30 text-success"
+                  : "bg-warning/15 border-warning/30 text-warning"
               )}
             >
               {onPace ? (
@@ -668,7 +668,7 @@ function ActiveMonthCard({ goal, quotes, isCurrentMonth = true }) {
 
           {/* Direita: breakdown semanal */}
           <div>
-            <div className="text-xs font-bold uppercase tracking-[0.3em] text-amber-400 mb-3">
+            <div className="text-xs font-bold uppercase tracking-[0.3em] text-warning mb-3">
               Breakdown semanal
             </div>
             <div className="space-y-2">
@@ -685,8 +685,8 @@ function ActiveMonthCard({ goal, quotes, isCurrentMonth = true }) {
                     className={cn(
                       "p-2.5 rounded-lg border",
                       isCurrent
-                        ? "bg-amber-500/15 border-amber-400/40"
-                        : "bg-white/5 border-white/10",
+                        ? "bg-warning/15 border-warning/30"
+                        : "bg-white/10 border-white/10",
                       isFutureWeek && "opacity-60"
                     )}
                   >
@@ -695,7 +695,7 @@ function ActiveMonthCard({ goal, quotes, isCurrentMonth = true }) {
                         Semana {w.idx} <span className="text-white/40">({w.range})</span>
                       </span>
                       {isCurrent && (
-                        <Badge className="bg-amber-500 hover:bg-amber-500 text-white text-[9px] border-0">
+                        <Badge className="bg-warning hover:bg-warning text-white text-[9px] border-0">
                           em andamento
                         </Badge>
                       )}
@@ -897,7 +897,7 @@ function EditGoalsDialog({ open, onClose, goals, onChange, toast }) {
                       size="icon"
                       variant="ghost"
                       onClick={() => removeRow(idx)}
-                      className="text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                      className="text-danger hover:text-danger hover:bg-danger/10"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -970,7 +970,7 @@ function EditGoalsDialog({ open, onClose, goals, onChange, toast }) {
         </div>
 
         <DialogFooter className="flex flex-col sm:flex-row gap-2">
-          <Button onClick={handleReset} variant="outline" className="text-red-600 gap-2">
+          <Button onClick={handleReset} variant="outline" className="text-danger gap-2">
             <RotateCcw className="h-4 w-4" /> Resetar metas
           </Button>
           <div className="flex-1" />

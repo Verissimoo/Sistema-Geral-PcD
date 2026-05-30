@@ -169,7 +169,7 @@ function ComissaoTab() {
     <div className="space-y-6">
       {/* Toggle Modo */}
       <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/50 border border-border">
-        <DollarSign className={`h-5 w-5 transition-colors ${!modoMilhas ? 'text-emerald-500' : 'text-muted-foreground/40'}`} />
+        <DollarSign className={`h-5 w-5 transition-colors ${!modoMilhas ? 'text-success' : 'text-muted-foreground/40'}`} />
         <span className={`text-sm font-medium transition-colors ${!modoMilhas ? 'text-foreground' : 'text-muted-foreground'}`}>
           Dinheiro
         </span>
@@ -181,7 +181,7 @@ function ComissaoTab() {
         <span className={`text-sm font-medium transition-colors ${modoMilhas ? 'text-foreground' : 'text-muted-foreground'}`}>
           Milhas
         </span>
-        <Percent className={`h-5 w-5 transition-colors ${modoMilhas ? 'text-blue-500' : 'text-muted-foreground/40'}`} />
+        <Percent className={`h-5 w-5 transition-colors ${modoMilhas ? 'text-accent' : 'text-muted-foreground/40'}`} />
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -249,25 +249,25 @@ function ComissaoTab() {
 
             {/* Valor Nipon (destaque) */}
             {valorNipon > 0 && (
-              <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 space-y-1.5">
+              <div className="p-3 rounded-lg bg-accent/10 border border-accent/30 space-y-1.5">
                 {modoMilhas && appliedTier && (
-                  <Badge className="bg-purple-100 text-purple-700 border-purple-200 hover:bg-purple-100 border">
+                  <Badge className="bg-accent/10 text-accent border-accent/30 hover:bg-accent/10 border">
                     Faixa: {appliedTier.label}
                   </Badge>
                 )}
-                <p className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                <p className="text-sm font-semibold text-accent dark:text-accent">
                   Valor Nipon (preço base de venda): {fmt(valorNipon)}
                 </p>
                 {modoMilhas && selectedProgram && (
                   <>
-                    <p className="text-xs text-blue-500/80">
+                    <p className="text-xs text-accent">
                       Baseado em {fmt(appliedSale)} por mil milhas (preço de venda)
                     </p>
-                    <div className="text-[11px] text-muted-foreground border-t border-blue-500/20 pt-1.5 mt-1 space-y-0.5">
+                    <div className="text-[11px] text-muted-foreground border-t border-accent/30 pt-1.5 mt-1 space-y-0.5">
                       <div>Custo real (interno): {fmt(custoReal)}</div>
                       <div>
                         Margem bruta:{" "}
-                        <span className="font-semibold text-emerald-600">
+                        <span className="font-semibold text-success">
                           {fmt(valorNipon - custoReal)}
                         </span>
                       </div>
@@ -302,10 +302,10 @@ function ComissaoTab() {
         </Card>
 
         {/* Resultado */}
-        <Card className={`border-border/50 transition-all duration-300 ${resultado ? 'ring-2 ring-emerald-500/30 shadow-lg shadow-emerald-500/5' : 'opacity-60'}`}>
+        <Card className={`border-border/50 transition-all duration-300 ${resultado ? 'ring-2 ring-success/40 shadow-lg' : 'opacity-60'}`}>
           <CardHeader className="pb-4">
             <CardTitle className="text-base flex items-center gap-2">
-              <DollarSign className="h-4 w-4 text-emerald-500" />
+              <DollarSign className="h-4 w-4 text-success" />
               Resultado da Comissão
             </CardTitle>
           </CardHeader>
@@ -313,7 +313,7 @@ function ComissaoTab() {
             {resultado ? (
               <div className="space-y-3">
                 {resultado.abaixoNipon && (
-                  <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-700 dark:text-amber-300">
+                  <div className="p-3 rounded-lg bg-warning/10 border border-warning/30 text-xs text-warning dark:text-warning">
                     ⚠️ Venda ({fmt(resultado.valorVenda)}) está abaixo do Nipon ({fmt(resultado.valorNipon)}).
                     Sem comissão extra — só comissão base sobre o lucro mínimo.
                   </div>
@@ -344,9 +344,9 @@ function ComissaoTab() {
                   <span className="text-sm font-medium">{fmt(resultado.comissaoExtra)}</span>
                 </div>
                 <div className="h-px bg-border" />
-                <div className="flex justify-between items-center py-3 px-4 -mx-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                  <span className="text-base font-bold text-emerald-600 dark:text-emerald-400">COMISSÃO TOTAL</span>
-                  <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
+                <div className="flex justify-between items-center py-3 px-4 -mx-4 rounded-xl bg-success/10 border border-success/30">
+                  <span className="text-base font-bold text-success dark:text-success">COMISSÃO TOTAL</span>
+                  <span className="text-xl font-bold text-success dark:text-success">
                     {fmt(resultado.comissaoTotal)}
                   </span>
                 </div>
@@ -515,10 +515,10 @@ function TaxaJurosTab() {
       </Card>
 
       {/* Resultado */}
-      <Card className={`border-border/50 transition-all duration-300 ${resultado ? 'ring-2 ring-amber-500/30 shadow-lg shadow-amber-500/5' : 'opacity-60'}`}>
+      <Card className={`border-border/50 transition-all duration-300 ${resultado ? 'ring-2 ring-warning/40 shadow-lg' : 'opacity-60'}`}>
         <CardHeader className="pb-4">
           <CardTitle className="text-base flex items-center gap-2">
-            <Percent className="h-4 w-4 text-amber-500" />
+            <Percent className="h-4 w-4 text-warning" />
             Resultado das Taxas
           </CardTitle>
         </CardHeader>
@@ -526,51 +526,51 @@ function TaxaJurosTab() {
           {resultado ? (
             <div className="space-y-4">
               {/* DESTAQUE PRINCIPAL — valor total com taxa */}
-              <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-5">
-                <p className="text-xs uppercase tracking-wider text-amber-700 mb-1">
+              <div className="bg-warning/10 border-2 border-warning/30 rounded-xl p-5">
+                <p className="text-xs uppercase tracking-wider text-warning mb-1">
                   Valor total a cobrar do cliente
                 </p>
-                <p className="text-4xl font-black text-amber-600">
+                <p className="text-4xl font-semibold text-warning">
                   {fmt(resultado.totalComTaxa)}
                 </p>
-                <p className="text-xs text-amber-700 mt-2">
+                <p className="text-xs text-warning mt-2">
                   Inclui taxa de {resultado.taxaPct.toFixed(2)}%
                   {resultado.hasFixedFee ? ` + ${fmt(resultado.fixedFee)} fixo` : ''} repassada ao cliente
                 </p>
               </div>
 
               {/* DESTAQUE SECUNDÁRIO — parcelas */}
-              <div className="bg-slate-900 text-white rounded-xl p-5">
-                <p className="text-xs uppercase tracking-wider text-slate-400 mb-1">
+              <div className="bg-bg-elevated text-text-primary rounded-xl p-5">
+                <p className="text-xs uppercase tracking-wider text-text-muted mb-1">
                   Valor das parcelas
                 </p>
                 <p className="text-3xl font-bold">
-                  {resultado.numParcelas}x de <span className="text-amber-400">{fmt(resultado.valorParcela)}</span>
+                  {resultado.numParcelas}x de <span className="text-warning">{fmt(resultado.valorParcela)}</span>
                 </p>
-                <p className="text-xs text-slate-400 mt-2">
+                <p className="text-xs text-text-muted mt-2">
                   {resultado.parcelaLabel} no cartão de crédito
                 </p>
               </div>
 
               {/* Detalhamento — valores menores */}
               <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="bg-slate-50 rounded-lg p-3">
+                <div className="bg-bg-elevated rounded-lg p-3">
                   <p className="text-xs text-muted-foreground">Valor base</p>
                   <p className="font-semibold">{fmt(resultado.venda)}</p>
                 </div>
-                <div className="bg-slate-50 rounded-lg p-3">
+                <div className="bg-bg-elevated rounded-lg p-3">
                   <p className="text-xs text-muted-foreground">Taxa ({resultado.taxaPct.toFixed(2)}%)</p>
-                  <p className="font-semibold text-red-600">+ {fmt(resultado.valorTaxa)}</p>
+                  <p className="font-semibold text-danger">+ {fmt(resultado.valorTaxa)}</p>
                 </div>
                 {resultado.hasFixedFee && (
-                  <div className="bg-slate-50 rounded-lg p-3 col-span-2">
+                  <div className="bg-bg-elevated rounded-lg p-3 col-span-2">
                     <p className="text-xs text-muted-foreground">Taxa fixa adicional</p>
-                    <p className="font-semibold text-red-600">+ {fmt(resultado.fixedFee)}</p>
+                    <p className="font-semibold text-danger">+ {fmt(resultado.fixedFee)}</p>
                   </div>
                 )}
-                <div className="bg-emerald-50 rounded-lg p-3 col-span-2">
-                  <p className="text-xs text-emerald-700">Valor líquido recebido (vendedor)</p>
-                  <p className="font-semibold text-emerald-700">{fmt(resultado.liquidoRecebido)}</p>
+                <div className="bg-success/10 rounded-lg p-3 col-span-2">
+                  <p className="text-xs text-success">Valor líquido recebido (vendedor)</p>
+                  <p className="font-semibold text-success">{fmt(resultado.liquidoRecebido)}</p>
                 </div>
               </div>
             </div>
@@ -585,10 +585,10 @@ function TaxaJurosTab() {
     </div>
 
     {resultado && (
-      <Card className="border-2 border-green-200 bg-green-50/50">
+      <Card className="border-2 border-success/30 bg-success/10">
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
-            <MessageCircle className="w-5 h-5 text-green-600" />
+            <MessageCircle className="w-5 h-5 text-success" />
             Solicitar link de pagamento ao financeiro
           </CardTitle>
         </CardHeader>
@@ -607,13 +607,13 @@ function TaxaJurosTab() {
             </Label>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-lg p-3 text-xs font-mono text-slate-700 whitespace-pre-line">
+          <div className="bg-bg-surface border border-border rounded-lg p-3 text-xs font-mono text-text-secondary whitespace-pre-line">
             {gerarMensagem()}
           </div>
 
           <Button
             onClick={enviarParaFinanceiro}
-            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold"
+            className="w-full bg-success hover:bg-success text-white font-semibold"
             size="lg"
           >
             <MessageCircle className="w-5 h-5 mr-2" />
@@ -731,7 +731,7 @@ function CalculadoraMilhasTab() {
         </CardContent>
       </Card>
 
-      <Card className={ready ? "border-amber-300 bg-amber-50/40 dark:bg-amber-500/5" : "border-border/50"}>
+      <Card className={ready ? "border-warning/30 bg-warning/10 dark:bg-warning/5" : "border-border/50"}>
         <CardHeader>
           <CardTitle className="text-base">Resultado</CardTitle>
         </CardHeader>
@@ -743,7 +743,7 @@ function CalculadoraMilhasTab() {
           ) : (
             <div className="space-y-3">
               {appliedTier && (
-                <div className="rounded-lg border border-purple-300 bg-purple-100/60 dark:bg-purple-500/10 p-2 text-xs">
+                <div className="rounded-lg border border-accent/30 bg-accent/10 dark:bg-accent/10 p-2 text-xs">
                   <strong>Faixa aplicada:</strong> {appliedTier.label}
                 </div>
               )}
@@ -752,7 +752,7 @@ function CalculadoraMilhasTab() {
                 <div className="text-[11px] uppercase tracking-widest text-muted-foreground">
                   Valor de venda
                 </div>
-                <div className="text-3xl font-black text-amber-600">{fmt(vendaTotal)}</div>
+                <div className="text-3xl font-semibold text-warning">{fmt(vendaTotal)}</div>
                 <div className="text-xs text-muted-foreground">
                   ({(qty / 1000).toFixed(qty % 1000 === 0 ? 0 : 2)}k milhas × {fmt(salePerThousand)}/mil
                   {taxNum > 0 ? ` + ${fmt(taxNum)} taxa` : ""}
@@ -767,7 +767,7 @@ function CalculadoraMilhasTab() {
                 </div>
                 <div>
                   <div className="text-[11px] text-muted-foreground uppercase tracking-wider">Lucro</div>
-                  <div className={`font-semibold ${lucro >= 0 ? "text-emerald-600" : "text-red-600"}`}>
+                  <div className={`font-semibold ${lucro >= 0 ? "text-success" : "text-danger"}`}>
                     {fmt(lucro)}
                   </div>
                 </div>

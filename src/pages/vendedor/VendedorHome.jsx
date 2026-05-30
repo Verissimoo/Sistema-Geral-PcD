@@ -151,7 +151,7 @@ export default function VendedorHome() {
       {/* Header com saudação */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">
+          <h1 className="text-3xl font-bold text-text-primary">
             {saudacao}, {firstName} <span aria-hidden>👋</span>
           </h1>
           <p className="text-sm text-muted-foreground mt-1 capitalize">
@@ -163,31 +163,31 @@ export default function VendedorHome() {
             })}
           </p>
         </div>
-        <Badge className="bg-amber-100 text-amber-700 border-amber-300 px-3 py-1 hover:bg-amber-100">
+        <Badge className="bg-warning/10 text-warning border-warning/30 px-3 py-1 hover:bg-warning/10">
           <Award className="w-3.5 h-3.5 mr-1.5" />
           Nível {user?.career_level || "N0"} · {nivelAtual?.title || "Vendedor"}
         </Badge>
       </div>
 
       {/* Bloco de cultura — destaque principal */}
-      <Card className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white border-0 overflow-hidden relative">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl -translate-y-32 translate-x-32 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl translate-y-32 -translate-x-32 pointer-events-none" />
+      <Card className="bg-[#0B1E3D] text-white border-0 overflow-hidden relative">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-warning/10 rounded-full blur-3xl -translate-y-32 translate-x-32 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-accent/10 rounded-full blur-3xl translate-y-32 -translate-x-32 pointer-events-none" />
 
         <CardContent className="p-8 relative">
           <div className="flex items-center gap-2 mb-3">
-            <Sparkles className="w-5 h-5 text-amber-400" />
-            <span className="text-xs uppercase tracking-wider text-amber-400 font-bold">
+            <Sparkles className="w-5 h-5 text-warning" />
+            <span className="text-xs uppercase tracking-wider text-warning font-bold">
               Mentalidade de Vendas PCD
             </span>
           </div>
 
-          <h2 className="text-2xl md:text-3xl font-black mb-5 leading-tight">
+          <h2 className="text-2xl md:text-3xl font-semibold mb-5 leading-tight">
             {CULTURA_FRASE_PRINCIPAL}
           </h2>
 
           {/* Contexto — mensagem principal da cultura */}
-          <div className="space-y-3 mb-6 text-slate-300 text-sm leading-relaxed max-w-3xl">
+          <div className="space-y-3 mb-6 text-text-muted text-sm leading-relaxed max-w-3xl">
             <p>
               Todo vendedor age de acordo com aquilo que{" "}
               <strong className="text-white">acredita sobre si mesmo</strong>. A venda não começa apenas na cotação — ela começa na mentalidade.
@@ -199,18 +199,18 @@ export default function VendedorHome() {
               Se você acredita que vender é um{" "}
               <strong className="text-white">processo simples</strong> e que é um bom vendedor, você fica mais confiante, faz mais contatos, melhora sua comunicação e aumenta suas chances.
             </p>
-            <p className="text-amber-200 italic border-l-2 border-amber-400 pl-4 mt-4">
+            <p className="text-warning italic border-l-2 border-warning/30 pl-4 mt-4">
               Na PCD, não acreditamos que venda é sorte. Acreditamos que toda venda é certa, com confiança e método.
             </p>
           </div>
 
           <div
             key={fraseAtual.frase}
-            className="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-5 transition-all animate-fade-in"
+            className="bg-white/10 backdrop-blur border border-white/10 rounded-xl p-5 transition-all animate-fade-in"
           >
             <div className="flex items-center gap-2 mb-2">
               <span className="text-xl">{fraseAtual.icon}</span>
-              <span className="text-xs uppercase tracking-wider text-slate-300 font-semibold">
+              <span className="text-xs uppercase tracking-wider text-text-muted font-semibold">
                 {fraseAtual.pilar}
               </span>
             </div>
@@ -225,7 +225,7 @@ export default function VendedorHome() {
                 key={p.id}
                 className={cn(
                   "h-1 rounded-full transition-all duration-500",
-                  fraseAtual.pilar === p.titulo ? "w-8 bg-amber-400" : "w-3 bg-white/20",
+                  fraseAtual.pilar === p.titulo ? "w-8 bg-warning" : "w-3 bg-bg-surface",
                 )}
               />
             ))}
@@ -235,8 +235,8 @@ export default function VendedorHome() {
 
       {/* Minhas métricas — 4 cards */}
       <div>
-        <h3 className="text-lg font-bold text-slate-900 mb-3 flex items-center gap-2">
-          <TrendingUp className="w-5 h-5 text-amber-500" />
+        <h3 className="text-lg font-bold text-text-primary mb-3 flex items-center gap-2">
+          <TrendingUp className="w-5 h-5 text-warning" />
           Minha performance —{" "}
           <span className="capitalize">
             {now.toLocaleDateString("pt-BR", { month: "long" })}
@@ -248,19 +248,19 @@ export default function VendedorHome() {
           <Card className="hover:shadow-md transition-shadow">
             <CardContent className="p-5">
               <div className="flex items-center justify-between mb-2">
-                <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center">
-                  <FileText className="w-4 h-4 text-blue-600" />
+                <div className="w-9 h-9 rounded-lg bg-accent/10 flex items-center justify-center">
+                  <FileText className="w-4 h-4 text-accent" />
                 </div>
                 {followUpsPendentes > 0 && (
-                  <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-xs hover:bg-amber-100">
+                  <Badge className="bg-warning/10 text-warning border-warning/30 text-xs hover:bg-warning/10">
                     {followUpsPendentes} follow-up{followUpsPendentes > 1 ? "s" : ""}
                   </Badge>
                 )}
               </div>
-              <p className="text-3xl font-black text-slate-900">
+              <p className="text-3xl font-semibold text-text-primary">
                 {cotacoesMes.length}
               </p>
-              <p className="text-xs text-slate-500 font-medium mt-1">
+              <p className="text-xs text-text-muted font-medium mt-1">
                 Cotações criadas
               </p>
             </CardContent>
@@ -270,8 +270,8 @@ export default function VendedorHome() {
           <Card className="hover:shadow-md transition-shadow">
             <CardContent className="p-5">
               <div className="flex items-center justify-between mb-2">
-                <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <div className="w-9 h-9 rounded-lg bg-success/10 flex items-center justify-center">
+                  <CheckCircle2 className="w-4 h-4 text-success" />
                 </div>
                 {pipelinePessoal.length > 0 && (
                   <Badge variant="outline" className="text-xs">
@@ -279,12 +279,12 @@ export default function VendedorHome() {
                   </Badge>
                 )}
               </div>
-              <p className="text-3xl font-black text-slate-900">{vendasMes.length}</p>
-              <p className="text-xs text-slate-500 font-medium mt-1">
+              <p className="text-3xl font-semibold text-text-primary">{vendasMes.length}</p>
+              <p className="text-xs text-text-muted font-medium mt-1">
                 Vendas emitidas
               </p>
               {pipelineValor > 0 && (
-                <p className="text-[10px] text-amber-600 font-medium mt-0.5">
+                <p className="text-[10px] text-warning font-medium mt-0.5">
                   Pipeline: {formatBRL(pipelineValor)}
                 </p>
               )}
@@ -295,32 +295,32 @@ export default function VendedorHome() {
           <Card className="hover:shadow-md transition-shadow">
             <CardContent className="p-5">
               <div className="flex items-center justify-between mb-2">
-                <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center">
-                  <DollarSign className="w-4 h-4 text-amber-600" />
+                <div className="w-9 h-9 rounded-lg bg-warning/10 flex items-center justify-center">
+                  <DollarSign className="w-4 h-4 text-warning" />
                 </div>
               </div>
-              <p className="text-2xl font-black text-slate-900">
+              <p className="text-2xl font-semibold text-text-primary">
                 {formatBRL(receitaMes)}
               </p>
-              <p className="text-xs text-slate-500 font-medium mt-1">Receita gerada</p>
+              <p className="text-xs text-text-muted font-medium mt-1">Receita gerada</p>
             </CardContent>
           </Card>
 
           {/* Total a receber */}
-          <Card className="bg-gradient-to-br from-amber-500 to-amber-600 text-white border-0 hover:shadow-lg transition-shadow">
+          <Card className="bg-warning text-white border-0 hover:shadow-lg transition-shadow">
             <CardContent className="p-5">
               <div className="flex items-center justify-between mb-2">
-                <div className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center">
+                <div className="w-9 h-9 rounded-lg bg-bg-surface flex items-center justify-center">
                   <Trophy className="w-4 h-4 text-white" />
                 </div>
               </div>
-              <p className="text-2xl font-black text-white">
+              <p className="text-2xl font-semibold text-white">
                 {formatBRL(totalAReceber)}
               </p>
-              <p className="text-xs text-amber-50 font-medium mt-1">
+              <p className="text-xs text-warning font-medium mt-1">
                 Total a receber
               </p>
-              <p className="text-[10px] text-amber-100 mt-0.5">
+              <p className="text-[10px] text-warning mt-0.5">
                 Fixo {formatBRL(fixoMensal)} + comissões {formatBRL(comissaoMes)}
               </p>
             </CardContent>
@@ -335,7 +335,7 @@ export default function VendedorHome() {
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <CardTitle className="text-base flex items-center gap-2">
-                <Target className="w-5 h-5 text-amber-500" />
+                <Target className="w-5 h-5 text-warning" />
                 Minha meta do mês
               </CardTitle>
               <Badge variant="outline">Nível {user?.career_level || "N0"}</Badge>
@@ -345,21 +345,21 @@ export default function VendedorHome() {
             {minhaMeta > 0 ? (
               <>
                 <div className="flex items-baseline justify-between mb-2">
-                  <span className="text-2xl font-black text-slate-900">
+                  <span className="text-2xl font-semibold text-text-primary">
                     {formatBRL(receitaMes)}
                   </span>
-                  <span className="text-sm text-slate-500">
+                  <span className="text-sm text-text-muted">
                     de {formatBRL(minhaMeta)}
                   </span>
                 </div>
-                <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden mb-2">
+                <div className="w-full bg-bg-elevated rounded-full h-3 overflow-hidden mb-2">
                   <div
                     className={cn(
                       "h-3 rounded-full transition-all duration-700",
-                      meuPct >= 100 && "bg-emerald-500",
-                      meuPct < 100 && meuPct >= 70 && "bg-amber-500",
-                      meuPct < 70 && meuPct >= 30 && "bg-blue-500",
-                      meuPct < 30 && "bg-slate-400",
+                      meuPct >= 100 && "bg-success",
+                      meuPct < 100 && meuPct >= 70 && "bg-warning",
+                      meuPct < 70 && meuPct >= 30 && "bg-accent",
+                      meuPct < 30 && "bg-text-muted",
                     )}
                     style={{ width: `${meuPct}%` }}
                   />
@@ -368,17 +368,17 @@ export default function VendedorHome() {
                   <span
                     className={cn(
                       "font-bold",
-                      meuPct >= 100 ? "text-emerald-600" : "text-slate-700",
+                      meuPct >= 100 ? "text-success" : "text-text-secondary",
                     )}
                   >
                     {meuPct.toFixed(1)}% atingido
                   </span>
                   {meuPct < 100 ? (
-                    <span className="text-slate-500">
+                    <span className="text-text-muted">
                       Faltam {formatBRL(minhaMeta - receitaMes)}
                     </span>
                   ) : (
-                    <span className="text-emerald-600 font-bold flex items-center gap-1">
+                    <span className="text-success font-bold flex items-center gap-1">
                       <Flame className="w-3 h-3" />
                       Meta batida!
                     </span>
@@ -397,7 +397,7 @@ export default function VendedorHome() {
         <Card className="border-l-4 border-l-blue-500">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
-              <Users className="w-5 h-5 text-blue-500" />
+              <Users className="w-5 h-5 text-accent" />
               Meta da equipe —{" "}
               <span className="capitalize">
                 {metaEquipe?.month_label ||
@@ -409,24 +409,24 @@ export default function VendedorHome() {
             {metaEquipe ? (
               <>
                 <div className="flex items-baseline justify-between mb-2">
-                  <span className="text-2xl font-black text-slate-900">
+                  <span className="text-2xl font-semibold text-text-primary">
                     {formatBRL(receitaEquipe)}
                   </span>
-                  <span className="text-sm text-slate-500">
+                  <span className="text-sm text-text-muted">
                     de {formatBRL(metaEquipe.monthly_target)}
                   </span>
                 </div>
-                <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden mb-2">
+                <div className="w-full bg-bg-elevated rounded-full h-3 overflow-hidden mb-2">
                   <div
-                    className="bg-gradient-to-r from-blue-500 to-blue-400 h-3 rounded-full transition-all duration-700"
+                    className="bg-accent h-3 rounded-full transition-all duration-700"
                     style={{ width: `${pctEquipe}%` }}
                   />
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span className="font-bold text-slate-700">
+                  <span className="font-bold text-text-secondary">
                     {pctEquipe.toFixed(1)}% atingido
                   </span>
-                  <span className="text-slate-500">
+                  <span className="text-text-muted">
                     Juntos somos mais fortes <span aria-hidden>🤝</span>
                   </span>
                 </div>
@@ -481,11 +481,11 @@ export default function VendedorHome() {
 
 function ActionButton({ icon: Icon, label, color, onClick, badge }) {
   const colors = {
-    amber: "hover:bg-amber-50 hover:border-amber-300 group-hover:text-amber-600",
-    blue: "hover:bg-blue-50 hover:border-blue-300 group-hover:text-blue-600",
-    purple: "hover:bg-purple-50 hover:border-purple-300 group-hover:text-purple-600",
+    amber: "hover:bg-warning/10 hover:border-warning/30 group-hover:text-warning",
+    blue: "hover:bg-accent/10 hover:border-accent/30 group-hover:text-accent",
+    purple: "hover:bg-accent/10 hover:border-accent/30 group-hover:text-accent",
     emerald:
-      "hover:bg-emerald-50 hover:border-emerald-300 group-hover:text-emerald-600",
+      "hover:bg-success/10 hover:border-success/30 group-hover:text-success",
   };
 
   return (
@@ -493,15 +493,15 @@ function ActionButton({ icon: Icon, label, color, onClick, badge }) {
       type="button"
       onClick={onClick}
       className={cn(
-        "group flex items-center gap-3 p-4 rounded-lg border-2 border-slate-200 transition-all relative text-left",
+        "group flex items-center gap-3 p-4 rounded-lg border-2 border-border transition-all relative text-left",
         colors[color],
       )}
     >
-      <Icon className="w-5 h-5 text-slate-500 transition-colors" />
-      <span className="font-medium text-sm text-slate-700 flex-1">{label}</span>
-      <ArrowRight className="w-4 h-4 text-slate-400 group-hover:translate-x-1 transition-transform" />
+      <Icon className="w-5 h-5 text-text-muted transition-colors" />
+      <span className="font-medium text-sm text-text-secondary flex-1">{label}</span>
+      <ArrowRight className="w-4 h-4 text-text-muted group-hover:translate-x-1 transition-transform" />
       {badge && (
-        <span className="absolute -top-2 -right-2 bg-amber-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
+        <span className="absolute -top-2 -right-2 bg-warning text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
           {badge}
         </span>
       )}

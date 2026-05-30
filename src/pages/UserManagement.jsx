@@ -351,7 +351,7 @@ export default function UserManagement() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <SummaryCard icon={<Users className="h-4 w-4" />} label="Total de usuários" value={metrics.total} />
         <SummaryCard
-          icon={<ShieldCheck className="h-4 w-4 text-emerald-600" />}
+          icon={<ShieldCheck className="h-4 w-4 text-success" />}
           label="Vendedores ativos"
           value={metrics.vendedoresAtivos}
         />
@@ -375,7 +375,7 @@ export default function UserManagement() {
                   className={cn(
                     "h-11 w-11 rounded-full flex items-center justify-center font-bold text-sm shrink-0",
                     isPartner
-                      ? "bg-emerald-100 text-emerald-700"
+                      ? "bg-success/10 text-success"
                       : "bg-primary/10 text-primary"
                   )}
                 >
@@ -411,12 +411,12 @@ export default function UserManagement() {
                     u.role === "admin"
                       ? "bg-[#0B1E3D] text-white border-transparent hover:bg-[#0B1E3D]"
                       : u.role === "gerente"
-                        ? "bg-purple-600 text-white border-transparent hover:bg-purple-600"
+                        ? "bg-accent text-white border-transparent hover:bg-accent"
                         : u.role === "parceiro"
-                          ? "bg-emerald-600 text-white border-transparent hover:bg-emerald-600"
+                          ? "bg-success text-white border-transparent hover:bg-success"
                           : u.role === "suporte"
-                            ? "bg-sky-100 text-sky-800 border-sky-200 hover:bg-sky-100"
-                            : "bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100"
+                            ? "bg-accent/10 text-accent border-accent/30 hover:bg-accent/10"
+                            : "bg-warning/10 text-warning border-warning/30 hover:bg-warning/10"
                   )}
                 >
                   {u.role === "admin"
@@ -433,8 +433,8 @@ export default function UserManagement() {
                   className={cn(
                     "border",
                     u.status === "Ativo"
-                      ? "bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
-                      : "bg-red-100 text-red-700 border-red-200 hover:bg-red-100"
+                      ? "bg-success/10 text-success border-success/30 hover:bg-success/10"
+                      : "bg-danger/10 text-danger border-danger/30 hover:bg-danger/10"
                   )}
                 >
                   {u.status}
@@ -456,7 +456,7 @@ export default function UserManagement() {
                     disabled={isSystemAdmin}
                     className={cn(
                       "gap-1.5",
-                      u.status === "Ativo" ? "text-red-600 hover:text-red-700" : "text-emerald-600 hover:text-emerald-700"
+                      u.status === "Ativo" ? "text-danger hover:text-danger" : "text-success hover:text-success"
                     )}
                   >
                     {u.status === "Ativo" ? <ShieldOff className="h-3.5 w-3.5" /> : <ShieldCheck className="h-3.5 w-3.5" />}
@@ -476,7 +476,7 @@ export default function UserManagement() {
                             ? "Excluir parceiro"
                             : "Excluir usuário"
                     }
-                    className="gap-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 disabled:opacity-30"
+                    className="gap-1.5 text-danger hover:text-danger hover:bg-danger/10 disabled:opacity-30"
                   >
                     <Trash2 className="h-3.5 w-3.5" /> Excluir
                   </Button>
@@ -575,25 +575,25 @@ export default function UserManagement() {
                     <SelectContent>
                       <SelectItem value="vendedor">
                         <span className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-amber-500" />
+                          <span className="w-2 h-2 rounded-full bg-warning" />
                           Vendedor
                         </span>
                       </SelectItem>
                       <SelectItem value="suporte">
                         <span className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-sky-500" />
+                          <span className="w-2 h-2 rounded-full bg-accent" />
                           Suporte
                         </span>
                       </SelectItem>
                       <SelectItem value="gerente">
                         <span className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-purple-500" />
+                          <span className="w-2 h-2 rounded-full bg-accent" />
                           Gerente
                         </span>
                       </SelectItem>
                       <SelectItem value="parceiro">
                         <span className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                          <span className="w-2 h-2 rounded-full bg-success" />
                           Parceiro
                         </span>
                       </SelectItem>
@@ -631,7 +631,7 @@ export default function UserManagement() {
                         placeholder="parceiro@email.com"
                       />
                     </div>
-                    <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-xs text-emerald-800 flex items-start gap-2">
+                    <div className="bg-success/10 border border-success/30 rounded-lg p-3 text-xs text-success flex items-start gap-2">
                       <Handshake className="h-3.5 w-3.5 mt-0.5 shrink-0" />
                       <span>
                         O parceiro configurará a empresa dele (logo, cores, dados) no primeiro acesso ao portal.
@@ -692,7 +692,7 @@ export default function UserManagement() {
             </div>
 
             {formError && (
-              <div className="flex items-start gap-2 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-danger/10 border border-danger/30 text-sm text-danger">
                 <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
                 {formError}
               </div>
@@ -725,7 +725,7 @@ export default function UserManagement() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-3 text-sm">
-            <div className="text-amber-800 bg-amber-50 border border-amber-200 rounded p-3">
+            <div className="text-warning bg-warning/10 border border-warning/30 rounded p-3">
               ⚠️ Cotações criadas por este usuário <strong>permanecem no sistema</strong> com o nome dele preservado no histórico, mas ele não poderá mais fazer login.
             </div>
             <p className="text-xs text-muted-foreground">
@@ -740,7 +740,7 @@ export default function UserManagement() {
                 handleDelete(userToDelete);
               }}
               disabled={deleting}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              className="bg-danger hover:bg-danger text-white"
             >
               {deleting ? "Excluindo..." : "Sim, excluir permanentemente"}
             </AlertDialogAction>

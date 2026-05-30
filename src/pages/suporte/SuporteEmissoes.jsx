@@ -13,6 +13,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
+import { cn } from "@/lib/utils";
 import { localClient } from "@/api/localClient";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/AuthContext";
@@ -85,36 +86,38 @@ export default function SuporteEmissoes() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <div className="flex items-center gap-3 mb-1">
-            <div className="p-2 rounded-lg bg-amber-500/10">
-              <Send className="h-5 w-5 text-amber-600" />
+            <div className="w-9 h-9 rounded-md bg-bg-elevated flex items-center justify-center">
+              <Send className="h-4 w-4 text-text-secondary" />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight">Emissões Pendentes</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">Emissões Pendentes</h1>
           </div>
-          <p className="text-muted-foreground text-sm ml-12">
+          <p className="text-text-muted text-sm ml-12">
             Orçamentos aprovados aguardando emissão pela equipe de suporte
           </p>
         </div>
-        <Badge className="bg-amber-100 text-amber-800 border-amber-400 border h-9 px-4 text-base font-bold">
+        <Badge variant="warning" className="h-9 px-4 text-base font-semibold">
           {summary.total} {summary.total === 1 ? "pendente" : "pendentes"}
         </Badge>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <SummaryCard
-          icon={<Send className="h-4 w-4 text-amber-600" />}
+          icon={Send}
           label="Total pendentes"
           value={summary.total}
         />
         <SummaryCard
-          icon={<Clock className="h-4 w-4 text-red-500" />}
+          icon={Clock}
           label="Mais antigo"
           value={summary.oldest ? timeAgo(summary.oldest) : "—"}
-          highlight={
+          tone={
             summary.oldest && Date.now() - new Date(summary.oldest).getTime() > 24 * 3600 * 1000
+              ? "warning"
+              : "neutral"
           }
         />
         <SummaryCard
-          icon={<DollarSign className="h-4 w-4 text-emerald-600" />}
+          icon={DollarSign}
           label="Valor pendente"
           value={formatBRL(summary.totalValor)}
           isText
@@ -122,11 +125,11 @@ export default function SuporteEmissoes() {
       </div>
 
       {quotes.length === 0 ? (
-        <Card className="border-border/50">
+        <Card>
           <CardContent className="py-16 text-center">
-            <CheckCircle2 className="h-10 w-10 text-emerald-500/40 mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground">
-              Nenhuma emissão pendente. Tudo em dia! 🎉
+            <CheckCircle2 className="h-10 w-10 text-success/40 mx-auto mb-3" />
+            <p className="text-sm text-text-muted">
+              Nenhuma emissão pendente. Tudo em dia.
             </p>
           </CardContent>
         </Card>
@@ -160,15 +163,27 @@ export default function SuporteEmissoes() {
   );
 }
 
-function SummaryCard({ icon, label, value, isText, highlight }) {
+function SummaryCard({ icon: Icon, label, value, isText, tone = "neutral" }) {
+  const cardTone =
+    tone === "warning" ? "bg-warning/10 border border-warning/30" : "border border-border";
+  const iconWrap = {
+    warning: "bg-warning/15 text-warning",
+    success: "bg-success/15 text-success",
+    neutral: "bg-bg-elevated text-text-secondary",
+  }[tone];
+  const valueColor = tone === "warning" ? "text-warning" : "text-text-primary";
   return (
-    <Card className={highlight ? "border-amber-400 bg-amber-50/40" : "border-border/50"}>
-      <CardContent className="p-4">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-          {icon}
-          <span>{label}</span>
+    <Card className={cardTone}>
+      <CardContent className="p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <div className={cn("w-8 h-8 rounded-md flex items-center justify-center", iconWrap)}>
+            <Icon className="w-4 h-4" />
+          </div>
+          <p className="text-xs uppercase tracking-wider text-text-muted font-medium">{label}</p>
         </div>
-        <div className={isText ? "font-bold text-lg" : "font-bold text-2xl"}>{value}</div>
+        <p className={cn("font-semibold tabular-nums", isText ? "text-xl" : "text-3xl", valueColor)}>
+          {value}
+        </p>
       </CardContent>
     </Card>
   );
@@ -188,11 +203,12 @@ function EmissionCard({ quote, expanded, onToggle, onEmit }) {
 
   return (
     <Card
-      className={
+      className={cn(
+        "transition-colors",
         isUrgent
-          ? "border-2 border-red-400 bg-red-50/40"
-          : "border-border/50 hover:border-amber-300 transition-colors"
-      }
+          ? "border border-danger/25 hover:border-danger/40"
+          : "border border-border hover:border-border-strong"
+      )}
     >
       <CardContent className="p-4 space-y-3">
         <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -202,7 +218,7 @@ function EmissionCard({ quote, expanded, onToggle, onEmit }) {
                 {quote.quote_number || `#${quote.id?.slice(0, 8)}`}
               </span>
               {isUrgent && (
-                <Badge className="bg-red-100 text-red-800 border-red-300 border gap-1">
+                <Badge variant="danger" className="gap-1">
                   <AlertTriangle className="h-3 w-3" /> Urgente
                 </Badge>
               )}
@@ -226,7 +242,7 @@ function EmissionCard({ quote, expanded, onToggle, onEmit }) {
             <div className="font-bold text-lg">
               {formatBRL(quote.final_paid_value || quote.total_value)}
             </div>
-            <div className="text-xs text-amber-700 font-semibold flex items-center justify-end gap-1 mt-1">
+            <div className="text-xs text-text-muted flex items-center justify-end gap-1 mt-1">
               <Clock className="h-3 w-3" /> Enviado {timeAgo(sentAt)}
             </div>
           </div>
@@ -245,8 +261,9 @@ function EmissionCard({ quote, expanded, onToggle, onEmit }) {
             )}
           </Button>
           <Button
+            variant="success"
             onClick={onEmit}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 ml-auto"
+            className="gap-1.5 ml-auto"
           >
             <CheckCircle2 className="h-4 w-4" /> Marcar como Emitido + Anexar Voucher
           </Button>
@@ -325,7 +342,7 @@ function EmissionCard({ quote, expanded, onToggle, onEmit }) {
                   href={quote.payment_proof_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-800 text-sm font-semibold"
+                  className="inline-flex items-center gap-1.5 text-accent hover:text-accent-hover text-sm font-semibold"
                 >
                   <FileText className="h-3.5 w-3.5" /> Ver comprovante de pagamento
                 </a>
@@ -340,11 +357,11 @@ function EmissionCard({ quote, expanded, onToggle, onEmit }) {
                 </div>
                 <div className="space-y-2">
                   {quote.passenger_data.map((pax, idx) => (
-                    <div key={idx} className="bg-slate-50 rounded-lg p-3 text-sm border border-slate-200">
+                    <div key={idx} className="bg-bg-elevated rounded-md p-3 text-sm border border-border">
                       <p className="font-semibold mb-1">
                         {idx + 1}. {pax.full_name || "—"}
                       </p>
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-600">
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-text-muted">
                         <span>CPF: <strong>{pax.cpf || "—"}</strong></span>
                         <span>
                           Nascimento:{" "}
@@ -456,7 +473,7 @@ function EmitirDialog({ quote, open, onClose, onSuccess }) {
               accept="image/*,.pdf"
               onChange={(e) => setVoucherFile(e.target.files?.[0] || null)}
             />
-            {voucherFile && <p className="text-xs text-emerald-600">✓ {voucherFile.name}</p>}
+            {voucherFile && <p className="text-xs text-success">✓ {voucherFile.name}</p>}
           </div>
           <div className="space-y-1.5">
             <Label>Observações (opcional)</Label>
@@ -468,7 +485,7 @@ function EmitirDialog({ quote, open, onClose, onSuccess }) {
             />
           </div>
           {error && (
-            <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+            <div className="p-3 rounded-md bg-danger/10 border border-danger/30 text-sm text-danger">
               {error}
             </div>
           )}
@@ -479,9 +496,9 @@ function EmitirDialog({ quote, open, onClose, onSuccess }) {
             Cancelar
           </Button>
           <Button
+            variant="success"
             onClick={handleEmitir}
             disabled={loading || !voucherFile}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white"
           >
             {loading ? "Processando..." : "Confirmar Emissão"}
           </Button>

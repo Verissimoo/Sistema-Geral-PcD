@@ -83,8 +83,8 @@ export default function SuporteHistorico() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <div className="flex items-center gap-3 mb-1">
-            <div className="p-2 rounded-lg bg-purple-500/10">
-              <CheckCircle2 className="h-5 w-5 text-purple-600" />
+            <div className="p-2 rounded-lg bg-accent/10">
+              <CheckCircle2 className="h-5 w-5 text-accent" />
             </div>
             <h1 className="text-2xl font-bold tracking-tight">Histórico Emitido</h1>
           </div>
@@ -98,7 +98,7 @@ export default function SuporteHistorico() {
         <Card className="border-border/50">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-              <CheckCircle2 className="h-4 w-4 text-purple-600" />
+              <CheckCircle2 className="h-4 w-4 text-accent" />
               <span>Total emitidos (no filtro)</span>
             </div>
             <div className="font-bold text-2xl">{summary.total}</div>
@@ -107,10 +107,10 @@ export default function SuporteHistorico() {
         <Card className="border-border/50">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-              <DollarSign className="h-4 w-4 text-emerald-600" />
+              <DollarSign className="h-4 w-4 text-success" />
               <span>Valor total emitido</span>
             </div>
-            <div className="font-bold text-2xl text-emerald-700">{formatBRL(summary.valor)}</div>
+            <div className="font-bold text-2xl text-success">{formatBRL(summary.valor)}</div>
           </CardContent>
         </Card>
       </div>
@@ -169,7 +169,7 @@ function HistoricoRow({ quote }) {
   const emittedAt = quote.emission_completed_date || quote.issued_date;
 
   return (
-    <Card className="border-border/50 hover:border-purple-300 transition-colors">
+    <Card className="border-border/50 hover:border-accent/30 transition-colors">
       <CardContent className="p-4">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_auto_auto] gap-3 items-center">
           <div className="min-w-0">
@@ -177,7 +177,7 @@ function HistoricoRow({ quote }) {
               <span className="font-mono text-xs font-semibold text-muted-foreground">
                 {quote.quote_number || `#${quote.id?.slice(0, 8)}`}
               </span>
-              <Badge className="bg-purple-100 text-purple-800 border-purple-300 border">
+              <Badge className="bg-accent/10 text-accent border-accent/30 border">
                 ✓ Emitido
               </Badge>
             </div>
@@ -216,7 +216,7 @@ function HistoricoRow({ quote }) {
               href={quote.emission_voucher_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-semibold text-white bg-accent hover:bg-accent transition-colors"
             >
               <Download className="h-4 w-4" /> Voucher
             </a>

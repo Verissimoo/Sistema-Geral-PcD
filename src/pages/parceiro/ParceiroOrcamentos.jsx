@@ -137,7 +137,7 @@ export default function ParceiroOrcamentos() {
               </div>
               <Button
                 variant="outline"
-                className="bg-white/95 hover:bg-white shrink-0"
+                className="bg-bg-surface hover:bg-bg-surface shrink-0"
                 onClick={() => navigate("/parceiro/empresa")}
               >
                 <Settings className="w-4 h-4 mr-2" />
@@ -147,21 +147,21 @@ export default function ParceiroOrcamentos() {
           </div>
 
           {(company.phone || company.email || company.city) && (
-            <div className="bg-white px-6 py-3 flex items-center gap-6 text-sm flex-wrap">
+            <div className="bg-bg-surface px-6 py-3 flex items-center gap-6 text-sm flex-wrap">
               {company.phone && (
-                <span className="flex items-center gap-1.5 text-slate-600">
+                <span className="flex items-center gap-1.5 text-text-secondary">
                   <Phone className="w-3.5 h-3.5" />
                   {company.phone}
                 </span>
               )}
               {company.email && (
-                <span className="flex items-center gap-1.5 text-slate-600">
+                <span className="flex items-center gap-1.5 text-text-secondary">
                   <Mail className="w-3.5 h-3.5" />
                   {company.email}
                 </span>
               )}
               {company.city && (
-                <span className="flex items-center gap-1.5 text-slate-600">
+                <span className="flex items-center gap-1.5 text-text-secondary">
                   <MapPin className="w-3.5 h-3.5" />
                   {company.city}{company.state && ` - ${company.state}`}
                 </span>
@@ -170,20 +170,20 @@ export default function ParceiroOrcamentos() {
           )}
         </Card>
       ) : !companyLoading && (
-        <Card className="border-2 border-dashed border-amber-300 bg-amber-50">
+        <Card className="border-2 border-dashed border-warning/30 bg-warning/10">
           <CardContent className="p-6 flex items-start gap-4 flex-wrap">
-            <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-              <Building2 className="w-6 h-6 text-amber-600" />
+            <div className="w-12 h-12 rounded-full bg-warning/10 flex items-center justify-center flex-shrink-0">
+              <Building2 className="w-6 h-6 text-warning" />
             </div>
             <div className="flex-1 min-w-[220px]">
-              <h3 className="font-bold text-amber-900">Configure sua empresa</h3>
-              <p className="text-sm text-amber-700 mt-1">
+              <h3 className="font-bold text-warning">Configure sua empresa</h3>
+              <p className="text-sm text-warning mt-1">
                 Antes de começar a precificar orçamentos, configure os dados da sua empresa. Eles aparecerão nos PDFs que você enviar aos seus clientes.
               </p>
             </div>
             <Button
               onClick={() => navigate("/parceiro/empresa")}
-              className="bg-amber-500 hover:bg-amber-600 text-white"
+              className="bg-warning hover:bg-warning text-white"
             >
               <Plus className="w-4 h-4 mr-2" />
               Configurar empresa
@@ -195,7 +195,7 @@ export default function ParceiroOrcamentos() {
       {/* Título da lista */}
       <div>
         <div className="flex items-center gap-3 mb-1">
-          <div className="p-2 rounded-lg bg-purple-100 text-purple-700">
+          <div className="p-2 rounded-lg bg-accent/10 text-accent">
             <FileStack className="h-5 w-5" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight">Meus Orçamentos</h1>
@@ -209,17 +209,17 @@ export default function ParceiroOrcamentos() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <SummaryCard icon={<FileStack className="h-4 w-4" />} label="Recebidos" value={metrics.total} />
         <SummaryCard
-          icon={<Clock className="h-4 w-4 text-amber-600" />}
+          icon={<Clock className="h-4 w-4 text-warning" />}
           label="Aguardando preço"
           value={metrics.pendentes}
         />
         <SummaryCard
-          icon={<CheckCircle2 className="h-4 w-4 text-emerald-600" />}
+          icon={<CheckCircle2 className="h-4 w-4 text-success" />}
           label="Precificados"
           value={metrics.finalizados}
         />
         <SummaryCard
-          icon={<DollarSign className="h-4 w-4 text-purple-600" />}
+          icon={<DollarSign className="h-4 w-4 text-accent" />}
           label="Total movimentado"
           value={formatBRL(metrics.movimentado)}
           isCurrency
@@ -293,11 +293,11 @@ export default function ParceiroOrcamentos() {
                         {q.quote_number || `PCD-${q.id?.slice(0, 5).toUpperCase()}`}
                       </span>
                       {priced ? (
-                        <Badge className="bg-emerald-100 text-emerald-700 border border-emerald-200 hover:bg-emerald-100">
+                        <Badge className="bg-success/10 text-success border border-success/30 hover:bg-success/10">
                           Precificado
                         </Badge>
                       ) : (
-                        <Badge className="bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-100">
+                        <Badge className="bg-warning/10 text-warning border border-warning/30 hover:bg-warning/10">
                           Aguardando seu preço
                         </Badge>
                       )}
@@ -329,7 +329,7 @@ export default function ParceiroOrcamentos() {
                     {priced && (
                       <div className="text-xs">
                         <span className="text-muted-foreground">Seu preço: </span>
-                        <strong className="text-emerald-700">{formatBRL(q.partner_sale_value)}</strong>
+                        <strong className="text-success">{formatBRL(q.partner_sale_value)}</strong>
                       </div>
                     )}
                   </div>
@@ -340,8 +340,8 @@ export default function ParceiroOrcamentos() {
                       className={cn(
                         "gap-2",
                         !priced
-                          ? "bg-amber-500 hover:bg-amber-600 text-white"
-                          : "bg-purple-600 hover:bg-purple-700 text-white"
+                          ? "bg-warning hover:bg-warning text-white"
+                          : "bg-accent hover:bg-accent text-white"
                       )}
                     >
                       {priced ? "Ver detalhes" : "Definir preço e cliente"}

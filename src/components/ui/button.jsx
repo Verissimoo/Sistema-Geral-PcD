@@ -15,6 +15,7 @@ const buttonVariants = cva(
         accent: "bg-accent text-white hover:bg-accent-hover",
         destructive: "bg-danger text-white hover:opacity-90",
         danger: "bg-danger text-white hover:opacity-90",
+        success: "bg-success text-white hover:opacity-90",
         outline:
           "border border-border bg-transparent hover:bg-bg-elevated text-text-primary",
         secondary:

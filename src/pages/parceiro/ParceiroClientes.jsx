@@ -79,7 +79,7 @@ export default function ParceiroClientes() {
       {/* Header */}
       <div>
         <div className="flex items-center gap-3 mb-1">
-          <div className="p-2 rounded-lg bg-purple-100 text-purple-700">
+          <div className="p-2 rounded-lg bg-accent/10 text-accent">
             <Users className="h-5 w-5" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight">Meus Clientes</h1>
@@ -93,12 +93,12 @@ export default function ParceiroClientes() {
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <SummaryCard icon={<Users className="h-4 w-4" />} label="Clientes únicos" value={clientes.length} />
         <SummaryCard
-          icon={<FileStack className="h-4 w-4 text-blue-600" />}
+          icon={<FileStack className="h-4 w-4 text-accent" />}
           label="Orçamentos finalizados"
           value={quotes.length}
         />
         <SummaryCard
-          icon={<DollarSign className="h-4 w-4 text-purple-600" />}
+          icon={<DollarSign className="h-4 w-4 text-accent" />}
           label="Total movimentado"
           value={formatBRL(totalMovimentado)}
           isCurrency
@@ -139,7 +139,7 @@ export default function ParceiroClientes() {
         {!loading && filtered.map((c, idx) => (
           <Card key={`${c.phone || c.email || c.name}-${idx}`} className="border-border/50">
             <CardContent className="p-4 flex items-center gap-4 flex-wrap">
-              <div className="h-11 w-11 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-sm shrink-0">
+              <div className="h-11 w-11 rounded-full bg-accent/10 text-accent flex items-center justify-center font-bold text-sm shrink-0">
                 {initials(c.name) || "?"}
               </div>
               <div className="flex-1 min-w-0">
@@ -157,12 +157,12 @@ export default function ParceiroClientes() {
                   )}
                 </div>
               </div>
-              <Badge className="bg-blue-100 text-blue-700 border border-blue-200 hover:bg-blue-100">
+              <Badge className="bg-accent/10 text-accent border border-accent/30 hover:bg-accent/10">
                 {c.quotes} {c.quotes === 1 ? "orçamento" : "orçamentos"}
               </Badge>
               <div className="text-right">
                 <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Total</div>
-                <div className="text-sm font-bold text-purple-700">{formatBRL(c.total)}</div>
+                <div className="text-sm font-bold text-accent">{formatBRL(c.total)}</div>
               </div>
             </CardContent>
           </Card>

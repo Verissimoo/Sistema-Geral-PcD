@@ -146,17 +146,17 @@ function ConfigPanel({ config, onSave }) {
         <div className="rounded-lg bg-muted/40 border p-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
           <div className="flex flex-col gap-0.5">
             <span className="text-xs text-muted-foreground">Abaixo da meta</span>
-            <span className="font-bold text-red-600">{fmt(data.salary_below_goal)}</span>
+            <span className="font-bold text-danger">{fmt(data.salary_below_goal)}</span>
             <span className="text-xs text-muted-foreground">0 – {data.monthly_point_goal - 1} pontos</span>
           </div>
           <div className="flex flex-col gap-0.5">
             <span className="text-xs text-muted-foreground">Meta atingida</span>
-            <span className="font-bold text-blue-600">{fmt(data.salary_at_goal)}</span>
+            <span className="font-bold text-accent">{fmt(data.salary_at_goal)}</span>
             <span className="text-xs text-muted-foreground">Exatamente {data.monthly_point_goal} pontos</span>
           </div>
           <div className="flex flex-col gap-0.5">
             <span className="text-xs text-muted-foreground">Meta superada (+5 pts)</span>
-            <span className="font-bold text-green-600">
+            <span className="font-bold text-success">
               {fmt(data.salary_at_goal + 5 * data.bonus_per_extra_point)}
             </span>
             <span className="text-xs text-muted-foreground">
@@ -194,7 +194,7 @@ function ConfigPanel({ config, onSave }) {
           <div className="flex items-center justify-between mb-3">
             <div>
               <p className="font-semibold text-sm flex items-center gap-1.5">
-                <Star className="h-4 w-4 text-amber-500" />
+                <Star className="h-4 w-4 text-warning" />
                 Bônus Especiais Pontuais
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">Válidos para todos os contratos neste mês</p>
@@ -214,7 +214,7 @@ function ConfigPanel({ config, onSave }) {
                     type="button"
                     onClick={() => updateSpecial(b.id, "active", !b.active)}
                     className={`shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
-                      b.active ? "bg-green-500 border-green-500" : "border-muted-foreground"
+                      b.active ? "bg-success border-success/30" : "border-muted-foreground"
                     }`}
                   >
                     {b.active && <CheckCircle className="h-3 w-3 text-white" />}
@@ -234,7 +234,7 @@ function ConfigPanel({ config, onSave }) {
                       className="pl-8 h-8 text-sm"
                     />
                   </div>
-                  <button onClick={() => removeSpecial(b.id)} className="shrink-0 text-muted-foreground hover:text-red-500">
+                  <button onClick={() => removeSpecial(b.id)} className="shrink-0 text-muted-foreground hover:text-danger">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
@@ -246,7 +246,7 @@ function ConfigPanel({ config, onSave }) {
 
       <div className="flex items-center justify-end gap-3 mt-8 pt-4 border-t">
         {saved && (
-          <span className="text-xs text-green-600 flex items-center gap-1">
+          <span className="text-xs text-success flex items-center gap-1">
             <CheckCircle className="h-3.5 w-3.5" /> Salvo com sucesso!
           </span>
         )}
@@ -271,18 +271,18 @@ function ContractorGoalCard({ contractor, totalPoints, config }) {
   let statusLabel, statusColor, statusBg, StatusIcon;
   if (totalPoints < goal) {
     statusLabel = "Abaixo da meta";
-    statusColor = "text-red-600";
-    statusBg = "bg-red-50";
+    statusColor = "text-danger";
+    statusBg = "bg-danger/10";
     StatusIcon = AlertCircle;
   } else if (totalPoints === goal) {
     statusLabel = "Meta atingida";
-    statusColor = "text-blue-600";
-    statusBg = "bg-blue-50";
+    statusColor = "text-accent";
+    statusBg = "bg-accent/10";
     StatusIcon = CheckCircle;
   } else {
     statusLabel = `Meta superada (+${calc.excedente} pts)`;
-    statusColor = "text-green-600";
-    statusBg = "bg-green-50";
+    statusColor = "text-success";
+    statusBg = "bg-success/10";
     StatusIcon = Trophy;
   }
 
@@ -315,14 +315,14 @@ function ContractorGoalCard({ contractor, totalPoints, config }) {
           </div>
         </div>
         <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-          <Award className="h-5 w-5 text-amber-500 shrink-0" />
+          <Award className="h-5 w-5 text-warning shrink-0" />
           <div>
             <p className="text-xs text-muted-foreground">Excedente</p>
             <p className="font-bold">{calc.excedente > 0 ? `+${calc.excedente} pts` : "—"}</p>
           </div>
         </div>
         <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-          <Trophy className="h-5 w-5 text-green-600 shrink-0" />
+          <Trophy className="h-5 w-5 text-success shrink-0" />
           <div>
             <p className="text-xs text-muted-foreground">Estimado</p>
             <p className={`font-bold text-sm ${statusColor}`}>{fmt(calc.total)}</p>
@@ -340,13 +340,13 @@ function ContractorGoalCard({ contractor, totalPoints, config }) {
             <span className="text-muted-foreground">
               Bônus excedente ({calc.excedente} pts × {fmt(scopeCfg.bonus_per_extra_point)})
             </span>
-            <span className="font-medium text-green-600">+{fmt(calc.bonusExtra)}</span>
+            <span className="font-medium text-success">+{fmt(calc.bonusExtra)}</span>
           </div>
         )}
         {calc.bonusEspecial > 0 && (
           <div className="flex justify-between">
             <span className="text-muted-foreground">Bônus especiais ativos</span>
-            <span className="font-medium text-amber-600">+{fmt(calc.bonusEspecial)}</span>
+            <span className="font-medium text-warning">+{fmt(calc.bonusEspecial)}</span>
           </div>
         )}
         <div className="flex justify-between pt-1 border-t font-semibold">
@@ -363,7 +363,7 @@ function ContractorGoalCard({ contractor, totalPoints, config }) {
         <div className="h-2.5 rounded-full bg-muted overflow-hidden">
           <div
             className={`h-full rounded-full transition-all duration-700 ${
-              totalPoints >= goal ? "bg-green-500" : "bg-primary"
+              totalPoints >= goal ? "bg-success" : "bg-primary"
             }`}
             style={{ width: `${pct}%` }}
           />
@@ -459,15 +459,15 @@ export default function Goals() {
                 </div>
                 <div>
                   <p className="text-muted-foreground">Base (Abaixo)</p>
-                  <p className="font-bold text-base text-red-500">{fmt(cfg.salary_below_goal)}</p>
+                  <p className="font-bold text-base text-danger">{fmt(cfg.salary_below_goal)}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Base (Meta)</p>
-                  <p className="font-bold text-base text-blue-500">{fmt(cfg.salary_at_goal)}</p>
+                  <p className="font-bold text-base text-accent">{fmt(cfg.salary_at_goal)}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Bônus/Ponto Extra</p>
-                  <p className="font-bold text-base text-green-500">{fmt(cfg.bonus_per_extra_point)}</p>
+                  <p className="font-bold text-base text-success">{fmt(cfg.bonus_per_extra_point)}</p>
                 </div>
               </div>
             </Card>
@@ -476,13 +476,13 @@ export default function Goals() {
       </div>
 
       {activeSpecials.length > 0 && (
-        <Card className="p-4 bg-amber-50/50 border-amber-200">
-          <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-3 flex items-center gap-1.5">
+        <Card className="p-4 bg-warning/10 border-warning/30">
+          <p className="text-xs font-semibold uppercase tracking-wide text-warning mb-3 flex items-center gap-1.5">
             <Star className="h-3.5 w-3.5" /> Bônus Especiais Ativos (Aplicado a todos)
           </p>
           <div className="flex flex-wrap gap-2">
             {activeSpecials.map((b) => (
-              <Badge key={b.id} className="bg-amber-100 text-amber-800 border-amber-300">
+              <Badge key={b.id} className="bg-warning/10 text-warning border-warning/30">
                 {b.name} · {fmt(b.value)}
               </Badge>
             ))}

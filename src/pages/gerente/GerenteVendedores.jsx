@@ -230,24 +230,24 @@ export default function GerenteVendedores() {
               value={summary.ativos}
             />
             <SummaryCard
-              icon={<DollarSign className="h-4 w-4 text-emerald-600" />}
+              icon={<DollarSign className="h-4 w-4 text-success" />}
               label="Receita do Período"
               value={formatBRL(summary.totalReceita)}
               isText
-              color="text-emerald-700"
+              color="text-success"
             />
             <SummaryCard
-              icon={<ShoppingCart className="h-4 w-4 text-blue-600" />}
+              icon={<ShoppingCart className="h-4 w-4 text-accent" />}
               label="Total de Vendas"
               value={summary.totalVendas}
-              color="text-blue-600"
+              color="text-accent"
             />
             <SummaryCard
-              icon={<TrendingUp className="h-4 w-4 text-amber-600" />}
+              icon={<TrendingUp className="h-4 w-4 text-warning" />}
               label="Ticket Médio"
               value={formatBRL(summary.ticketMedio)}
               isText
-              color="text-amber-700"
+              color="text-warning"
             />
           </div>
 
@@ -289,7 +289,7 @@ export default function GerenteVendedores() {
             <Card className="border-border/50">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm flex items-center gap-2">
-                  <Trophy className="h-4 w-4 text-amber-500" /> Pódio do Período
+                  <Trophy className="h-4 w-4 text-warning" /> Pódio do Período
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -320,10 +320,10 @@ export default function GerenteVendedores() {
                       : 0;
                     const colorClass =
                       r.conversao >= 30
-                        ? "bg-emerald-500"
+                        ? "bg-success"
                         : r.conversao >= 15
-                        ? "bg-amber-500"
-                        : "bg-red-500";
+                        ? "bg-warning"
+                        : "bg-danger";
                     return (
                       <div key={r.user.id} className="flex items-center gap-3">
                         <div className="w-32 text-sm font-medium truncate shrink-0">
@@ -403,14 +403,14 @@ function SellerRow({ pos, row, onView }) {
   const levelData = CAREER_LEVELS.find((l) => l.level === (row.user.career_level || "N0"));
   const conversaoColor =
     row.conversao >= 30
-      ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+      ? "bg-success/10 text-success border-success/30"
       : row.conversao >= 15
-      ? "bg-amber-100 text-amber-700 border-amber-200"
-      : "bg-red-100 text-red-700 border-red-200";
+      ? "bg-warning/10 text-warning border-warning/30"
+      : "bg-danger/10 text-danger border-danger/30";
   const margemColor =
     row.margem >= 15
-      ? "bg-emerald-100 text-emerald-700 border-emerald-200"
-      : "bg-amber-100 text-amber-700 border-amber-200";
+      ? "bg-success/10 text-success border-success/30"
+      : "bg-warning/10 text-warning border-warning/30";
 
   return (
     <tr className="border-b border-border/50 hover:bg-muted/20 transition-colors">
@@ -426,8 +426,8 @@ function SellerRow({ pos, row, onView }) {
               className={cn(
                 "text-[9px] h-4 px-1.5 border-0 mt-0.5",
                 row.user.status === "Ativo"
-                  ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
-                  : "bg-red-100 text-red-700 hover:bg-red-100"
+                  ? "bg-success/10 text-success hover:bg-success/10"
+                  : "bg-danger/10 text-danger hover:bg-danger/10"
               )}
             >
               {row.user.status || "—"}
@@ -449,7 +449,7 @@ function SellerRow({ pos, row, onView }) {
       </td>
       <td className="px-3 py-3 text-sm font-medium">{row.cotacoes}</td>
       <td className="px-3 py-3 text-sm font-bold">
-        {row.vendas > 0 ? <span className="text-emerald-700">{row.vendas}</span> : "0"}
+        {row.vendas > 0 ? <span className="text-success">{row.vendas}</span> : "0"}
       </td>
       <td className="px-3 py-3">
         <Badge className={cn("border", conversaoColor)}>{row.conversao}%</Badge>
@@ -481,16 +481,16 @@ function SellerRow({ pos, row, onView }) {
 function PodiumCard({ place, row }) {
   if (!row) return <div />;
   const config = {
-    1: { Icon: Trophy, color: "#F59E0B", border: "border-amber-400", bg: "from-amber-50 to-amber-100/40", height: "h-44", label: "1º Lugar" },
-    2: { Icon: Medal, color: "#9CA3AF", border: "border-gray-400", bg: "from-gray-50 to-gray-100/40", height: "h-36", label: "2º Lugar" },
-    3: { Icon: Medal, color: "#CD7F32", border: "border-orange-700", bg: "from-orange-50 to-orange-100/40", height: "h-32", label: "3º Lugar" },
+    1: { Icon: Trophy, color: "#F59E0B", border: "border-warning/30", bg: "bg-warning/10", height: "h-44", label: "1º Lugar" },
+    2: { Icon: Medal, color: "#9CA3AF", border: "border-border", bg: "bg-bg-elevated", height: "h-36", label: "2º Lugar" },
+    3: { Icon: Medal, color: "#CD7F32", border: "border-warning/30", bg: "bg-warning/10", height: "h-32", label: "3º Lugar" },
   }[place];
   const { Icon, color, border, bg, height, label } = config;
 
   return (
     <Card
       className={cn(
-        "border-2 transition-all bg-gradient-to-br shadow-md",
+        "border transition-colors shadow-sm",
         border,
         bg,
         height,

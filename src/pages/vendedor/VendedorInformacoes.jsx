@@ -5,8 +5,8 @@ const SECTIONS = [
   {
     title: "Formas de Pagamento Aceitas",
     icon: CreditCard,
-    iconColor: "text-blue-500",
-    bgColor: "bg-blue-500/10",
+    iconColor: "text-accent",
+    bgColor: "bg-accent/10",
     items: [
       "PIX — à vista, sem taxa",
       "Cartão de Crédito — consulte a tabela de taxas na ferramenta",
@@ -17,8 +17,8 @@ const SECTIONS = [
   {
     title: "Regras de Parcelamento",
     icon: Percent,
-    iconColor: "text-amber-500",
-    bgColor: "bg-amber-500/10",
+    iconColor: "text-warning",
+    bgColor: "bg-warning/10",
     items: [
       "Mínimo de R$ 300,00 para parcelamento",
       "Máximo 12x no cartão de crédito",
@@ -29,8 +29,8 @@ const SECTIONS = [
   {
     title: "Políticas Importantes",
     icon: ShieldCheck,
-    iconColor: "text-red-500",
-    bgColor: "bg-red-500/10",
+    iconColor: "text-danger",
+    bgColor: "bg-danger/10",
     items: [
       "Emissão somente após confirmação do pagamento",
       "Alterações após emissão podem gerar taxas da companhia aérea",
@@ -41,8 +41,8 @@ const SECTIONS = [
   {
     title: "Contatos Internos",
     icon: Phone,
-    iconColor: "text-emerald-500",
-    bgColor: "bg-emerald-500/10",
+    iconColor: "text-success",
+    bgColor: "bg-success/10",
     items: [
       "Suporte operacional: (a definir)",
       "Financeiro: (a definir)",

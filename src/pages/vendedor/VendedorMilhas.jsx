@@ -46,9 +46,9 @@ const emptyForm = {
 };
 
 const STOCK_CONFIG = {
-  own: { label: "Estoque próprio", color: "bg-green-100 text-green-800 border-green-300", dot: "bg-green-500" },
-  supplier: { label: "Fornecedor", color: "bg-yellow-100 text-yellow-800 border-yellow-300", dot: "bg-yellow-500" },
-  unavailable: { label: "Em falta", color: "bg-red-100 text-red-800 border-red-300", dot: "bg-red-500" },
+  own: { label: "Estoque próprio", color: "bg-success/10 text-success border-success/30", dot: "bg-success" },
+  supplier: { label: "Fornecedor", color: "bg-warning/10 text-warning border-warning/30", dot: "bg-warning" },
+  unavailable: { label: "Em falta", color: "bg-danger/10 text-danger border-danger/30", dot: "bg-danger" },
 };
 
 export default function VendedorMilhas() {
@@ -265,39 +265,39 @@ export default function VendedorMilhas() {
       {/* Cards de resumo */}
       {summary && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <Card className="border-emerald-200 bg-emerald-50/40 dark:bg-emerald-500/5">
+          <Card className="border-success/30 bg-success/10 dark:bg-success/5">
             <CardContent className="p-4">
-              <div className="flex items-center gap-2 text-xs text-emerald-700 dark:text-emerald-400 mb-2">
+              <div className="flex items-center gap-2 text-xs text-success dark:text-success mb-2">
                 <TrendingDown className="h-4 w-4" />
                 <span>Programa mais barato</span>
               </div>
               <div className="font-bold text-base">{summary.cheapest.program}</div>
-              <div className="text-emerald-700 dark:text-emerald-400 font-semibold mt-1">
+              <div className="text-success dark:text-success font-semibold mt-1">
                 {fmt(summary.cheapest.cost_per_thousand)} / mil
               </div>
             </CardContent>
           </Card>
-          <Card className="border-amber-200 bg-amber-50/40 dark:bg-amber-500/5">
+          <Card className="border-warning/30 bg-warning/10 dark:bg-warning/5">
             <CardContent className="p-4">
-              <div className="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-400 mb-2">
+              <div className="flex items-center gap-2 text-xs text-warning dark:text-warning mb-2">
                 <Award className="h-4 w-4" />
                 <span>Maior margem</span>
               </div>
               <div className="font-bold text-base">{summary.highestMargin.program}</div>
-              <div className="text-amber-700 dark:text-amber-400 font-semibold mt-1">
+              <div className="text-warning dark:text-warning font-semibold mt-1">
                 {summary.highestMargin.marginPct}%
               </div>
             </CardContent>
           </Card>
           <Card className={cn(
             "border-border/50",
-            summary.outdatedCount > 0 && "border-red-300 bg-red-50/40 dark:bg-red-500/5"
+            summary.outdatedCount > 0 && "border-danger/30 bg-danger/10 dark:bg-danger/5"
           )}>
             <CardContent className="p-4">
               <div className={cn(
                 "flex items-center gap-2 text-xs mb-2",
                 summary.outdatedCount > 0
-                  ? "text-red-700 dark:text-red-400"
+                  ? "text-danger dark:text-danger"
                   : "text-muted-foreground"
               )}>
                 <AlertTriangle className="h-4 w-4" />
@@ -423,19 +423,19 @@ export default function VendedorMilhas() {
                 <SelectContent>
                   <SelectItem value="own">
                     <span className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
+                      <span className="w-2 h-2 rounded-full bg-success inline-block" />
                       Estoque próprio
                     </span>
                   </SelectItem>
                   <SelectItem value="supplier">
                     <span className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-yellow-500 inline-block" />
+                      <span className="w-2 h-2 rounded-full bg-warning inline-block" />
                       Fornecedor
                     </span>
                   </SelectItem>
                   <SelectItem value="unavailable">
                     <span className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />
+                      <span className="w-2 h-2 rounded-full bg-danger inline-block" />
                       Em falta
                     </span>
                   </SelectItem>
@@ -563,7 +563,7 @@ export default function VendedorMilhas() {
                           size="icon"
                           variant="ghost"
                           onClick={() => handleRemoveTier(idx)}
-                          className="text-red-500 hover:text-red-600 hover:bg-red-500/10 self-start mt-5"
+                          className="text-danger hover:text-danger hover:bg-danger/10 self-start mt-5"
                         >
                           <X className="h-4 w-4" />
                         </Button>
@@ -604,10 +604,10 @@ function Th({ children, align = "left" }) {
 
 function MarginBadge({ pct }) {
   const cls = pct >= 20
-    ? "bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+    ? "bg-success/10 text-success border-success/30 hover:bg-success/10"
     : pct >= 10
-    ? "bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-100"
-    : "bg-red-100 text-red-700 border-red-200 hover:bg-red-100";
+    ? "bg-warning/10 text-warning border-warning/30 hover:bg-warning/10"
+    : "bg-danger/10 text-danger border-danger/30 hover:bg-danger/10";
   return (
     <Badge className={cn("border font-bold", cls)}>
       {pct}%
@@ -620,20 +620,20 @@ function UpdateBadge({ updatedDate }) {
   if (days === null) return <Badge variant="outline">—</Badge>;
   if (days > 30) {
     return (
-      <Badge className="bg-red-100 text-red-700 border-red-200 hover:bg-red-100 gap-1 animate-pulse">
+      <Badge className="bg-danger/10 text-danger border-danger/30 hover:bg-danger/10 gap-1 animate-pulse">
         <AlertTriangle className="h-3 w-3" /> Desatualizado
       </Badge>
     );
   }
   if (days > 14) {
     return (
-      <Badge className="bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-100 gap-1">
+      <Badge className="bg-warning/10 text-warning border-warning/30 hover:bg-warning/10 gap-1">
         <Clock className="h-3 w-3" /> Revisar em breve
       </Badge>
     );
   }
   return (
-    <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100">
+    <Badge className="bg-success/10 text-success border-success/30 hover:bg-success/10">
       Atualizado
     </Badge>
   );
@@ -664,7 +664,7 @@ function ProgramRow({ item, isAdmin, expanded, onToggleExpand, onEdit, onEditTie
               );
             })()}
             {item.has_variable_pricing && (
-              <Badge className="bg-purple-100 text-purple-700 border-purple-200 hover:bg-purple-100 text-[10px] gap-1 border">
+              <Badge className="bg-accent/10 text-accent border-accent/30 hover:bg-accent/10 text-[10px] gap-1 border">
                 <Layers className="h-3 w-3" /> Preço variável
               </Badge>
             )}
@@ -719,7 +719,7 @@ function ProgramRow({ item, isAdmin, expanded, onToggleExpand, onEdit, onEditTie
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7 text-muted-foreground hover:text-purple-600"
+                  className="h-7 w-7 text-muted-foreground hover:text-accent"
                   onClick={onEditTiers}
                   title="Editar faixas"
                 >
@@ -738,7 +738,7 @@ function ProgramRow({ item, isAdmin, expanded, onToggleExpand, onEdit, onEditTie
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 text-muted-foreground hover:text-red-500"
+                className="h-7 w-7 text-muted-foreground hover:text-danger"
                 onClick={onDelete}
                 title="Excluir"
               >
@@ -885,14 +885,14 @@ function HistoricoPrecos({ active }) {
                     <div className="flex items-center gap-1 flex-wrap">
                       <span className="text-muted-foreground">{fmt(oldCost)}</span>
                       <ArrowRight className="h-3 w-3 text-muted-foreground" />
-                      <strong className={isCostIncrease ? "text-red-600" : "text-emerald-600"}>
+                      <strong className={isCostIncrease ? "text-danger" : "text-success"}>
                         {fmt(newCost)}
                       </strong>
                     </div>
                     <div
                       className={cn(
                         "text-[10px] mt-0.5",
-                        isCostIncrease ? "text-red-500" : "text-emerald-500"
+                        isCostIncrease ? "text-danger" : "text-success"
                       )}
                     >
                       {isCostIncrease ? "+" : ""}
@@ -908,7 +908,7 @@ function HistoricoPrecos({ active }) {
                     <div
                       className={cn(
                         "text-[10px] mt-0.5",
-                        isSaleIncrease ? "text-emerald-500" : "text-amber-500"
+                        isSaleIncrease ? "text-success" : "text-warning"
                       )}
                     >
                       {isSaleIncrease ? "+" : ""}

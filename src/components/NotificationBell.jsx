@@ -94,20 +94,20 @@ export function NotificationBell() {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="relative p-2 rounded-full hover:bg-slate-100 transition-colors"
+        className="relative p-2 rounded-full hover:bg-bg-elevated transition-colors"
         aria-label="Notificações"
       >
-        <Bell className="w-5 h-5 text-slate-600" />
+        <Bell className="w-5 h-5 text-text-secondary" />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-amber-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-warning text-white text-[10px] font-bold rounded-full flex items-center justify-center">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 top-10 w-96 max-w-[calc(100vw-2rem)] bg-white border border-border rounded-xl shadow-xl z-50 overflow-hidden">
-          <div className="p-3 border-b border-border bg-slate-50 flex items-center justify-between gap-2">
+        <div className="absolute right-0 top-10 w-96 max-w-[calc(100vw-2rem)] bg-bg-surface border border-border rounded-xl shadow-xl z-50 overflow-hidden">
+          <div className="p-3 border-b border-border bg-bg-elevated flex items-center justify-between gap-2">
             <div className="min-w-0">
               <p className="font-semibold text-sm">Notificações</p>
               <p className="text-xs text-muted-foreground">
@@ -120,7 +120,7 @@ export function NotificationBell() {
               <button
                 type="button"
                 onClick={markAllRead}
-                className="text-xs text-blue-600 hover:underline shrink-0"
+                className="text-xs text-accent hover:underline shrink-0"
               >
                 Marcar todas lidas
               </button>
@@ -132,7 +132,7 @@ export function NotificationBell() {
               <div className="p-6 text-center text-sm text-muted-foreground">Carregando...</div>
             ) : notifications.length === 0 ? (
               <div className="p-8 text-center text-sm text-muted-foreground">
-                <Bell className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                <Bell className="w-8 h-8 text-text-muted mx-auto mb-2" />
                 Nenhuma notificação nova
               </div>
             ) : (
@@ -144,12 +144,12 @@ export function NotificationBell() {
                     key={n.id}
                     type="button"
                     onClick={() => handleClick(n)}
-                    className="w-full text-left p-3 border-b last:border-0 border-border hover:bg-slate-50 transition flex gap-3"
+                    className="w-full text-left p-3 border-b last:border-0 border-border hover:bg-bg-elevated transition flex gap-3"
                   >
                     <div
                       className={cn(
                         "w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-base",
-                        isOverride ? "bg-purple-100" : "bg-blue-100"
+                        isOverride ? "bg-accent/10" : "bg-accent/10"
                       )}
                     >
                       {isOverride ? "💰" : "🔔"}
@@ -161,7 +161,7 @@ export function NotificationBell() {
                         <p
                           className={cn(
                             "text-[10px] font-bold mt-1",
-                            diff > 0 ? "text-emerald-600" : "text-amber-600"
+                            diff > 0 ? "text-success" : "text-warning"
                           )}
                         >
                           {diff > 0 ? "+" : ""}{formatBRL(diff)} vs sugerido

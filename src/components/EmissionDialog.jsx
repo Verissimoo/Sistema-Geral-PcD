@@ -166,7 +166,7 @@ export function EmissionDialog({ quote, open, onClose, onSuccess }) {
               <Card key={idx} className="border-l-4 border-l-blue-500">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
-                    <span className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold">
+                    <span className="w-7 h-7 rounded-full bg-accent/10 text-accent flex items-center justify-center text-xs font-bold">
                       {idx + 1}
                     </span>
                     Passageiro {idx + 1}
@@ -202,10 +202,10 @@ export function EmissionDialog({ quote, open, onClose, onSuccess }) {
                   </div>
 
                   <details className="group">
-                    <summary className="text-xs text-muted-foreground cursor-pointer hover:text-slate-700 select-none">
+                    <summary className="text-xs text-muted-foreground cursor-pointer hover:text-text-secondary select-none">
                       ▸ Dados internacionais (opcional)
                     </summary>
-                    <div className="grid grid-cols-2 gap-3 mt-3 pl-3 border-l-2 border-slate-200">
+                    <div className="grid grid-cols-2 gap-3 mt-3 pl-3 border-l-2 border-border">
                       <div className="col-span-2 space-y-1">
                         <Label className="text-xs">Passaporte</Label>
                         <Input
@@ -291,7 +291,7 @@ export function EmissionDialog({ quote, open, onClose, onSuccess }) {
                       variant="ghost"
                       size="icon"
                       onClick={() => removeInstallment(idx)}
-                      className="text-red-500 hover:text-red-700"
+                      className="text-danger hover:text-danger"
                     >
                       <X className="h-4 w-4" />
                     </Button>
@@ -338,12 +338,12 @@ export function EmissionDialog({ quote, open, onClose, onSuccess }) {
               onChange={(e) => setProofFile(e.target.files?.[0] || null)}
             />
             {proofFile && (
-              <p className="text-xs text-emerald-600">✓ {proofFile.name}</p>
+              <p className="text-xs text-success">✓ {proofFile.name}</p>
             )}
           </div>
 
           {error && (
-            <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+            <div className="p-3 rounded-lg bg-danger/10 border border-danger/30 text-sm text-danger">
               {error}
             </div>
           )}
@@ -356,7 +356,7 @@ export function EmissionDialog({ quote, open, onClose, onSuccess }) {
           <Button
             onClick={handleSubmit}
             disabled={loading || !formData.payment_method || !proofFile}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
+            className="bg-accent hover:bg-accent text-white"
           >
             {loading ? "Enviando..." : "Enviar para Emissão"}
           </Button>

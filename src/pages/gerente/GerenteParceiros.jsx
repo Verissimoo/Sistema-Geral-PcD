@@ -99,22 +99,22 @@ export default function GerenteParceiros() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <SummaryCard icon={<Handshake className="h-4 w-4" />} label="Total" value={metrics.total} />
         <SummaryCard
-          icon={<ShieldCheck className="h-4 w-4 text-emerald-600" />}
+          icon={<ShieldCheck className="h-4 w-4 text-success" />}
           label="Ativos"
           value={metrics.ativos}
-          color="text-emerald-600"
+          color="text-success"
         />
         <SummaryCard
-          icon={<Building2 className="h-4 w-4 text-purple-600" />}
+          icon={<Building2 className="h-4 w-4 text-accent" />}
           label="Com empresa configurada"
           value={metrics.comEmpresa}
-          color="text-purple-600"
+          color="text-accent"
         />
         <SummaryCard
-          icon={<DollarSign className="h-4 w-4 text-amber-600" />}
+          icon={<DollarSign className="h-4 w-4 text-warning" />}
           label="Receita gerada (total)"
           value={formatBRL(metrics.totalReceita)}
-          color="text-amber-700"
+          color="text-warning"
           isText
         />
       </div>
@@ -138,7 +138,7 @@ export default function GerenteParceiros() {
         {enriched.map((p) => (
           <Card key={p.id} className="border-border/50">
             <CardContent className="p-4 flex items-center gap-4 flex-wrap">
-              <div className="h-11 w-11 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-sm shrink-0">
+              <div className="h-11 w-11 rounded-full bg-accent/10 text-accent flex items-center justify-center font-bold text-sm shrink-0">
                 {initials(p.name)}
               </div>
               <div className="flex-1 min-w-0">
@@ -150,7 +150,7 @@ export default function GerenteParceiros() {
                         <img
                           src={p.company.logo_url}
                           alt={p.company.name}
-                          className="h-3.5 w-3.5 rounded object-contain bg-white"
+                          className="h-3.5 w-3.5 rounded object-contain bg-bg-surface"
                         />
                       ) : (
                         <Building2 className="h-3 w-3" />
@@ -158,7 +158,7 @@ export default function GerenteParceiros() {
                       {p.company.name}
                     </Badge>
                   ) : (
-                    <Badge variant="outline" className="text-amber-600 border-amber-300">
+                    <Badge variant="outline" className="text-warning border-warning/30">
                       Empresa não configurada
                     </Badge>
                   )}
@@ -182,17 +182,17 @@ export default function GerenteParceiros() {
               {/* Stats */}
               <div className="flex items-center gap-4 text-xs">
                 <Stat
-                  icon={<FileStack className="h-3.5 w-3.5 text-blue-600" />}
+                  icon={<FileStack className="h-3.5 w-3.5 text-accent" />}
                   label="Cotações"
                   value={p.quoteCount}
                 />
                 <Stat
-                  icon={<CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />}
+                  icon={<CheckCircle2 className="h-3.5 w-3.5 text-success" />}
                   label="Vendidas"
                   value={p.soldCount}
                 />
                 <Stat
-                  icon={<DollarSign className="h-3.5 w-3.5 text-amber-600" />}
+                  icon={<DollarSign className="h-3.5 w-3.5 text-warning" />}
                   label="Receita"
                   value={formatBRL(p.revenue)}
                   isText
@@ -203,8 +203,8 @@ export default function GerenteParceiros() {
                 className={cn(
                   "border",
                   p.status === "Ativo"
-                    ? "bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
-                    : "bg-red-100 text-red-700 border-red-200 hover:bg-red-100"
+                    ? "bg-success/10 text-success border-success/30 hover:bg-success/10"
+                    : "bg-danger/10 text-danger border-danger/30 hover:bg-danger/10"
                 )}
               >
                 {p.status === "Ativo" ? (

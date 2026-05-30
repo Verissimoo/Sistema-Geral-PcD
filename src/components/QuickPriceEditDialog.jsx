@@ -215,7 +215,7 @@ export default function QuickPriceEditDialog({ open, onOpenChange, quote, onSave
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <RefreshCw className="w-5 h-5 text-amber-500" />
+            <RefreshCw className="w-5 h-5 text-warning" />
             Atualizar valores · {quote.quote_number}
           </DialogTitle>
           <DialogDescription>
@@ -225,7 +225,7 @@ export default function QuickPriceEditDialog({ open, onOpenChange, quote, onSave
 
         <div className="space-y-4 my-2">
           {/* === CLIENTE + PASSAGEIROS === */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+          <div className="bg-accent/10 border border-accent/30 rounded-lg p-4 space-y-3">
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <p className="text-sm font-semibold">
                 Cliente:{" "}
@@ -274,7 +274,7 @@ export default function QuickPriceEditDialog({ open, onOpenChange, quote, onSave
                   <Plus className="w-3.5 h-3.5" />
                 </Button>
                 {passengersChanged && (
-                  <Badge variant="outline" className="text-amber-700 border-amber-400">
+                  <Badge variant="outline" className="text-warning border-warning/30">
                     Era {quote.passengers}
                   </Badge>
                 )}
@@ -284,7 +284,7 @@ export default function QuickPriceEditDialog({ open, onOpenChange, quote, onSave
 
           {/* === MILHAS - SINGLE === */}
           {isMilhas && !isMultiProgram && !isSplit && (
-            <div className="bg-slate-50 rounded-lg p-4 space-y-3">
+            <div className="bg-bg-elevated rounded-lg p-4 space-y-3">
               <p className="text-sm font-semibold">
                 {pricing.program_name || pricing.program || "Programa de milhas"}
               </p>
@@ -337,14 +337,14 @@ export default function QuickPriceEditDialog({ open, onOpenChange, quote, onSave
                   <div
                     key={idx}
                     className={cn(
-                      "bg-slate-50 rounded-lg p-3 border-l-4",
+                      "bg-bg-elevated rounded-lg p-3 border-l-4",
                       isIda ? "border-l-red-500" : "border-l-blue-500"
                     )}
                   >
                     <p
                       className={cn(
                         "text-xs font-bold mb-2",
-                        isIda ? "text-red-700" : "text-blue-700"
+                        isIda ? "text-danger" : "text-accent"
                       )}
                     >
                       {isIda ? "🛫 IDA" : "🛬 VOLTA"} ·{" "}
@@ -411,9 +411,9 @@ export default function QuickPriceEditDialog({ open, onOpenChange, quote, onSave
               {(pricing.trechos || []).map((t, idx) => (
                 <div
                   key={idx}
-                  className="bg-slate-50 rounded-lg p-3 border border-slate-200"
+                  className="bg-bg-elevated rounded-lg p-3 border border-border"
                 >
-                  <p className="text-xs font-bold mb-2 text-slate-700">
+                  <p className="text-xs font-bold mb-2 text-text-secondary">
                     {t.label || `Trecho ${idx + 1}`}
                     {t.program_name ? ` · ${t.program_name}` : ""}
                   </p>
@@ -494,7 +494,7 @@ export default function QuickPriceEditDialog({ open, onOpenChange, quote, onSave
 
           {/* === MILHAS + DINHEIRO (tarifa híbrida Azul) === */}
           {isMilhasDinheiro && !isSplit && (
-            <div className="bg-slate-50 rounded-lg p-4 space-y-3">
+            <div className="bg-bg-elevated rounded-lg p-4 space-y-3">
               <p className="text-sm font-semibold">
                 Milhas + Dinheiro · {pricing.program_name || pricing.program || "Azul"}
               </p>
@@ -548,7 +548,7 @@ export default function QuickPriceEditDialog({ open, onOpenChange, quote, onSave
 
           {/* === DINHEIRO === */}
           {!isMilhas && !isMilhasDinheiro && !isSplit && (
-            <div className="bg-slate-50 rounded-lg p-4">
+            <div className="bg-bg-elevated rounded-lg p-4">
               <p className="text-sm font-semibold mb-3">Compra em dinheiro</p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -579,7 +579,7 @@ export default function QuickPriceEditDialog({ open, onOpenChange, quote, onSave
 
           {/* === VALOR DE VENDA — PARCEIRO (input livre + feedback contextual) === */}
           {isPartner ? (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-3">
+            <div className="bg-warning/10 border border-warning/30 rounded-lg p-4 space-y-3">
               <div>
                 <p className="text-sm font-semibold">Valor da passagem para a parceira</p>
                 <p className="text-xs text-muted-foreground">
@@ -588,14 +588,14 @@ export default function QuickPriceEditDialog({ open, onOpenChange, quote, onSave
               </div>
 
               {/* Sugestão informativa: custo + Nipon */}
-              <div className="bg-white/80 border border-slate-200 rounded-lg p-2.5 space-y-1 text-xs">
+              <div className="bg-bg-surface border border-border rounded-lg p-2.5 space-y-1 text-xs">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Custo total da PCD:</span>
-                  <strong className="text-slate-700">{formatBRL(costTotal)}</strong>
+                  <strong className="text-text-secondary">{formatBRL(costTotal)}</strong>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Nipon (sugestão de venda):</span>
-                  <strong className="text-amber-700">{formatBRL(niponTotal)}</strong>
+                  <strong className="text-warning">{formatBRL(niponTotal)}</strong>
                 </div>
               </div>
 
@@ -626,7 +626,7 @@ export default function QuickPriceEditDialog({ open, onOpenChange, quote, onSave
                       sale_per: "total",
                     }))
                   }
-                  className="text-xs text-amber-600 hover:text-amber-700 underline mt-1"
+                  className="text-xs text-warning hover:text-warning underline mt-1"
                 >
                   Usar valor sugerido (Nipon)
                 </button>
@@ -643,16 +643,16 @@ export default function QuickPriceEditDialog({ open, onOpenChange, quote, onSave
                 if (venda < costTotal) {
                   const prejuizo = costTotal - venda;
                   return (
-                    <div className="bg-red-50 border-2 border-red-300 rounded-lg p-3">
+                    <div className="bg-danger/10 border-2 border-danger/30 rounded-lg p-3">
                       <div className="flex items-start gap-2">
-                        <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                        <AlertTriangle className="w-5 h-5 text-danger shrink-0 mt-0.5" />
                         <div className="flex-1">
-                          <p className="font-bold text-red-900 text-sm">⚠️ Venda abaixo do custo</p>
-                          <p className="text-xs text-red-700 mt-1">
+                          <p className="font-bold text-danger text-sm">⚠️ Venda abaixo do custo</p>
+                          <p className="text-xs text-danger mt-1">
                             Você está vendendo {formatBRL(prejuizo)} <strong>abaixo do que a PCD pagou</strong>.
                             Isso significa <strong>prejuízo direto</strong> de {formatBRL(prejuizo)}.
                           </p>
-                          <p className="text-[10px] text-red-600 mt-1.5">
+                          <p className="text-[10px] text-danger mt-1.5">
                             Custo PCD: {formatBRL(costTotal)} · Sua venda: {formatBRL(venda)}
                           </p>
                         </div>
@@ -664,17 +664,17 @@ export default function QuickPriceEditDialog({ open, onOpenChange, quote, onSave
                 if (venda < niponTotal) {
                   const descontoNipon = niponTotal - venda;
                   return (
-                    <div className="bg-amber-50 border border-amber-300 rounded-lg p-3">
+                    <div className="bg-warning/10 border border-warning/30 rounded-lg p-3">
                       <div className="flex items-start gap-2">
-                        <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                        <Info className="w-4 h-4 text-warning shrink-0 mt-0.5" />
                         <div className="flex-1">
-                          <p className="font-semibold text-amber-900 text-sm">
+                          <p className="font-semibold text-warning text-sm">
                             Lucro de {formatBRL(lucroBruto)}
                           </p>
-                          <p className="text-xs text-amber-700 mt-1">
+                          <p className="text-xs text-warning mt-1">
                             Você está vendendo {formatBRL(descontoNipon)} <strong>abaixo do Nipon sugerido</strong> — margem comprimida.
                           </p>
-                          <p className="text-[10px] text-amber-600 mt-1.5">
+                          <p className="text-[10px] text-warning mt-1.5">
                             Custo: {formatBRL(costTotal)} → Venda: {formatBRL(venda)} ({((lucroBruto / venda) * 100).toFixed(1)}% margem)
                           </p>
                         </div>
@@ -684,20 +684,20 @@ export default function QuickPriceEditDialog({ open, onOpenChange, quote, onSave
                 }
 
                 return (
-                  <div className="bg-green-50 border-2 border-green-300 rounded-lg p-3">
+                  <div className="bg-success/10 border-2 border-success/30 rounded-lg p-3">
                     <div className="flex items-start gap-2">
-                      <Sparkles className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                      <Sparkles className="w-5 h-5 text-success shrink-0 mt-0.5" />
                       <div className="flex-1">
-                        <p className="font-bold text-green-900 text-sm">
+                        <p className="font-bold text-success text-sm">
                           Lucro de {formatBRL(lucroBruto)} ({((lucroBruto / venda) * 100).toFixed(1)}% margem)
                         </p>
-                        <p className="text-xs text-green-700 mt-1">
+                        <p className="text-xs text-success mt-1">
                           {acimaNipon > 0 && (
                             <>+{formatBRL(acimaNipon)} <strong>acima do Nipon sugerido</strong> — </>
                           )}
                           Operação saudável. PCD lucra {formatBRL(lucroBruto)} nessa venda.
                         </p>
-                        <p className="text-[10px] text-green-600 mt-1.5">
+                        <p className="text-[10px] text-success mt-1.5">
                           Custo: {formatBRL(costTotal)} → Venda: {formatBRL(venda)}
                         </p>
                       </div>
@@ -707,7 +707,7 @@ export default function QuickPriceEditDialog({ open, onOpenChange, quote, onSave
               })()}
             </div>
           ) : (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <div className="bg-warning/10 border border-warning/30 rounded-lg p-4">
               <p className="text-sm font-semibold mb-3">Valor de venda ao cliente</p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -744,8 +744,8 @@ export default function QuickPriceEditDialog({ open, onOpenChange, quote, onSave
           )}
 
           {/* === COMPARATIVO === */}
-          <div className="bg-slate-900 text-white rounded-lg p-4">
-            <p className="text-[10px] uppercase tracking-wider text-amber-400 font-bold mb-3">
+          <div className="bg-bg-elevated text-text-primary rounded-lg p-4">
+            <p className="text-[10px] uppercase tracking-wider text-warning font-bold mb-3">
               Impacto da alteração
             </p>
             <div className="space-y-1.5 text-xs">
@@ -789,16 +789,16 @@ export default function QuickPriceEditDialog({ open, onOpenChange, quote, onSave
                       row.bold && "pt-2 mt-1 border-t border-white/10 font-bold"
                     )}
                   >
-                    <span className="text-slate-300">{row.label}</span>
+                    <span className="text-text-muted">{row.label}</span>
                     <div className="flex items-center gap-2 flex-wrap justify-end">
-                      <span className="text-slate-400">{formatBRL(row.old)}</span>
-                      <span className="text-slate-500">→</span>
+                      <span className="text-text-muted">{formatBRL(row.old)}</span>
+                      <span className="text-text-muted">→</span>
                       <span>{formatBRL(row.new)}</span>
                       {!isZero && (
                         <span
                           className={cn(
                             "font-bold",
-                            isImprovement ? "text-emerald-400" : "text-red-400"
+                            isImprovement ? "text-success" : "text-danger"
                           )}
                         >
                           ({diff > 0 ? "+" : ""}
@@ -814,7 +814,7 @@ export default function QuickPriceEditDialog({ open, onOpenChange, quote, onSave
 
           {/* === AVISO SE VENDA ABAIXO DO NIPON (cliente direto) === */}
           {!isPartner && newTotals.saleTotal > 0 && newTotals.saleTotal < newTotals.niponTotal && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-2.5 text-xs text-red-800">
+            <div className="bg-danger/10 border border-danger/30 rounded-lg p-2.5 text-xs text-danger">
               ⚠️ Venda abaixo do Nipon mínimo. Faltam{" "}
               <strong>
                 {formatBRL(newTotals.niponTotal - newTotals.saleTotal)}
@@ -835,7 +835,7 @@ export default function QuickPriceEditDialog({ open, onOpenChange, quote, onSave
           <Button
             onClick={handleSave}
             disabled={saving}
-            className="bg-amber-500 hover:bg-amber-600 text-white"
+            className="bg-warning hover:bg-warning text-white"
           >
             {saving ? "Salvando..." : "Salvar"}
           </Button>

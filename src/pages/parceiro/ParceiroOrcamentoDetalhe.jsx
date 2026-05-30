@@ -251,14 +251,14 @@ export default function ParceiroOrcamentoDetalhe() {
 
       {/* Aviso: empresa não configurada */}
       {!company && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
-          <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
-          <div className="text-sm text-amber-800">
+        <div className="bg-warning/10 border border-warning/30 rounded-lg p-3 flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 text-warning mt-0.5 flex-shrink-0" />
+          <div className="text-sm text-warning">
             Você ainda não configurou sua empresa. Você pode precificar normalmente, mas os PDFs gerados não terão sua identidade visual.
             <button
               type="button"
               onClick={() => navigate("/parceiro/empresa")}
-              className="text-amber-700 font-semibold underline ml-1"
+              className="text-warning font-semibold underline ml-1"
             >
               Configurar agora
             </button>
@@ -275,11 +275,11 @@ export default function ParceiroOrcamentoDetalhe() {
           <h1 className="text-2xl font-bold tracking-tight mt-0.5">Orçamento — definir preço final</h1>
         </div>
         {isPriced ? (
-          <Badge className="bg-emerald-100 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 gap-1">
+          <Badge className="bg-success/10 text-success border border-success/30 hover:bg-success/10 gap-1">
             <CheckCircle2 className="h-3 w-3" /> Já precificado
           </Badge>
         ) : (
-          <Badge className="bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-100">
+          <Badge className="bg-warning/10 text-warning border border-warning/30 hover:bg-warning/10">
             Aguardando seu preço
           </Badge>
         )}
@@ -324,7 +324,7 @@ export default function ParceiroOrcamentoDetalhe() {
       </Card>
 
       {/* Custo recebido */}
-      <Card className="border-border/50 bg-slate-50">
+      <Card className="border-border/50 bg-bg-elevated">
         <CardContent className="p-4 flex items-center justify-between flex-wrap gap-3">
           <div>
             <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
@@ -339,10 +339,10 @@ export default function ParceiroOrcamentoDetalhe() {
       </Card>
 
       {/* Definir preço */}
-      <Card className="border-purple-200 bg-purple-50/40">
+      <Card className="border-accent/30 bg-accent/10">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm flex items-center gap-2">
-            <DollarSign className="h-4 w-4 text-purple-700" /> Valor de venda ao seu cliente
+            <DollarSign className="h-4 w-4 text-accent" /> Valor de venda ao seu cliente
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -363,8 +363,8 @@ export default function ParceiroOrcamentoDetalhe() {
             <div className={cn(
               "rounded-lg border p-3 text-sm flex items-start gap-2",
               margemValida
-                ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-                : "bg-amber-50 border-amber-200 text-amber-800"
+                ? "bg-success/10 border-success/30 text-success"
+                : "bg-warning/10 border-warning/30 text-warning"
             )}>
               <TrendingUp className="h-4 w-4 shrink-0 mt-0.5" />
               <div>
@@ -383,9 +383,9 @@ export default function ParceiroOrcamentoDetalhe() {
       </Card>
 
       {/* Dados do parceiro (você) */}
-      <Card className="border-amber-200 bg-amber-50/40">
+      <Card className="border-warning/30 bg-warning/10">
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2 text-amber-900">
+          <CardTitle className="text-sm flex items-center gap-2 text-warning">
             <Briefcase className="h-4 w-4" /> Seus dados (Parceiro)
           </CardTitle>
         </CardHeader>
@@ -474,7 +474,7 @@ export default function ParceiroOrcamentoDetalhe() {
       </Card>
 
       {!margemValida && saleValueNumber > 0 && (
-        <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
+        <div className="flex items-start gap-2 p-3 rounded-lg bg-warning/10 border border-warning/30 text-sm text-warning">
           <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
           <span>Confirme se realmente quer vender abaixo do Nipon — não há margem positiva.</span>
         </div>
@@ -491,7 +491,7 @@ export default function ParceiroOrcamentoDetalhe() {
             />
             <div>
               <p className="font-medium text-sm flex items-center gap-1.5">
-                <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                <Sparkles className="h-3.5 w-3.5 text-warning" />
                 Mostrar parceria com PassagensComDesconto
               </p>
               <p className="text-xs text-muted-foreground mt-1">
@@ -513,7 +513,7 @@ export default function ParceiroOrcamentoDetalhe() {
             !partnerInfo.name.trim() ||
             !partnerInfo.phone.trim()
           }
-          className="bg-purple-600 hover:bg-purple-700 text-white gap-2 h-12"
+          className="bg-accent hover:bg-accent text-white gap-2 h-12"
         >
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           {saving ? "Salvando..." : "Salvar e gerar orçamento final"}

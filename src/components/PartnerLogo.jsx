@@ -35,8 +35,8 @@ export default function PartnerLogo({
     return (
       <div
         className={`${FALLBACK_SIZE_CLASSES[variant]} rounded-xl ${
-          showBorder ? "border-2 border-amber-400" : ""
-        } bg-white/10 backdrop-blur-sm flex items-center justify-center ${className}`}
+          showBorder ? "border-2 border-warning/30" : ""
+        } bg-bg-surface backdrop-blur-sm flex items-center justify-center ${className}`}
       >
         <Building2 className="w-1/2 h-1/2 text-white/60" />
       </div>

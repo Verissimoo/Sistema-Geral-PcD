@@ -214,8 +214,8 @@ function Stepper({ currentStep, completedSteps }) {
               <div
                 className={cn(
                   "h-9 w-9 rounded-full flex items-center justify-center text-sm font-semibold transition-all border-2",
-                  isDone && "bg-emerald-500 border-emerald-500 text-white",
-                  isActive && !isDone && "bg-amber-500 border-amber-500 text-white shadow-md shadow-amber-500/30",
+                  isDone && "bg-success border-success/30 text-white",
+                  isActive && !isDone && "bg-warning border-warning/30 text-white shadow-md",
                   !isActive && !isDone && "bg-muted border-border text-muted-foreground"
                 )}
               >
@@ -234,7 +234,7 @@ function Stepper({ currentStep, completedSteps }) {
               <div
                 className={cn(
                   "h-0.5 flex-1 mx-2 mt-[-18px] transition-colors",
-                  completedSteps.includes(s.n) ? "bg-emerald-500" : "bg-border"
+                  completedSteps.includes(s.n) ? "bg-success" : "bg-border"
                 )}
               />
             )}
@@ -358,7 +358,7 @@ function BlocoCliente({ formData, setFormData }) {
             </Select>
 
             {formData.partner_id && (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+              <div className="p-3 bg-warning/10 border border-warning/30 rounded-lg text-sm text-warning">
                 <strong>ℹ️ Modo Parceiro:</strong> você define livremente o valor a cobrar da parceira. O Nipon aparece apenas como sugestão.
               </div>
             )}
@@ -404,7 +404,7 @@ function BlocoCliente({ formData, setFormData }) {
                   className={cn(
                     "w-full text-left p-3 rounded-lg border transition-all",
                     isSelected
-                      ? "border-amber-500 bg-amber-50 dark:bg-amber-500/10 ring-1 ring-amber-500"
+                      ? "border-warning/30 bg-warning/10 dark:bg-warning/10 ring-1 ring-warning/40"
                       : "border-border hover:border-primary/40 hover:bg-muted/40"
                   )}
                 >
@@ -415,7 +415,7 @@ function BlocoCliente({ formData, setFormData }) {
                         {c.phone || "Sem telefone"} · {c.lead_origin || "—"}
                       </div>
                     </div>
-                    {isSelected && <Check className="h-4 w-4 text-amber-600" />}
+                    {isSelected && <Check className="h-4 w-4 text-warning" />}
                   </div>
                 </button>
               );
@@ -473,8 +473,8 @@ function BlocoCliente({ formData, setFormData }) {
       </Tabs>
 
       {formData.client && (
-        <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-2 text-sm">
-          <Check className="h-4 w-4 text-emerald-600" />
+        <div className="p-3 rounded-lg bg-success/10 border border-success/30 flex items-center gap-2 text-sm">
+          <Check className="h-4 w-4 text-success" />
           <span><strong>{formData.client.name}</strong> selecionado</span>
         </div>
       )}
@@ -496,7 +496,7 @@ function BlocoProduto({ formData, setFormData }) {
         className={cn(
           "p-6 rounded-xl border-2 text-left transition-all",
           formData.product === "aereo"
-            ? "border-amber-500 bg-amber-50 dark:bg-amber-500/10 shadow-md shadow-amber-500/10"
+            ? "border-warning/30 bg-warning/10 dark:bg-warning/10 shadow-md"
             : "border-border hover:border-primary/40 hover:bg-muted/30"
         )}
       >
@@ -506,7 +506,7 @@ function BlocoProduto({ formData, setFormData }) {
           </div>
           <div className="font-semibold">Aéreo</div>
           {formData.product === "aereo" && (
-            <Check className="h-5 w-5 text-amber-600 ml-auto" />
+            <Check className="h-5 w-5 text-warning ml-auto" />
           )}
         </div>
         <p className="text-sm text-muted-foreground">
@@ -550,13 +550,13 @@ function SegmentoCard({
     <div
       className={cn(
         "rounded-lg p-4 space-y-3 border",
-        isHiddenStop && "border-purple-400 ring-2 ring-purple-200 bg-purple-50/40",
-        isAfterHidden && "border-slate-300 bg-slate-100 opacity-60",
-        !isHiddenStop && !isAfterHidden && "bg-slate-50 border-slate-200"
+        isHiddenStop && "border-accent/30 ring-2 ring-accent/40 bg-accent/10",
+        isAfterHidden && "border-border bg-bg-elevated opacity-60",
+        !isHiddenStop && !isAfterHidden && "bg-bg-elevated border-border"
       )}
     >
       {isAfterHidden && (
-        <div className="bg-red-50 border border-red-200 rounded p-2 text-xs text-red-700 flex items-center gap-2">
+        <div className="bg-danger/10 border border-danger/30 rounded p-2 text-xs text-danger flex items-center gap-2">
           <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
           <span>
             <strong>Pax NÃO embarca neste segmento</strong> — destino real é {hiddenDestinoIata || "—"} (Hidden City)
@@ -567,7 +567,7 @@ function SegmentoCard({
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
           {totalSegmentos > 1 && (
-            <span className="bg-slate-900 text-white px-2 py-0.5 rounded text-xs font-bold flex-shrink-0">
+            <span className="bg-bg-elevated text-text-primary px-2 py-0.5 rounded text-xs font-bold flex-shrink-0">
               VOO {segmentoIdx + 1}
             </span>
           )}
@@ -598,7 +598,7 @@ function SegmentoCard({
             <Button
               size="icon"
               variant="ghost"
-              className="h-7 w-7 text-red-500 hover:text-red-700"
+              className="h-7 w-7 text-danger hover:text-danger"
               onClick={onRemove}
               title="Remover segmento"
             >
@@ -617,7 +617,7 @@ function SegmentoCard({
               value={segmento.origem_iata || ""}
               onChange={(e) => onUpdate(trechoIdx, segmentoIdx, "origem_iata", e.target.value.toUpperCase())}
               maxLength={3}
-              className="h-9 w-16 text-base font-black text-center font-mono"
+              className="h-9 w-16 text-base font-semibold text-center font-mono"
               placeholder="ORG"
             />
             <Input
@@ -643,10 +643,10 @@ function SegmentoCard({
 
         {/* SETA central */}
         <div className="flex flex-col items-center px-2 pt-2">
-          <Plane className="w-5 h-5 text-slate-400 rotate-90" />
+          <Plane className="w-5 h-5 text-text-muted rotate-90" />
           {showNextDayBadge && (
             <span
-              className="text-[10px] text-amber-700 font-bold bg-amber-100 px-2 py-0.5 rounded-full mt-1 whitespace-nowrap"
+              className="text-[10px] text-warning font-bold bg-warning/10 px-2 py-0.5 rounded-full mt-1 whitespace-nowrap"
               title="Este voo chega no dia seguinte ao da saída"
             >
               ⚠️ +1 dia
@@ -667,7 +667,7 @@ function SegmentoCard({
               value={segmento.destino_iata || ""}
               onChange={(e) => onUpdate(trechoIdx, segmentoIdx, "destino_iata", e.target.value.toUpperCase())}
               maxLength={3}
-              className="h-9 w-16 text-base font-black text-center font-mono"
+              className="h-9 w-16 text-base font-semibold text-center font-mono"
               placeholder="DST"
             />
           </div>
@@ -689,7 +689,7 @@ function SegmentoCard({
       {/* Checkbox Hidden City — só se houver escala (totalSegmentos > 1) e este
           NÃO é o último segmento, e não está sob outro hidden stop. */}
       {totalSegmentos > 1 && !isAfterHidden && segmentoIdx < totalSegmentos - 1 && (
-        <div className="pt-2 border-t border-slate-200">
+        <div className="pt-2 border-t border-border">
           <label className="flex items-start gap-2 cursor-pointer">
             <Checkbox
               checked={isHiddenStop}
@@ -699,7 +699,7 @@ function SegmentoCard({
               className="mt-0.5"
             />
             <div>
-              <p className="text-xs font-semibold text-purple-700">
+              <p className="text-xs font-semibold text-accent">
                 ✈️ Hidden City — pax desce em {segmento.destino_iata || "—"}
               </p>
               <p className="text-[10px] text-muted-foreground">
@@ -738,24 +738,24 @@ function HiddenCitySummary({ trechos }) {
   if (!origemReal?.origem_iata && !destinoReal?.destino_iata) return null;
 
   return (
-    <Card className="bg-slate-900 text-white border-slate-800">
+    <Card className="bg-bg-elevated text-text-primary border-border-strong">
       <CardContent className="p-4">
-        <p className="text-[10px] uppercase tracking-wider text-amber-400 font-bold mb-2">
+        <p className="text-[10px] uppercase tracking-wider text-warning font-bold mb-2">
           Destino real do passageiro
         </p>
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-2xl font-black leading-none">{origemReal?.origem_iata || "—"}</p>
-            <p className="text-xs text-slate-300 mt-1 truncate">{origemReal?.origem_cidade || ""}</p>
+            <p className="text-2xl font-semibold leading-none">{origemReal?.origem_iata || "—"}</p>
+            <p className="text-xs text-text-muted mt-1 truncate">{origemReal?.origem_cidade || ""}</p>
           </div>
-          <div className="text-2xl text-slate-400">→</div>
+          <div className="text-2xl text-text-muted">→</div>
           <div className="text-right min-w-0">
-            <p className="text-2xl font-black leading-none">{destinoReal?.destino_iata || "—"}</p>
-            <p className="text-xs text-slate-300 mt-1 truncate">{destinoReal?.destino_cidade || ""}</p>
+            <p className="text-2xl font-semibold leading-none">{destinoReal?.destino_iata || "—"}</p>
+            <p className="text-xs text-text-muted mt-1 truncate">{destinoReal?.destino_cidade || ""}</p>
           </div>
         </div>
         {isHiddenCity && (
-          <div className="mt-3 pt-3 border-t border-white/15 text-xs text-amber-200 flex items-start gap-2">
+          <div className="mt-3 pt-3 border-t border-white/15 text-xs text-warning flex items-start gap-2">
             <span>🎯</span>
             <span>
               Esta é uma cotação <strong>Hidden City</strong> — o pax usa o bilhete somente até a escala marcada e os trechos seguintes são descartados.
@@ -1250,14 +1250,14 @@ Retorne APENAS o JSON, sem markdown nem comentários.`;
               className={cn(
                 "flex flex-col items-center justify-center gap-2 p-6 border-2 border-dashed rounded-xl cursor-pointer transition-all",
                 justPasted
-                  ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10"
+                  ? "border-success/30 bg-success/10 dark:bg-success/10"
                   : "border-border hover:border-primary/40 hover:bg-muted/30"
               )}
             >
               {justPasted ? (
                 <>
-                  <Check className="h-7 w-7 text-emerald-600" />
-                  <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                  <Check className="h-7 w-7 text-success" />
+                  <p className="text-sm font-semibold text-success dark:text-success">
                     ✓ Imagem colada com sucesso!
                   </p>
                 </>
@@ -1296,7 +1296,7 @@ Retorne APENAS o JSON, sem markdown nem comentários.`;
                     <button
                       type="button"
                       onClick={() => removeImage(idx)}
-                      className="absolute top-1 right-1 h-6 w-6 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute top-1 right-1 h-6 w-6 rounded-full bg-danger text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -1308,15 +1308,15 @@ Retorne APENAS o JSON, sem markdown nem comentários.`;
             <Button
               onClick={processarItinerario}
               disabled={processing || formData.flight_images.length === 0}
-              className="w-full bg-amber-500 hover:bg-amber-600 text-white gap-2"
+              className="w-full bg-warning hover:bg-warning text-white gap-2"
             >
               {processing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               {processing ? "Analisando imagens do voo..." : "Processar Itinerário"}
             </Button>
             {error && (
-              <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-sm">
-                <AlertTriangle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
-                <span className="text-red-600">{error}</span>
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-danger/10 border border-danger/30 text-sm">
+                <AlertTriangle className="h-4 w-4 text-danger shrink-0 mt-0.5" />
+                <span className="text-danger">{error}</span>
               </div>
             )}
           </CardContent>
@@ -1448,7 +1448,7 @@ Retorne APENAS o JSON, sem markdown nem comentários.`;
             <CardTitle className="text-sm flex items-center gap-2">
               Revisão do Itinerário
               {formData.itinerary_reviewed && (
-                <Badge className="bg-emerald-500 hover:bg-emerald-500 gap-1">
+                <Badge className="bg-success hover:bg-success gap-1">
                   <Check className="h-3 w-3" /> Revisado
                 </Badge>
               )}
@@ -1483,25 +1483,25 @@ Retorne APENAS o JSON, sem markdown nem comentários.`;
                   <div
                     className={cn(
                       "px-5 py-3 flex items-center justify-between gap-2 flex-wrap",
-                      isIda ? "bg-red-50" : "bg-blue-50"
+                      isIda ? "bg-danger/10" : "bg-accent/10"
                     )}
                   >
                     <div className="flex items-center gap-2 flex-wrap">
-                      <Icon className={cn("w-5 h-5", isIda ? "text-red-700" : "text-blue-700")} />
+                      <Icon className={cn("w-5 h-5", isIda ? "text-danger" : "text-accent")} />
                       <h3
                         className={cn(
                           "font-bold text-base uppercase tracking-wider",
-                          isIda ? "text-red-700" : "text-blue-700"
+                          isIda ? "text-danger" : "text-accent"
                         )}
                       >
                         {isIda ? "IDA" : "VOLTA"}
                       </h3>
                       {(t.escalas || 0) === 0 ? (
-                        <Badge variant="outline" className="text-emerald-700 border-emerald-300 bg-emerald-50">
+                        <Badge variant="outline" className="text-success border-success/30 bg-success/10">
                           Voo direto
                         </Badge>
                       ) : (
-                        <Badge variant="outline" className="text-amber-700 border-amber-300">
+                        <Badge variant="outline" className="text-warning border-warning/30">
                           {t.escalas} {t.escalas === 1 ? "escala" : "escalas"}
                         </Badge>
                       )}
@@ -1514,7 +1514,7 @@ Retorne APENAS o JSON, sem markdown nem comentários.`;
                         className="h-7 w-32 text-xs"
                       />
                       <Button size="icon" variant="ghost" onClick={() => removeTrecho(idx)} title="Remover trecho">
-                        <Trash2 className="h-4 w-4 text-red-500" />
+                        <Trash2 className="h-4 w-4 text-danger" />
                       </Button>
                     </div>
                   </div>
@@ -1553,15 +1553,15 @@ Retorne APENAS o JSON, sem markdown nem comentários.`;
                               <div
                                 className={cn(
                                   "flex-1 border-t-2 border-dashed",
-                                  escalaPernoita ? "border-red-300" : "border-amber-300",
+                                  escalaPernoita ? "border-danger/30" : "border-warning/30",
                                 )}
                               />
                               <div
                                 className={cn(
                                   "px-3 py-1 rounded-full text-xs font-medium flex items-center gap-2 border",
                                   escalaPernoita
-                                    ? "bg-red-100 text-red-800 border-red-200"
-                                    : "bg-amber-100 text-amber-800 border-amber-200",
+                                    ? "bg-danger/10 text-danger border-danger/30"
+                                    : "bg-warning/10 text-warning border-warning/30",
                                 )}
                                 title={
                                   escalaPernoita
@@ -1578,15 +1578,15 @@ Retorne APENAS o JSON, sem markdown nem comentários.`;
                                   onChange={(e) => updateTempoEscala(idx, segIdx, e.target.value)}
                                   placeholder="5h 05min"
                                   className={cn(
-                                    "h-6 w-24 text-xs px-2 py-0 bg-white",
-                                    escalaPernoita ? "border-red-300" : "border-amber-300",
+                                    "h-6 w-24 text-xs px-2 py-0 bg-bg-surface",
+                                    escalaPernoita ? "border-danger/30" : "border-warning/30",
                                   )}
                                 />
                               </div>
                               <div
                                 className={cn(
                                   "flex-1 border-t-2 border-dashed",
-                                  escalaPernoita ? "border-red-300" : "border-amber-300",
+                                  escalaPernoita ? "border-danger/30" : "border-warning/30",
                                 )}
                               />
                             </div>
@@ -1687,7 +1687,7 @@ Retorne APENAS o JSON, sem markdown nem comentários.`;
               <Button
                 variant="outline"
                 onClick={() => setFormData((p) => ({ ...p, itinerary_reviewed: true }))}
-                className="w-full gap-2 border-emerald-500/50 text-emerald-700 hover:bg-emerald-500/10"
+                className="w-full gap-2 border-success/30 text-success hover:bg-success/10"
               >
                 <Check className="h-4 w-4" /> Confirmar revisão do itinerário
               </Button>
@@ -2134,19 +2134,19 @@ function BlocoPrecificacao({ formData, setFormData }) {
   return (
     <div className="space-y-6">
       {/* 4-Moeda — toggle BRL/EUR + badge de cotação ao vivo */}
-      <Card className={cn("border-border/50", isEur && "border-blue-300 bg-blue-50/30")}>
+      <Card className={cn("border-border/50", isEur && "border-accent/30 bg-accent/10")}>
         <CardContent className="p-3 flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
             <Label className="text-sm font-medium">Moeda da operação</Label>
-            <div className="flex gap-1 bg-slate-100 rounded-md p-0.5">
+            <div className="flex gap-1 bg-bg-elevated rounded-md p-0.5">
               <button
                 type="button"
                 onClick={() => setCurrency("BRL")}
                 className={cn(
                   "px-3 py-1.5 rounded text-xs font-medium transition",
                   currency === "BRL"
-                    ? "bg-white shadow text-slate-900"
-                    : "text-slate-600 hover:bg-white/60"
+                    ? "bg-bg-surface shadow text-text-primary"
+                    : "text-text-secondary hover:bg-bg-surface"
                 )}
               >
                 🇧🇷 Real (BRL)
@@ -2157,8 +2157,8 @@ function BlocoPrecificacao({ formData, setFormData }) {
                 className={cn(
                   "px-3 py-1.5 rounded text-xs font-medium transition",
                   currency === "EUR"
-                    ? "bg-white shadow text-slate-900"
-                    : "text-slate-600 hover:bg-white/60"
+                    ? "bg-bg-surface shadow text-text-primary"
+                    : "text-text-secondary hover:bg-bg-surface"
                 )}
               >
                 🇪🇺 Euro (EUR)
@@ -2169,7 +2169,7 @@ function BlocoPrecificacao({ formData, setFormData }) {
         </CardContent>
         {isEur && !eurRate && (
           <CardContent className="pt-0 pb-3">
-            <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+            <div className="text-xs text-warning bg-warning/10 border border-warning/30 rounded p-2">
               ⚠️ Cotação indisponível no momento. Aguarde alguns segundos ou volte para BRL.
             </div>
           </CardContent>
@@ -2189,12 +2189,12 @@ function BlocoPrecificacao({ formData, setFormData }) {
         <CardContent>
         {/* Toggle multi-programa — só fora de Quebra de Trecho e com 2+ trechos */}
         {canMultiProgram && (
-          <div className="flex items-start justify-between gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg mb-4">
+          <div className="flex items-start justify-between gap-3 p-3 bg-warning/10 border border-warning/30 rounded-lg mb-4">
             <div className="min-w-0">
-              <p className="font-semibold text-sm text-amber-900">
+              <p className="font-semibold text-sm text-warning">
                 Programas diferentes por trecho?
               </p>
-              <p className="text-xs text-amber-700 mt-0.5">
+              <p className="text-xs text-warning mt-0.5">
                 Ative quando IDA e VOLTA usam companhias/programas diferentes (ex: ida GOL, volta LATAM).
               </p>
             </div>
@@ -2271,14 +2271,14 @@ function BlocoPrecificacao({ formData, setFormData }) {
                             <span
                               className={cn(
                                 "w-2 h-2 rounded-full",
-                                m.stock_status === "own" && "bg-green-500",
-                                m.stock_status === "unavailable" && "bg-red-500",
-                                (!m.stock_status || m.stock_status === "supplier") && "bg-yellow-500"
+                                m.stock_status === "own" && "bg-success",
+                                m.stock_status === "unavailable" && "bg-danger",
+                                (!m.stock_status || m.stock_status === "supplier") && "bg-warning"
                               )}
                             />
                             {m.program} — {formatBRL(m.cost_per_thousand)}/mil
                             {m.stock_status === "unavailable" && (
-                              <span className="text-red-500 text-xs">(em falta)</span>
+                              <span className="text-danger text-xs">(em falta)</span>
                             )}
                           </div>
                         </SelectItem>
@@ -2321,11 +2321,11 @@ function BlocoPrecificacao({ formData, setFormData }) {
               <Card className="bg-muted/40 border-border/50">
                 <CardContent className="p-4 space-y-1.5 text-sm">
                   {appliedTier && (
-                    <div className="flex items-center justify-between p-2 mb-1 rounded-lg bg-purple-500/10 border border-purple-500/30">
-                      <span className="text-xs font-semibold text-purple-700 dark:text-purple-300 flex items-center gap-1.5">
+                    <div className="flex items-center justify-between p-2 mb-1 rounded-lg bg-accent/10 border border-accent/30">
+                      <span className="text-xs font-semibold text-accent dark:text-accent flex items-center gap-1.5">
                         Faixa aplicada: {appliedTier.label}
                       </span>
-                      <span className="text-xs text-purple-600 dark:text-purple-400">
+                      <span className="text-xs text-accent dark:text-accent">
                         base venda: {formatBRL(selectedProgram?.sale_per_thousand)}/mil
                       </span>
                     </div>
@@ -2563,10 +2563,10 @@ function BlocoPrecificacao({ formData, setFormData }) {
 
       {/* 4B - Valor de venda à parceira (input livre + feedback contextual) */}
       {isParceiroMode && (
-        <Card className="border-amber-200 bg-amber-50/50">
+        <Card className="border-warning/30 bg-warning/10">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2">
-              <DollarSign className="h-4 w-4 text-amber-600" />
+              <DollarSign className="h-4 w-4 text-warning" />
               Valor da passagem para a parceira
             </CardTitle>
             <p className="text-xs text-muted-foreground">
@@ -2575,14 +2575,14 @@ function BlocoPrecificacao({ formData, setFormData }) {
           </CardHeader>
           <CardContent className="space-y-3">
             {/* Sugestão informativa: custo + Nipon como referência */}
-            <div className="bg-white/70 border border-slate-200 rounded-lg p-3 space-y-1 text-xs">
+            <div className="bg-bg-surface border border-border rounded-lg p-3 space-y-1 text-xs">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Custo total da PCD:</span>
-                <strong className="text-slate-700">{formatBRL(calc.custoTotal)}</strong>
+                <strong className="text-text-secondary">{formatBRL(calc.custoTotal)}</strong>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Nipon (sugestão de venda):</span>
-                <strong className="text-amber-700">{formatBRL(niponTotal)}</strong>
+                <strong className="text-warning">{formatBRL(niponTotal)}</strong>
               </div>
             </div>
 
@@ -2649,7 +2649,7 @@ function BlocoPrecificacao({ formData, setFormData }) {
                     setPricing({ sale_value: String(niponTotal), sale_per: "total" });
                   }
                 }}
-                className="text-xs text-amber-600 hover:text-amber-700 underline"
+                className="text-xs text-warning hover:text-warning underline"
               >
                 Usar valor sugerido (Nipon)
               </button>
@@ -2667,16 +2667,16 @@ function BlocoPrecificacao({ formData, setFormData }) {
               if (venda < calc.custoTotal) {
                 const prejuizo = calc.custoTotal - venda;
                 return (
-                  <div className="bg-red-50 border-2 border-red-300 rounded-lg p-3">
+                  <div className="bg-danger/10 border-2 border-danger/30 rounded-lg p-3">
                     <div className="flex items-start gap-2">
-                      <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                      <AlertTriangle className="w-5 h-5 text-danger shrink-0 mt-0.5" />
                       <div className="flex-1">
-                        <p className="font-bold text-red-900 text-sm">⚠️ Venda abaixo do custo</p>
-                        <p className="text-xs text-red-700 mt-1">
+                        <p className="font-bold text-danger text-sm">⚠️ Venda abaixo do custo</p>
+                        <p className="text-xs text-danger mt-1">
                           Você está vendendo {formatBRL(prejuizo)} <strong>abaixo do que a PCD pagou</strong>.
                           Isso significa <strong>prejuízo direto</strong> de {formatBRL(prejuizo)}.
                         </p>
-                        <p className="text-[10px] text-red-600 mt-1.5">
+                        <p className="text-[10px] text-danger mt-1.5">
                           Custo PCD: {formatBRL(calc.custoTotal)} · Sua venda: {formatBRL(venda)}
                         </p>
                       </div>
@@ -2689,17 +2689,17 @@ function BlocoPrecificacao({ formData, setFormData }) {
               if (venda < niponTotal) {
                 const descontoNipon = niponTotal - venda;
                 return (
-                  <div className="bg-amber-50 border border-amber-300 rounded-lg p-3">
+                  <div className="bg-warning/10 border border-warning/30 rounded-lg p-3">
                     <div className="flex items-start gap-2">
-                      <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <Info className="w-4 h-4 text-warning shrink-0 mt-0.5" />
                       <div className="flex-1">
-                        <p className="font-semibold text-amber-900 text-sm">
+                        <p className="font-semibold text-warning text-sm">
                           Lucro de {formatBRL(lucroBruto)}
                         </p>
-                        <p className="text-xs text-amber-700 mt-1">
+                        <p className="text-xs text-warning mt-1">
                           Você está vendendo {formatBRL(descontoNipon)} <strong>abaixo do Nipon sugerido</strong> — margem comprimida.
                         </p>
-                        <p className="text-[10px] text-amber-600 mt-1.5">
+                        <p className="text-[10px] text-warning mt-1.5">
                           Custo: {formatBRL(calc.custoTotal)} → Venda: {formatBRL(venda)} ({((lucroBruto / venda) * 100).toFixed(1)}% margem)
                         </p>
                       </div>
@@ -2710,20 +2710,20 @@ function BlocoPrecificacao({ formData, setFormData }) {
 
               // CASO 3: acima do Nipon — operação saudável
               return (
-                <div className="bg-green-50 border-2 border-green-300 rounded-lg p-3">
+                <div className="bg-success/10 border-2 border-success/30 rounded-lg p-3">
                   <div className="flex items-start gap-2">
-                    <Sparkles className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                    <Sparkles className="w-5 h-5 text-success shrink-0 mt-0.5" />
                     <div className="flex-1">
-                      <p className="font-bold text-green-900 text-sm">
+                      <p className="font-bold text-success text-sm">
                         Lucro de {formatBRL(lucroBruto)} ({((lucroBruto / venda) * 100).toFixed(1)}% margem)
                       </p>
-                      <p className="text-xs text-green-700 mt-1">
+                      <p className="text-xs text-success mt-1">
                         {acimaNipon > 0 && (
                           <>+{formatBRL(acimaNipon)} <strong>acima do Nipon sugerido</strong> — </>
                         )}
                         Operação saudável. PCD lucra {formatBRL(lucroBruto)} nessa venda.
                       </p>
-                      <p className="text-[10px] text-green-600 mt-1.5">
+                      <p className="text-[10px] text-success mt-1.5">
                         Custo: {formatBRL(calc.custoTotal)} → Venda: {formatBRL(venda)}
                       </p>
                     </div>
@@ -2745,7 +2745,7 @@ function BlocoPrecificacao({ formData, setFormData }) {
         </CardHeader>
         <CardContent className="space-y-4">
           {passengers >= 2 && (
-            <Card className="bg-blue-500/5 border-blue-500/30">
+            <Card className="bg-accent/5 border-accent/30">
               <CardContent className="p-3 space-y-1.5 text-sm">
                 <div className="text-[11px] uppercase tracking-widest text-muted-foreground">
                   Resumo por passageiro × {passengers} pax
@@ -2819,24 +2819,24 @@ function BlocoPrecificacao({ formData, setFormData }) {
 
           {/* Override de preço — preço cobrado difere do sugerido pela tabela */}
           {isPriceOverridden && (
-            <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+            <div className="bg-accent/10 border border-accent/30 rounded-lg p-3">
               <div className="flex items-start gap-2">
-                <Info className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
+                <Info className="w-4 h-4 text-accent shrink-0 mt-0.5" />
                 <div className="flex-1 text-sm">
-                  <p className="font-semibold text-purple-900">
+                  <p className="font-semibold text-accent">
                     Preço customizado pelo vendedor
                   </p>
-                  <p className="text-xs text-purple-700 mt-0.5">
+                  <p className="text-xs text-accent mt-0.5">
                     Sugerido pela tabela: <strong>{formatBRL(precoSugerido)}</strong> · Você está cobrando:{" "}
                     <strong>{formatBRL(saleAtual)}</strong>
                     {saleAtual > precoSugerido && (
-                      <span className="text-emerald-700"> (acima do sugerido — bom!)</span>
+                      <span className="text-success"> (acima do sugerido — bom!)</span>
                     )}
                     {saleAtual < precoSugerido && (
-                      <span className="text-amber-700"> (abaixo do sugerido)</span>
+                      <span className="text-warning"> (abaixo do sugerido)</span>
                     )}
                   </p>
-                  <p className="text-[10px] text-purple-600 mt-1">
+                  <p className="text-[10px] text-accent mt-1">
                     ⓘ O gerente será notificado sobre essa alteração ao salvar.
                   </p>
                 </div>
@@ -2845,9 +2845,9 @@ function BlocoPrecificacao({ formData, setFormData }) {
           )}
 
           {calc.saleTotal > 0 && !aboveNipon && (
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-sm">
-              <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-              <span className="text-amber-700 dark:text-amber-400">
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-warning/10 border border-warning/30 text-sm">
+              <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+              <span className="text-warning dark:text-warning">
                 Valor de venda total ({formatBRL(calc.saleTotal)}) está abaixo do Nipon total ({formatBRL(calc.nipon)}).
                 Sem comissão extra — comissão base calculada sobre o lucro mínimo do Nipon.
               </span>
@@ -2856,7 +2856,7 @@ function BlocoPrecificacao({ formData, setFormData }) {
           {calc.saleTotal > 0 && (
             <Card className={cn(
               aboveNipon
-                ? "bg-emerald-500/5 border-emerald-500/30"
+                ? "bg-success/5 border-success/30"
                 : "bg-muted/40 border-border/60"
             )}>
               <CardContent className="p-4 space-y-1.5 text-sm">
@@ -2872,7 +2872,7 @@ function BlocoPrecificacao({ formData, setFormData }) {
                   label="COMISSÃO TOTAL DO VENDEDOR"
                   value={formatBRL(calc.comissaoTotal)}
                   bold
-                  className={aboveNipon ? "text-emerald-700" : "text-foreground"}
+                  className={aboveNipon ? "text-success" : "text-foreground"}
                 />
               </CardContent>
             </Card>
@@ -2992,7 +2992,7 @@ function BlocoPrecificacao({ formData, setFormData }) {
               <div className="p-3 rounded-lg bg-muted/40 border text-sm">
                 Nosso preço: <strong>{formatBRL(calc.saleTotal)}</strong> vs Concorrência:{" "}
                 <strong>{formatBRL(parseBR(formData.competitor.value))}</strong> →{" "}
-                <span className="text-emerald-700">
+                <span className="text-success">
                   Economia de {formatBRL(parseBR(formData.competitor.value) - calc.saleTotal)} (
                   {(((parseBR(formData.competitor.value) - calc.saleTotal) / parseBR(formData.competitor.value)) * 100).toFixed(1)}%)
                 </span>
@@ -3098,7 +3098,7 @@ function SplitPricing({ trechos, milesTable, onChange, passengers = 1 }) {
 
   if (trechos.length === 1) {
     return (
-      <div className="p-4 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
+      <div className="p-4 rounded-lg bg-warning/10 border border-warning/30 text-sm text-warning">
         <strong>Quebra de Trecho precisa de 2+ voos.</strong> Adicione um segmento (escala) ou
         volte ao tipo de bilhete <em>Normal</em> no Bloco 3.
       </div>
@@ -3107,9 +3107,9 @@ function SplitPricing({ trechos, milesTable, onChange, passengers = 1 }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-sm">
-        <Info className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-        <div className="text-amber-800 dark:text-amber-300">
+      <div className="flex items-start gap-2 p-3 rounded-lg bg-warning/10 border border-warning/30 text-sm">
+        <Info className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+        <div className="text-warning dark:text-warning">
           <strong>Quebra de Trecho:</strong> cada voo pode ser emitido com método
           diferente (ex: BSB→GRU em milhas Latam, GRU→MIA em milhas Smiles, ou um voo em milhas e outro em dinheiro).
         </div>
@@ -3126,36 +3126,36 @@ function SplitPricing({ trechos, milesTable, onChange, passengers = 1 }) {
       ))}
 
       {/* Totais consolidados */}
-      <Card className="bg-slate-900 text-white border-slate-800">
+      <Card className="bg-bg-elevated text-text-primary border-border-strong">
         <CardContent className="p-5 space-y-2">
-          <div className="text-[10px] uppercase tracking-widest text-slate-400">
+          <div className="text-[10px] uppercase tracking-widest text-text-muted">
             Totais consolidados {passengers >= 2 ? `· soma trechos × ${passengers} pax` : ""}
           </div>
           {passengers >= 2 && (
             <>
               <div className="flex justify-between text-sm">
-                <span className="text-slate-300">Custo por pessoa:</span>
+                <span className="text-text-muted">Custo por pessoa:</span>
                 <span className="font-semibold">{formatBRL(custoPorPessoa)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-slate-300">Nipon por pessoa:</span>
-                <span className="font-semibold text-amber-400">{formatBRL(niponPorPessoa)}</span>
+                <span className="text-text-muted">Nipon por pessoa:</span>
+                <span className="font-semibold text-warning">{formatBRL(niponPorPessoa)}</span>
               </div>
-              <Separator className="my-2 bg-slate-700" />
+              <Separator className="my-2 bg-bg-overlay" />
             </>
           )}
           <div className="flex justify-between text-sm">
-            <span className="text-slate-300">Custo total:</span>
+            <span className="text-text-muted">Custo total:</span>
             <span className="font-semibold">{formatBRL(totalCost)}</span>
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-slate-300">Valor Nipon total:</span>
-            <span className="font-semibold text-amber-400">{formatBRL(totalNipon)}</span>
+            <span className="text-text-muted">Valor Nipon total:</span>
+            <span className="font-semibold text-warning">{formatBRL(totalNipon)}</span>
           </div>
-          <Separator className="my-2 bg-slate-700" />
+          <Separator className="my-2 bg-bg-overlay" />
           <div className="flex justify-between text-sm">
-            <span className="text-slate-300">Margem bruta:</span>
-            <span className={cn("font-semibold", totalMargin >= 0 ? "text-emerald-400" : "text-red-400")}>
+            <span className="text-text-muted">Margem bruta:</span>
+            <span className={cn("font-semibold", totalMargin >= 0 ? "text-success" : "text-danger")}>
               {formatBRL(totalMargin)}
             </span>
           </div>
@@ -3218,7 +3218,7 @@ function TrechoPricingCard({ trecho, index, milesTable, onChange }) {
             {trecho.label}
           </CardTitle>
           {Number(trecho.nipon_value) > 0 && (
-            <span className="text-xs text-amber-600 dark:text-amber-400 font-semibold">
+            <span className="text-xs text-warning dark:text-warning font-semibold">
               Nipon: {formatBRL(trecho.nipon_value)}
             </span>
           )}
@@ -3265,14 +3265,14 @@ function TrechoPricingCard({ trecho, index, milesTable, onChange }) {
                           <span
                             className={cn(
                               "w-2 h-2 rounded-full",
-                              m.stock_status === "own" && "bg-green-500",
-                              m.stock_status === "unavailable" && "bg-red-500",
-                              (!m.stock_status || m.stock_status === "supplier") && "bg-yellow-500"
+                              m.stock_status === "own" && "bg-success",
+                              m.stock_status === "unavailable" && "bg-danger",
+                              (!m.stock_status || m.stock_status === "supplier") && "bg-warning"
                             )}
                           />
                           {m.program} — {formatBRL(m.cost_per_thousand)}/mil
                           {m.stock_status === "unavailable" && (
-                            <span className="text-red-500 text-xs">(em falta)</span>
+                            <span className="text-danger text-xs">(em falta)</span>
                           )}
                         </div>
                       </SelectItem>
@@ -3378,9 +3378,9 @@ function MultiProgramPricing({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-sm">
-        <Info className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-        <div className="text-amber-800 dark:text-amber-300">
+      <div className="flex items-start gap-2 p-3 rounded-lg bg-warning/10 border border-warning/30 text-sm">
+        <Info className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+        <div className="text-warning dark:text-warning">
           <strong>Multi-programa:</strong> cada trecho usa um programa de milhas próprio. Os totais (custo e Nipon) somam todos os trechos × passageiros.
         </div>
       </div>
@@ -3397,31 +3397,31 @@ function MultiProgramPricing({
       ))}
 
       {/* Consolidado */}
-      <Card className="bg-slate-900 text-white border-slate-800">
+      <Card className="bg-bg-elevated text-text-primary border-border-strong">
         <CardContent className="p-5 space-y-2">
-          <div className="text-[10px] uppercase tracking-widest text-slate-400">
+          <div className="text-[10px] uppercase tracking-widest text-text-muted">
             Total consolidado (IDA + VOLTA){passengers >= 2 ? ` · × ${passengers} pax` : ""}
           </div>
           {passengers >= 2 && (
             <>
               <div className="flex justify-between text-sm">
-                <span className="text-slate-300">Custo por pessoa:</span>
+                <span className="text-text-muted">Custo por pessoa:</span>
                 <span className="font-semibold">{formatBRL(custoPorPessoa)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-slate-300">Nipon por pessoa:</span>
-                <span className="font-semibold text-amber-400">{formatBRL(niponPorPessoa)}</span>
+                <span className="text-text-muted">Nipon por pessoa:</span>
+                <span className="font-semibold text-warning">{formatBRL(niponPorPessoa)}</span>
               </div>
-              <Separator className="my-2 bg-slate-700" />
+              <Separator className="my-2 bg-bg-overlay" />
             </>
           )}
           <div className="flex justify-between text-sm">
-            <span className="text-slate-300">Custo total:</span>
+            <span className="text-text-muted">Custo total:</span>
             <span className="font-semibold">{formatBRL(custoTotal)}</span>
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-slate-300">Valor Nipon total:</span>
-            <span className="font-semibold text-amber-400">{formatBRL(niponTotal)}</span>
+            <span className="text-text-muted">Valor Nipon total:</span>
+            <span className="font-semibold text-warning">{formatBRL(niponTotal)}</span>
           </div>
         </CardContent>
       </Card>
@@ -3465,8 +3465,8 @@ function MultiProgramTrechoCard({ trechoPricing, index, milesTable, onUpdate, pa
 
   return (
     <Card className={cn("border-l-4", isIda ? "border-l-red-500" : "border-l-blue-500")}>
-      <CardHeader className={cn("py-3", isIda ? "bg-red-50" : "bg-blue-50")}>
-        <CardTitle className={cn("text-sm flex items-center gap-2", isIda ? "text-red-700" : "text-blue-700")}>
+      <CardHeader className={cn("py-3", isIda ? "bg-danger/10" : "bg-accent/10")}>
+        <CardTitle className={cn("text-sm flex items-center gap-2", isIda ? "text-danger" : "text-accent")}>
           {isIda ? <PlaneTakeoff className="w-4 h-4" /> : <PlaneLanding className="w-4 h-4" />}
           {isIda ? "IDA" : "VOLTA"} — Configuração de milhas
         </CardTitle>
@@ -3501,9 +3501,9 @@ function MultiProgramTrechoCard({ trechoPricing, index, milesTable, onUpdate, pa
                     <span
                       className={cn(
                         "w-2 h-2 rounded-full",
-                        m.stock_status === "own" && "bg-green-500",
-                        m.stock_status === "unavailable" && "bg-red-500",
-                        (!m.stock_status || m.stock_status === "supplier") && "bg-yellow-500"
+                        m.stock_status === "own" && "bg-success",
+                        m.stock_status === "unavailable" && "bg-danger",
+                        (!m.stock_status || m.stock_status === "supplier") && "bg-warning"
                       )}
                     />
                     {m.program} — {formatBRL(m.cost_per_thousand)}/mil
@@ -3538,17 +3538,17 @@ function MultiProgramTrechoCard({ trechoPricing, index, milesTable, onUpdate, pa
         </div>
 
         {milesParsed > 0 && (
-          <div className="bg-slate-50 rounded p-2.5 text-xs space-y-1 border border-slate-200">
+          <div className="bg-bg-elevated rounded p-2.5 text-xs space-y-1 border border-border">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Custo por pax neste trecho:</span>
               <strong>{formatBRL(segCost)}</strong>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Venda sugerida por pax (tabela):</span>
-              <strong className="text-amber-700">{formatBRL(segSaleSugerida)}</strong>
+              <strong className="text-warning">{formatBRL(segSaleSugerida)}</strong>
             </div>
             {passengers > 1 && (
-              <div className="flex justify-between text-muted-foreground pt-1 border-t border-slate-200 mt-1">
+              <div className="flex justify-between text-muted-foreground pt-1 border-t border-border mt-1">
                 <span>Custo × {passengers} pax:</span>
                 <strong>{formatBRL(segCost * passengers)}</strong>
               </div>
@@ -3941,9 +3941,9 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
     <div className="space-y-4 relative">
       {/* Overlay durante salvamento — bloqueia cliques fora do botão e tranquiliza o usuário */}
       {saving && (
-        <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px] z-50 flex items-center justify-center rounded-lg">
-          <div className="bg-white rounded-xl shadow-lg p-5 flex items-center gap-3 border border-border">
-            <Loader2 className="w-6 h-6 text-amber-500 animate-spin" />
+        <div className="absolute inset-0 bg-bg-surface backdrop-blur-[1px] z-50 flex items-center justify-center rounded-lg">
+          <div className="bg-bg-surface rounded-xl shadow-lg p-5 flex items-center gap-3 border border-border">
+            <Loader2 className="w-6 h-6 text-warning animate-spin" />
             <div>
               <p className="font-semibold text-sm">Salvando orçamento…</p>
               <p className="text-xs text-muted-foreground">Não feche a página.</p>
@@ -3954,10 +3954,10 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
 
       {/* Resumo destinatário */}
       {isParceiroMode ? (
-        <Card className="border-border/50 border-purple-200 bg-purple-50/50">
+        <Card className="border-border/50 border-accent/30 bg-accent/10">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2">
-              <Handshake className="h-4 w-4 text-purple-700" /> Parceiro
+              <Handshake className="h-4 w-4 text-accent" /> Parceiro
             </CardTitle>
           </CardHeader>
           <CardContent className="text-sm space-y-1">
@@ -4038,7 +4038,7 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
         <Button
           onClick={handleWhatsapp}
           disabled={saving}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 h-12 disabled:opacity-70"
+          className="bg-success hover:bg-success text-white gap-2 h-12 disabled:opacity-70"
         >
           {saving ? (
             <Loader2 className="h-5 w-5 animate-spin" />
@@ -4062,9 +4062,9 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
       </div>
 
       {savedQuote && (
-        <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between text-sm">
+        <div className="p-3 rounded-lg bg-success/10 border border-success/30 flex items-center justify-between text-sm">
           <span className="flex items-center gap-2">
-            <Check className="h-4 w-4 text-emerald-600" /> Orçamento salvo
+            <Check className="h-4 w-4 text-success" /> Orçamento salvo
           </span>
           <Button variant="link" size="sm" onClick={() => navigate("/vendedor/orcamentos")}>
             Ver no painel de orçamentos
@@ -4256,31 +4256,31 @@ export default function VendedorOrcamento() {
       </div>
 
       {apiKeyMissing && (
-        <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-sm">
-          <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-          <span className="text-amber-700 dark:text-amber-400">
+        <div className="flex items-start gap-2 p-3 rounded-lg bg-warning/10 border border-warning/30 text-sm">
+          <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+          <span className="text-warning dark:text-warning">
             Configure VITE_ANTHROPIC_API_KEY no .env para usar a extração automática de itinerário.
           </span>
         </div>
       )}
 
       {formData.parent_quote_id && (
-        <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-4 flex items-start gap-3">
-          <div className="w-10 h-10 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold flex-shrink-0">
+        <div className="bg-warning/10 border-2 border-warning/30 rounded-xl p-4 flex items-start gap-3">
+          <div className="w-10 h-10 rounded-full bg-warning text-white flex items-center justify-center font-bold flex-shrink-0">
             #{formData.quote_sequence}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-amber-900">
+            <p className="font-semibold text-warning">
               Nova cotação para {formData.client?.name || formData.partner_name || "este cliente"}
             </p>
-            <p className="text-sm text-amber-700 mt-1">
+            <p className="text-sm text-warning mt-1">
               Cotação #{formData.quote_sequence} para este cliente. Os dados de cliente, passageiros e bagagem foram mantidos. Preencha os novos voos e valores.
             </p>
           </div>
           <button
             type="button"
             onClick={unlinkParent}
-            className="text-amber-700 hover:text-amber-900 text-sm underline shrink-0"
+            className="text-warning hover:text-warning text-sm underline shrink-0"
           >
             Desvincular
           </button>
