@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
-import { localClient } from "@/api/localClient";
+import { useQuotes, useUpdateQuote } from "@/api/hooks";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/AuthContext";
 import { computePricingTotals } from "@/lib/pricingCalculator";
@@ -36,25 +36,21 @@ const timeAgo = (iso) => {
 
 export default function SuporteEmissoes() {
   const { toast } = useToast();
-  const [quotes, setQuotes] = useState([]);
+  const { data: allQuotes = [] } = useQuotes();
   const [expanded, setExpanded] = useState({});
   const [emitDialogQuote, setEmitDialogQuote] = useState(null);
 
-  const reload = async () => {
-    const all = (await localClient.entities.Quotes.list()) || [];
-    const aguardando = all
-      .filter((q) => q.status === "Aguardando Emissão")
-      .sort(
-        (a, b) =>
-          new Date(a.sent_to_emission_date || a.created_date) -
-          new Date(b.sent_to_emission_date || b.created_date)
-      );
-    setQuotes(aguardando);
-  };
-
-  useEffect(() => {
-    reload();
-  }, []);
+  const quotes = useMemo(
+    () =>
+      allQuotes
+        .filter((q) => q.status === "Aguardando Emissão")
+        .sort(
+          (a, b) =>
+            new Date(a.sent_to_emission_date || a.created_date) -
+            new Date(b.sent_to_emission_date || b.created_date)
+        ),
+    [allQuotes]
+  );
 
   const summary = useMemo(() => {
     const total = quotes.length;
@@ -145,7 +141,6 @@ export default function SuporteEmissoes() {
             title: "Voucher emitido",
             description: "O vendedor foi notificado.",
           });
-          reload();
         }}
       />
     </div>
@@ -385,6 +380,7 @@ function EmissionCard({ quote, expanded, onToggle, onEmit }) {
 
 function EmitirDialog({ quote, open, onClose, onSuccess }) {
   const { user } = useAuth();
+  const updateQuote = useUpdateQuote();
   const [voucherFile, setVoucherFile] = useState(null);
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
@@ -422,15 +418,17 @@ function EmitirDialog({ quote, open, onClose, onSuccess }) {
         .from("pcd-emission-files")
         .getPublicUrl(fileName);
 
-      const updated = await localClient.entities.Quotes.update(quote.id, {
-        status: "Emitido",
-        emission_voucher_url: urlData.publicUrl,
-        emission_notes: notes,
-        emission_handled_by: user?.name || "Suporte",
-        emission_completed_date: new Date().toISOString(),
-        issued_date: new Date().toISOString(),
+      await updateQuote.mutateAsync({
+        id: quote.id,
+        updates: {
+          status: "Emitido",
+          emission_voucher_url: urlData.publicUrl,
+          emission_notes: notes,
+          emission_handled_by: user?.name || "Suporte",
+          emission_completed_date: new Date().toISOString(),
+          issued_date: new Date().toISOString(),
+        },
       });
-      if (!updated) throw new Error("Falha ao atualizar orçamento.");
 
       onSuccess?.();
       onClose();

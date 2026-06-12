@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import {
   Users, Search, MessageCircle, Phone,
 } from "lucide-react";
@@ -8,7 +8,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { localClient } from "@/api/localClient";
+import { useQuotes, useClients } from "@/api/hooks";
 import { useClientOrigins } from "@/lib/useClientOrigins";
 import { ClientOriginBadge } from "@/components/ClientOriginBadge";
 import { formatBRL } from "@/shared/lib/format";
@@ -34,21 +34,10 @@ const timeAgo = (ts) => {
 
 export default function SuporteContatos() {
   const origins = useClientOrigins();
-  const [clients, setClients] = useState([]);
-  const [quotes, setQuotes] = useState([]);
+  const { data: clients = [] } = useClients();
+  const { data: quotes = [] } = useQuotes();
   const [search, setSearch] = useState("");
   const [originFilter, setOriginFilter] = useState("all");
-
-  useEffect(() => {
-    (async () => {
-      const [cs, qs] = await Promise.all([
-        localClient.entities.Clients.list(),
-        localClient.entities.Quotes.list(),
-      ]);
-      setClients(cs || []);
-      setQuotes(qs || []);
-    })();
-  }, []);
 
   const enriched = useMemo(() => {
     return clients.map((c) => {

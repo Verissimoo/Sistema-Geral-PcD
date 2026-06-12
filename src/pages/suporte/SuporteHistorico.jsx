@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import {
   CheckCircle2, Search, Calendar, DollarSign, Download, FileText, Plane,
 } from "lucide-react";
@@ -8,27 +8,25 @@ import { Badge } from "@/components/ui/badge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { localClient } from "@/api/localClient";
+import { useQuotes } from "@/api/hooks";
 import { formatBRL, formatDateBR, formatDateTimeBR } from "@/shared/lib/format";
 
 export default function SuporteHistorico() {
-  const [quotes, setQuotes] = useState([]);
+  const { data: allQuotes = [] } = useQuotes();
   const [search, setSearch] = useState("");
   const [periodFilter, setPeriodFilter] = useState("all");
 
-  useEffect(() => {
-    (async () => {
-      const all = (await localClient.entities.Quotes.list()) || [];
-      const emitidos = all
+  const quotes = useMemo(
+    () =>
+      allQuotes
         .filter((q) => q.status === "Emitido")
         .sort(
           (a, b) =>
             new Date(b.emission_completed_date || b.issued_date || b.created_date) -
             new Date(a.emission_completed_date || a.issued_date || a.created_date)
-        );
-      setQuotes(emitidos);
-    })();
-  }, []);
+        ),
+    [allQuotes]
+  );
 
   const filtered = useMemo(() => {
     let list = [...quotes];

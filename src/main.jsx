@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client'
 import App from '@/App.jsx'
 import { ThemeProvider } from '@/lib/ThemeContext'
 import '@/index.css'
-import { seedMilesIfEmpty, seedAdminUser, seedCommercialGoals } from '@/api/localClient'
+import { seedMilesIfEmpty, seedAdminUser, seedCommercialGoals } from '@/api/seeds'
 
 // Limpa resíduos do storage antigo (dados agora vivem no Supabase).
 const LEGACY_KEYS = [

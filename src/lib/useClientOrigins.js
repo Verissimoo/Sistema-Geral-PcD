@@ -1,38 +1,17 @@
-import { useState, useEffect, useCallback } from "react";
-import { localClient } from "@/api/localClient";
+// Tipos de origem de cliente — agora em cima do TanStack Query (antes era um
+// cache manual em memória com listeners). A API externa permanece a mesma.
+import { qk } from "@/api/queryKeys";
+import { useClientOriginsQuery } from "@/api/hooks";
+import { queryClientInstance } from "./query-client";
 import { useAuth } from "./AuthContext";
 
-// Mantém uma cache simples em memória + listeners para invalidar a lista
-// quando algum lugar criar/editar/excluir um tipo.
-let cache = null;
-const listeners = new Set();
-
-async function loadOrigins() {
-  const all = (await localClient.entities.ClientOrigins.list()) || [];
-  cache = all;
-  listeners.forEach((fn) => fn(all));
-  return all;
-}
-
 export function invalidateClientOrigins() {
-  cache = null;
-  return loadOrigins();
+  return queryClientInstance.invalidateQueries({ queryKey: qk.clientOrigins.all });
 }
 
 export function useClientOrigins() {
   const { user } = useAuth();
-  const [origins, setOrigins] = useState(() => cache || []);
-
-  useEffect(() => {
-    const handler = (all) => setOrigins(all);
-    listeners.add(handler);
-    if (cache) {
-      setOrigins(cache);
-    } else {
-      loadOrigins();
-    }
-    return () => { listeners.delete(handler); };
-  }, []);
+  const { data: origins = [] } = useClientOriginsQuery();
 
   // Suporte / admin / gerente veem todos os escopos.
   // Demais perfis veem apenas escopo 'geral'.
@@ -43,20 +22,6 @@ export function useClientOrigins() {
 
 // Hook auxiliar que sempre retorna todos os tipos (uso na tela de gestão)
 export function useAllClientOrigins() {
-  const [origins, setOrigins] = useState(() => cache || []);
-  const reload = useCallback(async () => {
-    const all = await invalidateClientOrigins();
-    setOrigins(all);
-  }, []);
-  useEffect(() => {
-    const handler = (all) => setOrigins(all);
-    listeners.add(handler);
-    if (cache) {
-      setOrigins(cache);
-    } else {
-      loadOrigins();
-    }
-    return () => { listeners.delete(handler); };
-  }, []);
-  return { origins, reload };
+  const { data: origins = [], refetch } = useClientOriginsQuery();
+  return { origins, reload: refetch };
 }
