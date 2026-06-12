@@ -56,6 +56,37 @@ function isCarteiraPropriaOrigin(origin) {
   return normalized.startsWith("carteira propria");
 }
 
+// Custo e Nipon de UMA emissão (1 passageiro) para um bloco de tarifa, segundo
+// seu tipo. Não escala por passageiros — quem chama decide (×pax ou ×1 quando
+// o bloco está marcado como "valor total de todos os passageiros").
+function emissionCostNipon(b) {
+  if (!b) return { cost: 0, nipon: 0 };
+  const tax = toNumber(b.tax);
+  if (b.type === "milhas_dinheiro") {
+    const milhas = toNumber(b.miles_qty);
+    const dinheiro = toNumber(b.cash_part);
+    const cpt = toNumber(b.cost_per_thousand);
+    const cost = (milhas / 1000) * cpt + dinheiro + tax;
+    return { cost, nipon: cost * 1.1 }; // híbrida Azul sempre +10%
+  }
+  if (b.type === "milhas") {
+    // Bloco principal traz cost_brl_calc (custo interno já com faixa aplicada);
+    // blocos extras caem para milhas × custo do milheiro.
+    const calcCost = toNumber(b.cost_brl_calc);
+    const internal =
+      calcCost > 0
+        ? calcCost
+        : (toNumber(b.miles_qty) / 1000) *
+          (toNumber(b.cost_per_thousand) || toNumber(b.miles_value_per_thousand));
+    const cost = internal + tax;
+    return { cost, nipon: isAzulProgram(b) ? cost : cost * 1.1 };
+  }
+  // dinheiro
+  const c = toNumber(b.cost_brl_calc) || toNumber(b.cost_brl);
+  const cost = c + tax;
+  return { cost, nipon: isAzulProgram(b) ? cost : cost * 1.1 };
+}
+
 /**
  * Totais reais de uma cotação considerando múltiplos passageiros.
  * @param {object} quote — formato cru do banco OU do formData do gerador.
@@ -70,19 +101,7 @@ export function computePricingTotals(quote) {
   // do single/split, então tratamos `niponPerPax` separado quando aplicável.
   let niponPerPaxMulti = null;
 
-  if (pricing.type === "milhas_dinheiro") {
-    // Milhas + Dinheiro (tarifa híbrida Azul) — a passagem cobra milhas E um
-    // valor em reais simultaneamente. custo = milhas convertidas + parte em
-    // dinheiro + taxa. Diferente de Azul em milhas puro, AQUI aplicamos +10%
-    // no Nipon (regra de negócio descrita pela operação).
-    const milhas = toNumber(pricing.miles_qty);
-    const dinheiro = toNumber(pricing.cash_part);
-    const taxa = toNumber(pricing.tax);
-    const cpt = toNumber(pricing.cost_per_thousand);
-    const custoMilhas = (milhas / 1000) * cpt;
-    costPerPax = custoMilhas + dinheiro + taxa;
-    niponPerPaxMulti = costPerPax * 1.1; // sempre +10%, mesmo sendo Azul
-  } else if (pricing.multi_program === true || pricing.multi_program === "true") {
+  if (pricing.multi_program === true || pricing.multi_program === "true") {
     // Multi-programa — cada trecho com programa próprio. Custo e nipon
     // POR PESSOA são a soma dos custos/nipons de cada trecho.
     const trechosPricing = Array.isArray(pricing.trechos_pricing) ? pricing.trechos_pricing : [];
@@ -103,9 +122,24 @@ export function computePricingTotals(quote) {
     // Quebra de Trecho — soma dos custos dos trechos POR PASSAGEIRO.
     costPerPax = toNumber(pricing.total_cost);
   } else {
-    const cost = toNumber(pricing.cost_brl_calc) || toNumber(pricing.cost_brl);
-    const tax = toNumber(pricing.tax);
-    costPerPax = cost + tax;
+    // Modo padrão — bloco principal + blocos extras (vários tipos de tarifa
+    // somados). Cada bloco pode marcar cost_is_total: quando ligado, o valor
+    // digitado já é o total de todos os passageiros e NÃO é multiplicado.
+    const blocks = [
+      pricing,
+      ...(Array.isArray(pricing.extra_blocks) ? pricing.extra_blocks : []),
+    ];
+    let costTotalAll = 0;
+    let niponTotalAll = 0;
+    for (const b of blocks) {
+      const { cost, nipon } = emissionCostNipon(b);
+      const isTotal = b.cost_is_total === true || b.cost_is_total === "true";
+      const mult = isTotal ? 1 : passengers;
+      costTotalAll += cost * mult;
+      niponTotalAll += nipon * mult;
+    }
+    costPerPax = costTotalAll / passengers;
+    niponPerPaxMulti = niponTotalAll / passengers;
   }
 
   // Nipon SEMPRE derivado do custo. Nunca lemos pricing.nipon_value, porque

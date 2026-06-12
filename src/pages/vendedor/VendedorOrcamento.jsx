@@ -60,6 +60,44 @@ const formatDateBR = (dateStr) => {
   return `${d}/${m}/${y}`;
 };
 
+// Custo e Nipon (1 emissão) de um bloco extra de tipo de emissão. Espelha
+// emissionCostNipon do pricingCalculator, mas lê strings BR do formData.
+const blockIsAzul = (b) =>
+  b?.is_azul === true || String(b?.program_name || "").toLowerCase().includes("azul");
+
+function emissionBlockCN(b) {
+  if (!b) return { cost: 0, nipon: 0 };
+  const tax = parseBR(b.tax);
+  if (b.type === "milhas_dinheiro") {
+    const cost =
+      (parseBR(b.miles_qty) / 1000) * (Number(b.cost_per_thousand) || 0) +
+      parseBR(b.cash_part) +
+      tax;
+    return { cost, nipon: cost * 1.1 };
+  }
+  if (b.type === "milhas") {
+    const cpt = Number(b.cost_per_thousand) || Number(b.miles_value_per_thousand) || 0;
+    const cost = (parseBR(b.miles_qty) / 1000) * cpt + tax;
+    return { cost, nipon: blockIsAzul(b) ? cost : cost * 1.1 };
+  }
+  const cost = parseBR(b.cost_brl) + tax;
+  return { cost, nipon: blockIsAzul(b) ? cost : cost * 1.1 };
+}
+
+const EMPTY_EMISSION_BLOCK = {
+  type: "milhas",
+  program_id: "",
+  program_name: "",
+  miles_qty: "",
+  cost_per_thousand: 0,
+  sale_per_thousand: 0,
+  cash_part: "",
+  cost_brl: "",
+  tax: "",
+  is_azul: false,
+  cost_is_total: false,
+};
+
 // Gera um quote_number único — tenta até 5 vezes contra o banco antes do fallback
 // baseado em timestamp. Combinado com a UNIQUE constraint em pcd_quotes.quote_number,
 // elimina a chance de colisão entre vendedores que abram o gerador simultaneamente.
@@ -1911,6 +1949,28 @@ function BlocoPrecificacao({ formData, setFormData }) {
   const setPricing = (patch) =>
     setFormData((p) => ({ ...p, pricing: { ...p.pricing, ...patch } }));
 
+  // Blocos extras de tipo de emissão (vários tipos de tarifa somados).
+  const addExtraBlock = () =>
+    setFormData((p) => ({
+      ...p,
+      pricing: {
+        ...p.pricing,
+        extra_blocks: [...(p.pricing.extra_blocks || []), { ...EMPTY_EMISSION_BLOCK }],
+      },
+    }));
+  const updateExtraBlock = (idx, patch) =>
+    setFormData((p) => {
+      const arr = [...(p.pricing.extra_blocks || [])];
+      arr[idx] = { ...arr[idx], ...patch };
+      return { ...p, pricing: { ...p.pricing, extra_blocks: arr } };
+    });
+  const removeExtraBlock = (idx) =>
+    setFormData((p) => {
+      const arr = [...(p.pricing.extra_blocks || [])];
+      arr.splice(idx, 1);
+      return { ...p, pricing: { ...p.pricing, extra_blocks: arr } };
+    });
+
   const selectedProgram = useMemo(
     () => milesTable.find((m) => m.id === formData.pricing.program_id) || null,
     [milesTable, formData.pricing.program_id]
@@ -1996,8 +2056,18 @@ function BlocoPrecificacao({ formData, setFormData }) {
     }
 
     const passengers = Math.max(1, Number(formData.passengers) || 1);
-    const niponTotal = niponPorPessoa * passengers;
-    const custoTotal = custoPorPessoa * passengers;
+    // cost_is_total: o valor digitado no bloco já é o total de todos os
+    // passageiros (ex.: Smiles cobra a tarifa cheia) → não multiplica por pax.
+    const mainMult = pr.cost_is_total === true ? 1 : passengers;
+    let niponTotal = niponPorPessoa * mainMult;
+    let custoTotal = custoPorPessoa * mainMult;
+    // Blocos extras de tipo de emissão — somados ao principal.
+    for (const b of (Array.isArray(pr.extra_blocks) ? pr.extra_blocks : [])) {
+      const cn = emissionBlockCN(b);
+      const m = b.cost_is_total === true ? 1 : passengers;
+      custoTotal += cn.cost * m;
+      niponTotal += cn.nipon * m;
+    }
 
     const saleInput = parseBR(pr.sale_value);
     const isPerPerson = pr.sale_per !== "total";
@@ -2232,6 +2302,7 @@ function BlocoPrecificacao({ formData, setFormData }) {
             niponTotal={calc.nipon}
           />
         ) : (
+          <>
           <Tabs
             value={formData.pricing.type}
             onValueChange={(v) => setPricing({ type: v })}
@@ -2557,6 +2628,67 @@ function BlocoPrecificacao({ formData, setFormData }) {
               </Card>
             </TabsContent>
           </Tabs>
+
+          {/* Custo já é o total de todos os passageiros? (ex.: Smiles) */}
+          {passengers >= 2 && (
+            <div className="flex items-start gap-2 mt-4">
+              <Checkbox
+                id="cost_is_total"
+                checked={formData.pricing.cost_is_total === true}
+                onCheckedChange={(c) => setPricing({ cost_is_total: !!c })}
+                className="mt-0.5"
+              />
+              <Label htmlFor="cost_is_total" className="text-sm cursor-pointer leading-snug font-medium">
+                O custo informado já é o total de todos os passageiros
+                <span className="block text-xs text-text-muted font-normal mt-0.5">
+                  Marque quando a companhia (ex.: Smiles) cobra a tarifa cheia para todos juntos —
+                  o sistema não multiplica por {passengers} passageiros.
+                </span>
+              </Label>
+            </div>
+          )}
+
+          {/* Blocos extras — quando o voo é quebrado em mais de um tipo de tarifa */}
+          {(formData.pricing.extra_blocks || []).map((b, idx) => (
+            <EmissionBlockEditor
+              key={idx}
+              block={b}
+              index={idx}
+              milesTable={milesTable}
+              passengers={passengers}
+              onChange={(patch) => updateExtraBlock(idx, patch)}
+              onRemove={() => removeExtraBlock(idx)}
+            />
+          ))}
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-4 gap-1.5"
+            onClick={addExtraBlock}
+          >
+            <Plus className="h-3.5 w-3.5" /> Adicionar tipo de emissão
+          </Button>
+
+          {/* Resumo consolidado — soma do principal + extras */}
+          {((formData.pricing.extra_blocks || []).length > 0 ||
+            formData.pricing.cost_is_total === true) && (
+            <Card className="bg-bg-elevated border-border mt-4">
+              <CardContent className="p-4 space-y-1.5 text-sm">
+                <p className="text-[11px] uppercase tracking-wider text-text-muted font-medium mb-1">
+                  Resumo consolidado
+                  {(formData.pricing.extra_blocks || []).length > 0
+                    ? ` · ${(formData.pricing.extra_blocks || []).length + 1} tipos de tarifa`
+                    : ""}
+                </p>
+                <Row label="Custo total" value={formatBRL(calc.custoTotal)} muted />
+                <Row label="Nipon total (venda mínima)" value={formatBRL(calc.nipon)} bold accent />
+                <Row label="Margem bruta (vs venda atual)" value={formatBRL(calc.lucroBruto)} bold />
+              </CardContent>
+            </Card>
+          )}
+          </>
         )}
         </CardContent>
       </Card>
@@ -3077,6 +3209,165 @@ function Row({ label, value, bold, accent, muted, className }) {
         muted && "text-muted-foreground/80"
       )}>{value}</span>
     </div>
+  );
+}
+
+// ─── Bloco extra de tipo de emissão (vários tipos de tarifa somados) ──
+function EmissionBlockEditor({ block, index, milesTable, passengers, onChange, onRemove }) {
+  const cn2 = emissionBlockCN(block);
+  const isTotal = block.cost_is_total === true;
+  const mult = isTotal ? 1 : passengers;
+  const custoTotal = cn2.cost * mult;
+  const niponTotal = cn2.nipon * mult;
+
+  const selectAzul = (m) => (m.program || "").toLowerCase().includes("azul");
+
+  const pickProgram = (v) => {
+    const prog = milesTable.find((m) => m.id === v);
+    onChange({
+      program_id: v,
+      program_name: prog?.program || "",
+      cost_per_thousand: Number(prog?.cost_per_thousand) || 0,
+      sale_per_thousand: Number(prog?.sale_per_thousand) || 0,
+      is_azul: selectAzul(prog || {}),
+    });
+  };
+
+  return (
+    <Card className="border-border bg-muted/30 mt-4">
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+            Tipo de tarifa adicional {index + 2}
+          </span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-text-muted hover:text-danger"
+            onClick={onRemove}
+            title="Remover bloco"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+
+        <Tabs value={block.type} onValueChange={(v) => onChange({ type: v })}>
+          <TabsList className="grid grid-cols-3 w-full max-w-md">
+            <TabsTrigger value="milhas">Milhas</TabsTrigger>
+            <TabsTrigger value="milhas_dinheiro">Milhas + Dinheiro</TabsTrigger>
+            <TabsTrigger value="dinheiro">Dinheiro</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="milhas" className="space-y-3 mt-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label>Programa</Label>
+                <Select value={block.program_id} onValueChange={pickProgram}>
+                  <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                  <SelectContent>
+                    {milesTable.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.program} — {formatBRL(m.cost_per_thousand)}/mil
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Custo em milhas</Label>
+                <Input type="text" inputMode="decimal" placeholder="Ex: 80.000"
+                  value={block.miles_qty}
+                  onChange={(e) => onChange({ miles_qty: sanitizeBRInput(e.target.value) })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Taxa de embarque (R$)</Label>
+                <Input type="text" inputMode="decimal" placeholder="Ex: 320,50"
+                  value={block.tax}
+                  onChange={(e) => onChange({ tax: sanitizeBRInput(e.target.value) })} />
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="milhas_dinheiro" className="space-y-3 mt-3">
+            <div className="space-y-1.5">
+              <Label>Programa de milhas (Azul)</Label>
+              <Select value={block.program_id} onValueChange={pickProgram}>
+                <SelectTrigger><SelectValue placeholder="Selecione programa Azul..." /></SelectTrigger>
+                <SelectContent>
+                  {milesTable.filter(selectAzul).map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.program} — {formatBRL(m.cost_per_thousand)}/mil
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label>Milhas (por pax)</Label>
+                <Input type="text" inputMode="decimal" placeholder="Ex: 20.000"
+                  value={block.miles_qty}
+                  onChange={(e) => onChange({ miles_qty: sanitizeBRInput(e.target.value) })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Dinheiro (R$)</Label>
+                <Input type="text" inputMode="decimal" placeholder="Ex: 2.500,00"
+                  value={block.cash_part}
+                  onChange={(e) => onChange({ cash_part: sanitizeBRInput(e.target.value) })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Taxa de embarque (R$)</Label>
+                <Input type="text" inputMode="decimal" placeholder="Ex: 64,60"
+                  value={block.tax}
+                  onChange={(e) => onChange({ tax: sanitizeBRInput(e.target.value) })} />
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="dinheiro" className="space-y-3 mt-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Preço de custo (R$)</Label>
+                <Input type="text" inputMode="decimal" placeholder="Ex: 1.234,56"
+                  value={block.cost_brl}
+                  onChange={(e) => onChange({ cost_brl: sanitizeBRInput(e.target.value) })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Taxa de embarque (R$)</Label>
+                <Input type="text" inputMode="decimal" placeholder="Ex: 320,50"
+                  value={block.tax}
+                  onChange={(e) => onChange({ tax: sanitizeBRInput(e.target.value) })} />
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox id={`azul-extra-${index}`} checked={block.is_azul === true}
+                onCheckedChange={(c) => onChange({ is_azul: !!c })} />
+              <Label htmlFor={`azul-extra-${index}`} className="text-sm cursor-pointer">
+                Azul — não aplicar 10%
+              </Label>
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        {passengers >= 2 && (
+          <div className="flex items-start gap-2">
+            <Checkbox id={`total-extra-${index}`} checked={isTotal} className="mt-0.5"
+              onCheckedChange={(c) => onChange({ cost_is_total: !!c })} />
+            <Label htmlFor={`total-extra-${index}`} className="text-xs cursor-pointer text-text-muted leading-snug">
+              O valor deste bloco já é o total de todos os passageiros (não multiplicar)
+            </Label>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between text-sm border-t border-border pt-2">
+          <span className="text-text-muted">Custo {mult > 1 ? `× ${passengers}` : "(total)"}</span>
+          <span className="tabular-nums">
+            {formatBRL(custoTotal)} · Nipon <strong className="text-primary">{formatBRL(niponTotal)}</strong>
+          </span>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -3689,6 +3980,19 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
         tax: parseBR(tp.tax),
         cost_per_thousand: Number(tp.cost_per_thousand) || 0,
         sale_per_thousand: Number(tp.sale_per_thousand) || 0,
+      }));
+    }
+    // Blocos extras de tipo de emissão: normaliza strings BR para Number.
+    if (Array.isArray(normalizedPricing.extra_blocks)) {
+      normalizedPricing.extra_blocks = normalizedPricing.extra_blocks.map((b) => ({
+        ...b,
+        miles_qty: parseBR(b.miles_qty),
+        tax: parseBR(b.tax),
+        cash_part: parseBR(b.cash_part),
+        cost_brl: parseBR(b.cost_brl),
+        cost_per_thousand: Number(b.cost_per_thousand) || 0,
+        sale_per_thousand: Number(b.sale_per_thousand) || 0,
+        cost_is_total: b.cost_is_total === true,
       }));
     }
     return {
