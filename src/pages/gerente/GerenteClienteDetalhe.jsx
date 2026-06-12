@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { localClient } from "@/api/localClient";
 import { ClientOriginBadge } from "@/components/ClientOriginBadge";
 import { computePricingTotals } from "@/lib/pricingCalculator";
+import { formatBRL, formatDateBR, formatDateTimeBR } from "@/shared/lib/format";
 
 const STATUS_STYLES = {
   Enviado: "bg-accent/10 text-accent border-accent/30",
@@ -25,9 +26,6 @@ const STATUS_STYLES = {
   Recusado: "bg-danger/10 text-danger border-danger/30",
   Cancelado: "bg-bg-elevated text-text-secondary border-border",
 };
-
-const formatBRL = (v) =>
-  Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 const initials = (name = "") =>
   name.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("");
@@ -48,21 +46,6 @@ const timeAgo = (iso) => {
   const months = Math.floor(d / 30);
   if (months < 12) return `há ${months} ${months === 1 ? "mês" : "meses"}`;
   return new Date(iso).toLocaleDateString("pt-BR");
-};
-
-const fmtDateBR = (iso) => {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("pt-BR", {
-    day: "2-digit", month: "2-digit", year: "numeric",
-  });
-};
-
-const fmtDateTime = (iso) => {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleString("pt-BR", {
-    day: "2-digit", month: "2-digit", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
-  });
 };
 
 export default function GerenteClienteDetalhe() {
@@ -271,7 +254,7 @@ export default function GerenteClienteDetalhe() {
         <MetricCard
           icon={<Calendar className="h-4 w-4" />}
           label="Cliente Desde"
-          value={firstQuoteDate ? fmtDateBR(firstQuoteDate) : "—"}
+          value={firstQuoteDate ? formatDateBR(firstQuoteDate) : "—"}
           subtext={firstQuoteDate ? timeAgo(firstQuoteDate) : "—"}
           color="text-primary"
         />
@@ -291,7 +274,7 @@ export default function GerenteClienteDetalhe() {
                   Histórico — {family.items.length} cotações
                 </CardTitle>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Primeira em {fmtDateBR(family.head.created_date)}
+                  Primeira em {formatDateBR(family.head.created_date)}
                 </p>
               </CardHeader>
               <CardContent className="space-y-2">
@@ -307,7 +290,7 @@ export default function GerenteClienteDetalhe() {
                       </span>
                       <div>
                         <p className="text-sm font-semibold">{q.quote_number}</p>
-                        <p className="text-xs text-muted-foreground">{fmtDateBR(q.created_date)}</p>
+                        <p className="text-xs text-muted-foreground">{formatDateBR(q.created_date)}</p>
                       </div>
                     </div>
                     <div className="text-right">
@@ -409,7 +392,7 @@ export default function GerenteClienteDetalhe() {
                             <div className="text-xs text-muted-foreground mt-0.5">{ev.sub}</div>
                           </div>
                           <div className="text-xs text-muted-foreground whitespace-nowrap">
-                            {fmtDateTime(ev.date)} · {timeAgo(ev.date)}
+                            {formatDateTimeBR(ev.date)} · {timeAgo(ev.date)}
                           </div>
                         </div>
                       </div>
@@ -430,7 +413,7 @@ export default function GerenteClienteDetalhe() {
               {detailQuote?.quote_number || "Orçamento"}
             </DialogTitle>
             <DialogDescription>
-              Criado em {fmtDateTime(detailQuote?.created_date)} ·{" "}
+              Criado em {formatDateTimeBR(detailQuote?.created_date)} ·{" "}
               <Badge className={cn("ml-1 border", STATUS_STYLES[detailQuote?.status])}>
                 {detailQuote?.status}
               </Badge>
@@ -475,7 +458,7 @@ function QuoteRow({ quote, onView }) {
           <Badge variant="outline" className="text-[10px]">{quote.ticket_type || "Normal"}</Badge>
         </div>
         <div className="text-xs text-muted-foreground mt-1">
-          {quote.seller_name || "—"} · {fmtDateBR(quote.created_date)} · {timeAgo(quote.created_date)}
+          {quote.seller_name || "—"} · {formatDateBR(quote.created_date)} · {timeAgo(quote.created_date)}
         </div>
       </div>
       <div className="text-right">

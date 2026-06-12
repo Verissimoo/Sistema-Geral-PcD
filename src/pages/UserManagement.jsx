@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { localClient } from "@/api/localClient";
 import { CAREER_LEVELS } from "@/lib/careerPlan";
 import { useAuth } from "@/lib/AuthContext";
+import { formatDateBR } from "@/shared/lib/format";
 
 const ADMIN_USERNAME = "admin";
 
@@ -33,13 +34,6 @@ const initials = (name = "") =>
     .slice(0, 2)
     .map((p) => p[0]?.toUpperCase())
     .join("");
-
-const fmtDate = (iso) => {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("pt-BR", {
-    day: "2-digit", month: "2-digit", year: "numeric",
-  });
-};
 
 export default function UserManagement() {
   const { toast } = useToast();
@@ -402,7 +396,7 @@ export default function UserManagement() {
                         <Mail className="h-3 w-3" /> {u.email}
                       </span>
                     )}
-                    <span>· criado em {fmtDate(u.created_date)}</span>
+                    <span>· criado em {formatDateBR(u.created_date)}</span>
                   </div>
                 </div>
                 <Badge

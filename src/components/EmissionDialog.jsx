@@ -12,9 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Plus, X, Users } from "lucide-react";
-
-const formatBRL = (v) =>
-  Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+import { formatBRL } from "@/shared/lib/format";
 
 const initialForm = (quote) => ({
   payment_method: "",

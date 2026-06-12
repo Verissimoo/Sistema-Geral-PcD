@@ -31,6 +31,7 @@ import { openQuoteInNewTab } from "@/lib/generateQuoteHTML";
 import { useAuth } from "@/lib/AuthContext";
 import { computePricingTotals, computeCommission, buildCommissionSnapshot } from "@/lib/pricingCalculator";
 import { checkMilesPriceFreshness, FROZEN_STATUSES } from "@/lib/priceFreshness";
+import { formatBRL, formatDateBR } from "@/shared/lib/format";
 
 const STATUSES = [
   "Enviado",
@@ -69,15 +70,6 @@ const STATUS_STYLES = {
   Emitido: "bg-accent/10 text-accent border-accent/30 hover:bg-accent/10",
   Recusado: "bg-danger/10 text-danger border-danger/30 hover:bg-danger/10",
   Cancelado: "bg-bg-elevated text-text-secondary border-border hover:bg-bg-elevated",
-};
-
-const formatBRL = (v) =>
-  (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
-const formatDateBR = (dateStr) => {
-  if (!dateStr) return "—";
-  const [y, m, d] = dateStr.split("-");
-  return `${d}/${m}/${y}`;
 };
 
 const timeAgo = (iso) => {

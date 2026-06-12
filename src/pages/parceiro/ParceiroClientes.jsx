@@ -9,9 +9,7 @@ import { cn } from "@/lib/utils";
 import { localClient } from "@/api/localClient";
 import { useAuth } from "@/lib/AuthContext";
 import { sanitizeQuotesForPartner } from "@/lib/sanitizeQuoteForPartner";
-
-const formatBRL = (v) =>
-  (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+import { formatBRL } from "@/shared/lib/format";
 
 const initials = (name = "") =>
   name

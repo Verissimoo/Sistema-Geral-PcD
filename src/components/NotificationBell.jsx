@@ -4,9 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
-
-const formatBRL = (v) =>
-  Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+import { formatBRL } from "@/shared/lib/format";
 
 const REFRESH_MS = 60 * 1000;
 

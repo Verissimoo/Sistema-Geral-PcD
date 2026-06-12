@@ -25,16 +25,10 @@ import { useAuth } from "@/lib/AuthContext";
 import {
   getMarginPercent, isOutdated, daysSinceUpdate,
 } from "@/lib/milesHelper";
+import { formatDateBR } from "@/shared/lib/format";
 
 const fmt = (v) =>
   Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
-const fmtDate = (iso) => {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("pt-BR", {
-    day: "2-digit", month: "2-digit", year: "numeric",
-  });
-};
 
 const emptyForm = {
   program: "",
@@ -703,7 +697,7 @@ function ProgramRow({ item, isAdmin, expanded, onToggleExpand, onEdit, onEditTie
         </td>
         <td className="px-6 py-3">
           <div className="space-y-0.5">
-            <div className="text-sm font-medium">{fmtDate(item.updated_date)}</div>
+            <div className="text-sm font-medium">{formatDateBR(item.updated_date)}</div>
             <div className="text-[10px] text-muted-foreground">
               {days !== null ? `há ${days} dias` : "—"}
             </div>

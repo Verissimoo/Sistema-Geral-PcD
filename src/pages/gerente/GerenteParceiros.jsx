@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { localClient } from "@/api/localClient";
+import { formatBRL, formatDateBR } from "@/shared/lib/format";
 
 const initials = (name = "") =>
   name
@@ -17,16 +18,6 @@ const initials = (name = "") =>
     .slice(0, 2)
     .map((p) => p[0]?.toUpperCase())
     .join("");
-
-const fmtDate = (iso) => {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("pt-BR", {
-    day: "2-digit", month: "2-digit", year: "numeric",
-  });
-};
-
-const formatBRL = (v) =>
-  Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function GerenteParceiros() {
   const navigate = useNavigate();
@@ -175,7 +166,7 @@ export default function GerenteParceiros() {
                       <Mail className="h-3 w-3" /> {p.email}
                     </span>
                   )}
-                  <span>· criado em {fmtDate(p.created_date)}</span>
+                  <span>· criado em {formatDateBR(p.created_date)}</span>
                 </div>
               </div>
 

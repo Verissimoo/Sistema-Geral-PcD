@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { convertEurToBrl, convertBrlToEur, formatEUR } from "../exchangeRate";
 
 // normaliza NBSP/narrow-NBSP que o toLocaleString insere
-const clean = (s) => s.replace(/ | /g, " ");
+const clean = (s) => s.replace(/[  ]/g, " ");
 
 describe("convertEurToBrl", () => {
   it("multiplica pelo rate", () => {

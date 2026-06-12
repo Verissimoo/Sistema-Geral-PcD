@@ -20,9 +20,7 @@ import { cn } from "@/lib/utils";
 import { localClient, seedCommercialGoals } from "@/api/localClient";
 import { filterCommercialQuotes } from "@/lib/commercialFilter";
 import { getRevenueQuotes } from "@/lib/revenueHelper";
-
-const formatBRL = (v) =>
-  Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+import { formatBRL } from "@/shared/lib/format";
 
 const formatBRLShort = (v) => {
   const n = Number(v || 0);

@@ -19,16 +19,7 @@ import { openQuoteInNewTab } from "@/lib/generateQuoteHTML";
 import { useAuth } from "@/lib/AuthContext";
 import { parseBR, sanitizeBRInput } from "@/lib/parseBR";
 import { sanitizeQuoteForPartner } from "@/lib/sanitizeQuoteForPartner";
-
-const formatBRL = (v) =>
-  (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
-const formatDateBR = (dateStr) => {
-  if (!dateStr) return "—";
-  const [y, m, d] = String(dateStr).split("-");
-  if (!y || !m || !d) return dateStr;
-  return `${d}/${m}/${y}`;
-};
+import { formatBRL, formatDateBR } from "@/shared/lib/format";
 
 export default function ParceiroOrcamentoDetalhe() {
   const { id } = useParams();

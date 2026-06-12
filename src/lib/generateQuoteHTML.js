@@ -3,9 +3,7 @@
 // abrir em nova aba e salvar como PDF via window.print().
 
 import { isNextDayArrival } from "./timeParser";
-
-const formatBRL = (v) =>
-  (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+import { formatBRL } from "@/shared/lib/format";
 
 const formatDateLong = (dateStr) => {
   if (!dateStr) return "";

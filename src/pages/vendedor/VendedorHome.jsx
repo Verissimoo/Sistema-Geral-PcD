@@ -16,9 +16,7 @@ import { filterCommercialQuotes } from "@/lib/commercialFilter";
 import { computeCommission } from "@/lib/pricingCalculator";
 import { CAREER_LEVELS } from "@/lib/careerPlan";
 import { cn } from "@/lib/utils";
-
-const formatBRL = (v) =>
-  (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+import { formatBRL } from "@/shared/lib/format";
 
 export default function VendedorHome() {
   const { user } = useAuth();

@@ -24,9 +24,7 @@ import { computeCommission } from "@/lib/pricingCalculator";
 import { useAuth } from "@/lib/AuthContext";
 import { RefreshCw, Minus, Plus, AlertTriangle, Info, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-const formatBRL = (v) =>
-  Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+import { formatBRL } from "@/shared/lib/format";
 
 // Clona o pricing original — useState mantém referência local mutável durante
 // a edição. Sem o clone profundo, alterar trechos_pricing[i].miles_qty

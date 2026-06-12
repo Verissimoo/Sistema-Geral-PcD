@@ -16,9 +16,7 @@ import { localClient } from "@/api/localClient";
 import { CAREER_LEVELS } from "@/lib/careerPlan";
 import { filterCommercialQuotes, getCommercialUsers } from "@/lib/commercialFilter";
 import { computePricingTotals } from "@/lib/pricingCalculator";
-
-const formatBRL = (v) =>
-  Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+import { formatBRL } from "@/shared/lib/format";
 
 const initials = (name = "") =>
   name.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("");

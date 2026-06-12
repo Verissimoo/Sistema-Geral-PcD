@@ -9,24 +9,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { localClient } from "@/api/localClient";
-
-const formatBRL = (v) =>
-  Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
-const fmtDateTimeBR = (iso) => {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleString("pt-BR", {
-    day: "2-digit", month: "2-digit", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
-  });
-};
-
-const formatDateBR = (dateStr) => {
-  if (!dateStr) return "—";
-  if (dateStr.includes("T")) return new Date(dateStr).toLocaleDateString("pt-BR");
-  const [y, m, d] = dateStr.split("-");
-  return `${d}/${m}/${y}`;
-};
+import { formatBRL, formatDateBR, formatDateTimeBR } from "@/shared/lib/format";
 
 export default function SuporteHistorico() {
   const [quotes, setQuotes] = useState([]);
@@ -208,7 +191,7 @@ function HistoricoRow({ quote }) {
             <div className="text-muted-foreground flex items-center gap-1 justify-end">
               <Calendar className="h-3 w-3" /> Emitido em
             </div>
-            <div className="font-semibold">{fmtDateTimeBR(emittedAt)}</div>
+            <div className="font-semibold">{formatDateTimeBR(emittedAt)}</div>
           </div>
 
           {quote.emission_voucher_url && (

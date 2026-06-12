@@ -21,9 +21,7 @@ import {
   getBonusTier, getBonusValue,
 } from "@/lib/careerPlan";
 import { computeCommission } from "@/lib/pricingCalculator";
-
-const formatBRL = (v) =>
-  (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+import { formatBRL } from "@/shared/lib/format";
 
 const fmtMonth = (label) => label.charAt(0).toUpperCase() + label.slice(1);
 

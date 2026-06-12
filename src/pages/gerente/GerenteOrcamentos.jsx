@@ -31,6 +31,7 @@ import { openQuoteInNewTab } from "@/lib/generateQuoteHTML";
 import { CAREER_LEVELS } from "@/lib/careerPlan";
 import { computePricingTotals, computeCommission, buildCommissionSnapshot } from "@/lib/pricingCalculator";
 import { checkMilesPriceFreshness, FROZEN_STATUSES } from "@/lib/priceFreshness";
+import { formatBRL, formatDateBR } from "@/shared/lib/format";
 
 const STATUSES = [
   "Enviado",
@@ -76,16 +77,6 @@ const TICKET_STYLES = {
   "Hidden City": "bg-danger/10 text-danger border-danger/30",
   "Quebra de Trecho": "bg-warning/10 text-warning border-warning/30",
   "Imigração": "bg-accent/10 text-accent border-accent/30",
-};
-
-const formatBRL = (v) =>
-  Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
-const fmtDateBR = (iso) => {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("pt-BR", {
-    day: "2-digit", month: "2-digit", year: "numeric",
-  });
 };
 
 const timeAgo = (iso) => {
@@ -519,7 +510,7 @@ export default function GerenteOrcamentos() {
                 ? `Parceiro: ${detailQuote?.partner_name || "—"}`
                 : detailQuote?.client?.name}
               {" · "}
-              {detailQuote && fmtDateBR(detailQuote.created_date)} ·{" "}
+              {detailQuote && formatDateBR(detailQuote.created_date)} ·{" "}
               <Badge className={cn("ml-1 border", STATUS_STYLES[detailQuote?.status])}>
                 {STATUS_LABELS[detailQuote?.status] || detailQuote?.status}
               </Badge>
@@ -679,7 +670,7 @@ function QuoteRow({ quote, seller, onView, onChangeStatus, onPDF, onClickClient,
         </DropdownMenu>
       </td>
       <td className="px-4 py-3">
-        <div className="text-sm">{fmtDateBR(quote.created_date)}</div>
+        <div className="text-sm">{formatDateBR(quote.created_date)}</div>
         <div className="text-[10px] text-muted-foreground">{timeAgo(quote.created_date)}</div>
       </td>
       <td className="px-4 py-3">

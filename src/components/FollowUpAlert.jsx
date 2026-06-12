@@ -4,9 +4,7 @@ import { localClient } from "@/api/localClient";
 import { useAuth } from "@/lib/AuthContext";
 import { getNextSentStatus } from "@/lib/followUpHelper";
 import { cn } from "@/lib/utils";
-
-const formatBRL = (v) =>
-  Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+import { formatBRL } from "@/shared/lib/format";
 
 const REFRESH_MS = 5 * 60 * 1000;
 

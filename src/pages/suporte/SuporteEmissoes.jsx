@@ -18,18 +18,7 @@ import { localClient } from "@/api/localClient";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/AuthContext";
 import { computePricingTotals } from "@/lib/pricingCalculator";
-
-const formatBRL = (v) =>
-  Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
-const formatDateBR = (dateStr) => {
-  if (!dateStr) return "—";
-  if (dateStr.includes("T")) {
-    return new Date(dateStr).toLocaleDateString("pt-BR");
-  }
-  const [y, m, d] = dateStr.split("-");
-  return `${d}/${m}/${y}`;
-};
+import { formatBRL, formatDateBR } from "@/shared/lib/format";
 
 const timeAgo = (iso) => {
   if (!iso) return "—";

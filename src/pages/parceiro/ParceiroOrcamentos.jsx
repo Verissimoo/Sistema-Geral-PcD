@@ -16,16 +16,7 @@ import { localClient } from "@/api/localClient";
 import { useAuth } from "@/lib/AuthContext";
 import { sanitizeQuotesForPartner } from "@/lib/sanitizeQuoteForPartner";
 import PartnerLogo from "@/components/PartnerLogo";
-
-const formatBRL = (v) =>
-  (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
-const formatDateBR = (dateStr) => {
-  if (!dateStr) return "—";
-  const [y, m, d] = String(dateStr).split("-");
-  if (!y || !m || !d) return dateStr;
-  return `${d}/${m}/${y}`;
-};
+import { formatBRL, formatDateBR } from "@/shared/lib/format";
 
 const isPriced = (q) =>
   q?.partner_sale_value != null &&

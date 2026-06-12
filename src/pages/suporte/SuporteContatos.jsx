@@ -11,9 +11,7 @@ import { cn } from "@/lib/utils";
 import { localClient } from "@/api/localClient";
 import { useClientOrigins } from "@/lib/useClientOrigins";
 import { ClientOriginBadge } from "@/components/ClientOriginBadge";
-
-const formatBRL = (v) =>
-  Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+import { formatBRL } from "@/shared/lib/format";
 
 const onlyDigits = (s = "") => s.replace(/\D/g, "");
 

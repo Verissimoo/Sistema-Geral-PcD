@@ -41,6 +41,7 @@ import { isNextDayArrival, calculateSegmentDuration } from "@/lib/timeParser";
 import { useEurBrlRate } from "@/hooks/useExchangeRate";
 import { convertEurToBrl, convertBrlToEur, formatEUR } from "@/lib/exchangeRate";
 import ExchangeRateBadge from "@/components/ExchangeRateBadge";
+import { formatBRL, formatDateBR as formatDateBRBase } from "@/shared/lib/format";
 
 // ─── Helpers ────────────────────────────────────────────────────────
 const toBase64 = (file) =>
@@ -51,14 +52,8 @@ const toBase64 = (file) =>
     reader.readAsDataURL(file);
   });
 
-const formatBRL = (n) =>
-  Number(n || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
-const formatDateBR = (dateStr) => {
-  if (!dateStr) return "";
-  const [y, m, d] = dateStr.split("-");
-  return `${d}/${m}/${y}`;
-};
+// Call sites deste arquivo esperam "" (não "—") para datas vazias.
+const formatDateBR = (dateStr) => formatDateBRBase(dateStr, "");
 
 // Custo e Nipon (1 emissão) de um bloco extra de tipo de emissão. Espelha
 // emissionCostNipon do pricingCalculator, mas lê strings BR do formData.

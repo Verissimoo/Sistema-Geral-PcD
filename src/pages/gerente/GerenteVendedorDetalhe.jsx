@@ -16,9 +16,7 @@ import { localClient } from "@/api/localClient";
 import { CAREER_LEVELS } from "@/lib/careerPlan";
 import { getRevenueQuotes } from "@/lib/revenueHelper";
 import { computePricingTotals, computeCommission } from "@/lib/pricingCalculator";
-
-const formatBRL = (v) =>
-  (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+import { formatBRL } from "@/shared/lib/format";
 
 const formatDate = (d) =>
   d
