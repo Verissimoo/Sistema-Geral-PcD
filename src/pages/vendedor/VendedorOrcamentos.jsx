@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import QuickPriceEditDialog from "@/components/QuickPriceEditDialog";
 import { EmissionDialog } from "@/components/EmissionDialog";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -180,7 +180,7 @@ export default function VendedorOrcamentos() {
     await reload();
   };
 
-  useEffect(() => { if (user?.id) reload(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [user?.id, isAdmin]);
+  useEffect(() => { if (user?.id) reload();   }, [user?.id, isAdmin]);
 
   const filtered = useMemo(() => {
     let list = [...quotes];

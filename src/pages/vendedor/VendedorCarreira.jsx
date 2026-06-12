@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import {
   Trophy, TrendingUp, Target, DollarSign, Clock, ChevronRight,
-  Award, Star, Check, CircleDot, Map, Table as TableIcon,
+  Award, Check, Map, Table as TableIcon,
   Users, Sparkles, AlertCircle, Wallet, Plane,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

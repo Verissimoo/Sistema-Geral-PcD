@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Users, Trophy, Calendar, Eye, ArrowUpDown, Crown, Medal,
+  Users, Trophy, Calendar, Eye, ArrowUpDown, Medal,
   TrendingUp, DollarSign, ShoppingCart,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

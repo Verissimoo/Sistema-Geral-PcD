@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Sparkles, TrendingUp, Target, DollarSign, FileText, CheckCircle2,
-  Trophy, Flame, Users, ArrowRight, Calendar, Award, Home,
+  Trophy, Flame, Users, ArrowRight, Calendar, Award,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";

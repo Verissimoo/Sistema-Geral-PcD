@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, MessageCircle, FileText, ShoppingCart, DollarSign,
-  Clock, Eye, Calendar, Plane, CheckCircle2, XCircle, Send,
+  Clock, Eye, Calendar, Plane, CheckCircle2, XCircle,
   FileStack, GitBranch,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -145,27 +145,9 @@ export default function GerenteClienteDetalhe() {
     return dates[0] || null;
   }, [quotes]);
 
-  if (!client) {
-    return (
-      <div className="space-y-6 max-w-5xl mx-auto">
-        <Button variant="ghost" size="sm" onClick={() => navigate("/gerente/clientes")} className="gap-2">
-          <ArrowLeft className="h-4 w-4" /> Voltar
-        </Button>
-        <Card className="border-border/50">
-          <CardContent className="py-16 text-center text-sm text-muted-foreground">
-            Cliente não encontrado.
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  const phoneDigits = onlyDigits(client.phone || "");
-  const wa = phoneDigits
-    ? `https://wa.me/${phoneDigits.startsWith("55") ? phoneDigits : "55" + phoneDigits}`
-    : null;
-
-  // Timeline construída a partir dos quotes + status changes
+  // Timeline construída a partir dos quotes + status changes.
+  // (declarada antes do early-return para respeitar as rules-of-hooks;
+  // depende só de `quotes`, então o resultado é idêntico.)
   const timeline = useMemo(() => {
     const events = [];
     quotes.forEach((q) => {
@@ -202,6 +184,26 @@ export default function GerenteClienteDetalhe() {
     events.sort((a, b) => new Date(b.date) - new Date(a.date));
     return events;
   }, [quotes]);
+
+  if (!client) {
+    return (
+      <div className="space-y-6 max-w-5xl mx-auto">
+        <Button variant="ghost" size="sm" onClick={() => navigate("/gerente/clientes")} className="gap-2">
+          <ArrowLeft className="h-4 w-4" /> Voltar
+        </Button>
+        <Card className="border-border/50">
+          <CardContent className="py-16 text-center text-sm text-muted-foreground">
+            Cliente não encontrado.
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const phoneDigits = onlyDigits(client.phone || "");
+  const wa = phoneDigits
+    ? `https://wa.me/${phoneDigits.startsWith("55") ? phoneDigits : "55" + phoneDigits}`
+    : null;
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-12">

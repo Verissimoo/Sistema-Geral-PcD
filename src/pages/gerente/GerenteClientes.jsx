@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   UserSearch, Search, MessageCircle, Users, ShoppingCart,
-  DollarSign, TrendingUp, Eye, Phone, Tag, Plus, Trash2,
+  DollarSign, TrendingUp, Eye, Tag, Plus, Trash2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -275,7 +275,7 @@ function ManageOriginsDialog({ open, onOpenChange }) {
 
   useEffect(() => {
     if (open) load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [open]);
 
   const handleCreate = async () => {

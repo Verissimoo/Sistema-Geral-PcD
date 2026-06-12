@@ -3,9 +3,9 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   FileText, Plane, Palmtree, User, UserPlus, Search, Lock,
   ImagePlus, X, Check, Loader2, AlertTriangle, Info,
-  ArrowLeft, ArrowRight, Copy, Sparkles, ChevronRight, ClipboardPaste,
+  ArrowLeft, ArrowRight, Copy, Sparkles, ClipboardPaste,
   DollarSign, Wallet, Plus, Trash2, MessageCircle, Handshake,
-  PlaneTakeoff, PlaneLanding, Clock, Hourglass,
+  PlaneTakeoff, PlaneLanding,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1872,7 +1872,7 @@ function BlocoPrecificacao({ formData, setFormData }) {
         return { ...prev, pricing: next };
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [isSplit, totalVoos, splitUnits.map((u) => u.key).join("|")]);
 
   // Multi-programa só faz sentido enquanto !isSplit. Se mudar pra split, limpa.
@@ -1884,7 +1884,7 @@ function BlocoPrecificacao({ formData, setFormData }) {
         return { ...prev, pricing: next };
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [canMultiProgram]);
 
   // Sincroniza trechos_pricing com os trechos do itinerário (mantém ordem,
@@ -1915,7 +1915,7 @@ function BlocoPrecificacao({ formData, setFormData }) {
       if (same) return prev;
       return { ...prev, pricing: { ...prev.pricing, trechos_pricing: novos } };
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [isMultiProgram, formData.itinerary?.trechos?.length, formData.itinerary?.trechos?.map((t) => t.tipo).join("|")]);
 
   const updateMultiTrechoPricing = (idx, patch) => {
@@ -2119,7 +2119,7 @@ function BlocoPrecificacao({ formData, setFormData }) {
       ...p,
       pricing: { ...p.pricing, nipon_value: calc.niponPorPessoa, cost_brl_calc: calc.cost_brl },
     }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [calc.niponPorPessoa, calc.cost_brl, formData.pricing.is_split]);
 
   // Preço sugerido pela tabela (venda das milhas + taxas) × pax. Usado para
@@ -2170,7 +2170,7 @@ function BlocoPrecificacao({ formData, setFormData }) {
         },
       };
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [isPriceOverridden, precoSugerido]);
 
   const aboveNipon = calc.saleTotal >= calc.nipon && calc.saleTotal > 0;
@@ -3495,7 +3495,7 @@ function TrechoPricingCard({ trecho, index, milesTable, onChange }) {
     ) {
       onChange({ ...trecho, cost_total, nipon_value });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [trecho.type, trecho.program_id, trecho.miles_qty, trecho.tax, trecho.cost_brl, trecho.is_azul, selectedProgram]);
 
   return (
@@ -3747,7 +3747,7 @@ function MultiProgramTrechoCard({ trechoPricing, index, milesTable, onUpdate, pa
       Math.abs(spt - (Number(tp.sale_per_thousand) || 0)) < 0.001
     ) return;
     onUpdate({ cost_per_thousand: cpt, sale_per_thousand: spt });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [cpt, spt]);
 
   const tax = parseBR(tp.tax);
@@ -4471,7 +4471,7 @@ export default function VendedorOrcamento() {
       });
     })();
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [fromQuoteId]);
 
   const unlinkParent = () => {

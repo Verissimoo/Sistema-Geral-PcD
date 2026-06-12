@@ -191,7 +191,7 @@ export default function GerenteOrcamentos() {
       next.set("status", statusFilter);
       setSearchParams(next, { replace: true });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [statusFilter]);
 
   const sellers = useMemo(

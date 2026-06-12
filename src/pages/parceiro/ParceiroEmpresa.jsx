@@ -72,7 +72,7 @@ export default function ParceiroEmpresa() {
 
   useEffect(() => {
     if (user?.id) load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [user?.id]);
 
   const handleLogoChange = (e) => {

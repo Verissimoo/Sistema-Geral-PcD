@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard, FileText, Plane, Users,
+  LayoutDashboard, FileText, Users,
   Settings, X, Briefcase, Calendar,
   Store, ChevronDown, Wrench, Star, Info, Target, Kanban, FileStack, BookOpen,
   LogOut, Trophy, BarChart3, UserSearch, Shield, Handshake,

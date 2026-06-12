@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Star, Plus, Pencil, Trash2, Layers, X, AlertTriangle, ChevronDown,
-  ChevronUp, TrendingUp, TrendingDown, Award, Clock, History,
+  ChevronUp, TrendingDown, Award, Clock, History,
   ArrowRight,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

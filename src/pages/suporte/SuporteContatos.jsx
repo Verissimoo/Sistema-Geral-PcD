@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import {
-  Users, Search, MessageCircle, Phone, ShoppingCart,
-  DollarSign, FileStack,
+  Users, Search, MessageCircle, Phone,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
