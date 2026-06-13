@@ -28,7 +28,8 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
-import { localClient } from "@/api/localClient";
+import { createQuote, getQuote, listQuotes } from "@/api/quotes";
+import { useClients, usePartners, useMilesTable, useCreateClient } from "@/api/hooks";
 import { supabase } from "@/lib/supabase";
 import { openQuoteInNewTab } from "@/lib/generateQuoteHTML";
 import { computePricingTotals, computeCommission, buildCommissionSnapshot } from "@/lib/pricingCalculator";
@@ -282,28 +283,19 @@ function Stepper({ currentStep, completedSteps }) {
 function BlocoCliente({ formData, setFormData }) {
   const [mode, setMode] = useState(formData.client?.id ? "select" : "select");
   const [search, setSearch] = useState("");
-  const [clients, setClients] = useState([]);
-  const [partners, setPartners] = useState([]);
+  const { data: allClients = [] } = useClients();
+  const { data: partners = [] } = usePartners();
+  const createClientMutation = useCreateClient();
   const [newClient, setNewClient] = useState({ name: "", phone: "", lead_origin: "" });
   const { toast } = useToast();
   const { user, isAdmin } = useAuth();
   const clientOrigins = useClientOrigins();
 
-  useEffect(() => {
-    (async () => {
-      const list = (await localClient.entities.Clients.list()) || [];
-      // Vendedor enxerga apenas os próprios clientes; admin vê todos.
-      const visible = isAdmin ? list : list.filter((c) => c.created_by === user?.id);
-      setClients(visible);
-    })();
-  }, [user?.id, isAdmin]);
-
-  useEffect(() => {
-    (async () => {
-      const list = (await localClient.entities.Partners.list()) || [];
-      setPartners(list);
-    })();
-  }, []);
+  // Vendedor enxerga apenas os próprios clientes; admin vê todos.
+  const clients = useMemo(
+    () => (isAdmin ? allClients : allClients.filter((c) => c.created_by === user?.id)),
+    [allClients, isAdmin, user?.id]
+  );
 
   const filtered = useMemo(
     () => clients.filter((c) => c.name?.toLowerCase().includes(search.toLowerCase())),
@@ -319,18 +311,18 @@ function BlocoCliente({ formData, setFormData }) {
       toast({ title: "Nome obrigatório", variant: "destructive" });
       return;
     }
-    const created = await localClient.entities.Clients.create({
-      name: newClient.name.trim(),
-      phone: newClient.phone,
-      lead_origin: newClient.lead_origin || "Outro",
-      created_by: user?.id || null,
-      created_by_name: user?.name || null,
-    });
-    if (!created) {
-      toast({ title: "Erro ao salvar cliente", variant: "destructive" });
-      return;
+    let created;
+    try {
+      created = await createClientMutation.mutateAsync({
+        name: newClient.name.trim(),
+        phone: newClient.phone,
+        lead_origin: newClient.lead_origin || "Outro",
+        created_by: user?.id || null,
+        created_by_name: user?.name || null,
+      });
+    } catch {
+      return; // Erro já notificado pelo toast central do queryClient.
     }
-    setClients((arr) => [...arr, created]);
     setFormData((p) => ({ ...p, client: created }));
     setNewClient({ name: "", phone: "", lead_origin: "" });
     setMode("select");
@@ -1734,7 +1726,7 @@ Retorne APENAS o JSON, sem markdown nem comentários.`;
 
 // ─── Bloco 4 — Precificação ─────────────────────────────────────────
 function BlocoPrecificacao({ formData, setFormData }) {
-  const [milesTable, setMilesTable] = useState([]);
+  const { data: milesTable = [] } = useMilesTable();
   // Moeda da operação: BRL (padrão) ou EUR (compra/venda em euro).
   // Quando EUR, os inputs aceitam euro e o sistema converte para BRL
   // via cotação ao vivo da AwesomeAPI — BRL é a moeda canônica do banco.
@@ -1742,13 +1734,6 @@ function BlocoPrecificacao({ formData, setFormData }) {
   const { rate: eurBrlRate } = useEurBrlRate();
   const eurRate = eurBrlRate?.rate || 0;
   const isEur = currency === "EUR";
-
-  useEffect(() => {
-    (async () => {
-      const list = await localClient.entities.MilesTable.list();
-      setMilesTable(list || []);
-    })();
-  }, []);
 
   // Persiste a moeda escolhida e a cotação no pricing — usado por persistQuote,
   // PDF e relatórios. Atualiza apenas se mudou (evita loop).
@@ -4083,7 +4068,12 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
             total_value: finalTotalValue,
           });
 
-      const quote = await localClient.entities.Quotes.create({
+      // createQuote (módulo puro) mantém a idempotência por quote_number do
+      // localClient antigo, mas LANÇA em falha — preservamos o fluxo anterior
+      // (console.error + toast + abort) com try/catch.
+      let quote;
+      try {
+        quote = await createQuote({
         quote_number: number,
         recipient_type: formData.recipient_type || "cliente",
         partner_id: formData.partner_id || null,
@@ -4117,7 +4107,11 @@ function BlocoGerar({ formData, totalValue, commission, onSaved }) {
         whatsapp_text: text,
         parent_quote_id: isParceiroMode ? null : (formData.parent_quote_id || null),
         quote_sequence: formData.quote_sequence || 1,
-      });
+        });
+      } catch (err) {
+        console.error("Erro ao criar em pcd_quotes:", err);
+        quote = null;
+      }
       if (!quote) {
         toast({ title: "Erro ao salvar orçamento no servidor", variant: "destructive" });
         return null;
@@ -4414,7 +4408,15 @@ export default function VendedorOrcamento() {
     if (!fromQuoteId) return;
     let cancelled = false;
     (async () => {
-      const parent = await localClient.entities.Quotes.get(fromQuoteId);
+      // getQuote/listQuotes lançam em falha de rede (o localClient antigo
+      // engolia e devolvia null/[]); os catches abaixo preservam o fluxo silencioso.
+      let parent;
+      try {
+        parent = await getQuote(fromQuoteId);
+      } catch (err) {
+        console.error("Erro ao buscar cotação de origem:", err);
+        return;
+      }
       if (!parent || cancelled) return;
       // Apenas para destinatário "cliente"
       if (parent.recipient_type === "parceiro") {
@@ -4425,7 +4427,13 @@ export default function VendedorOrcamento() {
         });
         return;
       }
-      const all = (await localClient.entities.Quotes.list()) || [];
+      let all;
+      try {
+        all = (await listQuotes()) || [];
+      } catch (err) {
+        console.error("Erro ao listar cotações:", err);
+        all = [];
+      }
       // Conta head + filhos da mesma família para gerar a sequence
       const headId = parent.parent_quote_id || parent.id;
       const siblings = all.filter(

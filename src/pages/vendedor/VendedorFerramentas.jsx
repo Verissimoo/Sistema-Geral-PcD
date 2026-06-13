@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { getCostForMiles, getSaleForMiles, getTierForMiles } from "@/lib/milesHelper";
-import { localClient } from "@/api/localClient";
+import { useMilesTable } from "@/api/hooks";
 import { parseBR, sanitizeBRInput } from "@/lib/parseBR";
 import { FINANCEIRO_WHATSAPP } from "@/lib/config";
 import { useAuth } from "@/lib/AuthContext";
@@ -80,17 +80,10 @@ function ComissaoTab() {
   const [qtdMilhas, setQtdMilhas] = useState('');
   const [valorTaxa, setValorTaxa] = useState('');
   const [programaSelecionado, setProgramaSelecionado] = useState('');
-  const [milesPrograms, setMilesPrograms] = useState([]);
+  const { data: milesPrograms = [] } = useMilesTable();
   // Comum
   const [valorVenda, setValorVenda] = useState('');
   const [resultado, setResultado] = useState(null);
-
-  useEffect(() => {
-    (async () => {
-      const data = await localClient.entities.MilesTable.list();
-      setMilesPrograms(data || []);
-    })();
-  }, []);
 
   const selectedProgram = milesPrograms.find(p => p.id === programaSelecionado);
   const appliedTier = useMemo(
@@ -632,18 +625,11 @@ function TaxaJurosTab() {
 
 // ─── Componente: Calculadora de Milhas ────────────────────────────
 function CalculadoraMilhasTab() {
-  const [milesTable, setMilesTable] = useState([]);
+  const { data: milesTable = [] } = useMilesTable();
   const [programId, setProgramId] = useState("");
   const [milesQty, setMilesQty] = useState("");
   const [tax, setTax] = useState("");
   const [cashPart, setCashPart] = useState("");
-
-  useEffect(() => {
-    (async () => {
-      const data = await localClient.entities.MilesTable.list();
-      setMilesTable(data || []);
-    })();
-  }, []);
 
   const program = milesTable.find((m) => m.id === programId);
   const isAzul = program?.program?.toLowerCase().includes("azul");

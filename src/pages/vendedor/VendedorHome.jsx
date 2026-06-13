@@ -7,7 +7,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/AuthContext";
-import { localClient } from "@/api/localClient";
+import { useQuotes, useUsers, useCommercialGoals } from "@/api/hooks";
 import {
   CULTURA_FRASE_PRINCIPAL, CULTURA_PILARES, TODAS_FRASES, getFraseDoDia,
 } from "@/data/culturaPCD";
@@ -21,25 +21,11 @@ import { formatBRL } from "@/shared/lib/format";
 export default function VendedorHome() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [quotes, setQuotes] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [goals, setGoals] = useState([]);
+  const { data: quotes = [], isLoading: quotesLoading } = useQuotes();
+  const { data: users = [], isLoading: usersLoading } = useUsers();
+  const { data: goals = [], isLoading: goalsLoading } = useCommercialGoals();
   const [fraseAtual, setFraseAtual] = useState(() => getFraseDoDia());
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    Promise.all([
-      localClient.entities.Quotes.list(),
-      localClient.entities.Users.list(),
-      localClient.entities.CommercialGoals.list(),
-    ])
-      .then(([qs, us, gs]) => {
-        setQuotes(qs || []);
-        setUsers(us || []);
-        setGoals(gs || []);
-      })
-      .finally(() => setLoading(false));
-  }, []);
+  const loading = quotesLoading || usersLoading || goalsLoading;
 
   // Frase rotativa: troca a cada 5s.
   useEffect(() => {

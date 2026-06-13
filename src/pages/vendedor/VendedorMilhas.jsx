@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Star, Plus, Pencil, Trash2, Layers, X, AlertTriangle, ChevronDown,
   ChevronUp, TrendingDown, Award, Clock, History,
@@ -19,7 +19,10 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
-import { localClient, seedMilesIfEmpty } from "@/api/localClient";
+import { seedMilesIfEmpty } from "@/api/seeds";
+import {
+  useMilesTable, useCreateMilesProgram, useUpdateMilesProgram, useDeleteMilesProgram,
+} from "@/api/hooks";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/AuthContext";
 import {
@@ -49,20 +52,21 @@ export default function VendedorMilhas() {
   const { isAdmin, isSuporte, user } = useAuth();
   const canEdit = isAdmin || isSuporte;
   const { toast } = useToast();
-  const [data, setData] = useState([]);
   const [expandedId, setExpandedId] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [activeTab, setActiveTab] = useState("atual");
 
-  const loadData = useCallback(async () => {
-    await seedMilesIfEmpty();
-    const list = await localClient.entities.MilesTable.list();
-    setData(list || []);
+  // Preserva a ordem antiga: seed roda antes da primeira listagem.
+  const [seeded, setSeeded] = useState(false);
+  useEffect(() => {
+    seedMilesIfEmpty().then(() => setSeeded(true));
   }, []);
-
-  useEffect(() => { loadData(); }, [loadData]);
+  const { data = [] } = useMilesTable({ enabled: seeded });
+  const createProgram = useCreateMilesProgram();
+  const updateProgram = useUpdateMilesProgram();
+  const deleteProgram = useDeleteMilesProgram();
 
   // Métricas de resumo
   const summary = useMemo(() => {
@@ -99,9 +103,12 @@ export default function VendedorMilhas() {
   };
   const handleDelete = async (id) => {
     if (!confirm("Tem certeza que deseja excluir este programa?")) return;
-    await localClient.entities.MilesTable.delete(id);
+    try {
+      await deleteProgram.mutateAsync(id);
+    } catch {
+      return; // Erro já notificado pelo toast central do queryClient.
+    }
     toast({ title: "Programa excluído" });
-    loadData();
   };
 
   const baseMargin =
@@ -204,14 +211,21 @@ export default function VendedorMilhas() {
           // Não bloqueia o update — só perde a auditoria desta mudança.
         }
       }
-      await localClient.entities.MilesTable.update(editing.id, payload);
+      try {
+        await updateProgram.mutateAsync({ id: editing.id, updates: payload });
+      } catch {
+        return; // Erro já notificado pelo toast central do queryClient.
+      }
       toast({ title: "Programa atualizado", description: payload.program });
     } else {
-      await localClient.entities.MilesTable.create(payload);
+      try {
+        await createProgram.mutateAsync(payload);
+      } catch {
+        return; // Erro já notificado pelo toast central do queryClient.
+      }
       toast({ title: "Programa criado", description: payload.program });
     }
     setDialogOpen(false);
-    loadData();
   };
 
   const previewMarginPct =

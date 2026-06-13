@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FileStack, Search, Plus, Eye, Calendar, DollarSign,
@@ -25,8 +25,10 @@ import {
   Popover, PopoverContent, PopoverTrigger,
 } from "@/components/ui/popover";
 import { useToast } from "@/components/ui/use-toast";
+import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
-import { localClient } from "@/api/localClient";
+import { useQuotes, useMilesTable, useUpdateQuote } from "@/api/hooks";
+import { qk } from "@/api/queryKeys";
 import { openQuoteInNewTab } from "@/lib/generateQuoteHTML";
 import { useAuth } from "@/lib/AuthContext";
 import { computePricingTotals, computeCommission, buildCommissionSnapshot } from "@/lib/pricingCalculator";
@@ -91,8 +93,10 @@ export default function VendedorOrcamentos() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, isAdmin } = useAuth();
-  const [quotes, setQuotes] = useState([]);
-  const [milesTable, setMilesTable] = useState([]);
+  const { data: allQuotes = [] } = useQuotes();
+  const { data: milesTable = [] } = useMilesTable();
+  const updateQuote = useUpdateQuote();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("Todos");
   const [periodFilter, setPeriodFilter] = useState("all");
@@ -106,16 +110,16 @@ export default function VendedorOrcamentos() {
   const [quickEditQuote, setQuickEditQuote] = useState(null);
   const [quickEditOpen, setQuickEditOpen] = useState(false);
 
-  const reload = async () => {
-    const [list, mt] = await Promise.all([
-      localClient.entities.Quotes.list(),
-      localClient.entities.MilesTable.list(),
-    ]);
-    // Vendedor enxerga apenas as próprias cotações; admin vê todas.
-    const visible = isAdmin ? list : (list || []).filter((q) => q.seller_id === user?.id);
-    setQuotes(visible);
-    setMilesTable(mt || []);
-  };
+  // Vendedor enxerga apenas as próprias cotações; admin vê todas.
+  const quotes = useMemo(
+    () => (isAdmin ? allQuotes : allQuotes.filter((q) => q.seller_id === user?.id)),
+    [allQuotes, isAdmin, user?.id]
+  );
+
+  // Dialogs externos (EmissionDialog/QuickPriceEditDialog) gravam via módulo
+  // puro, sem invalidation automática — invalidamos manualmente após salvar.
+  const refreshQuotes = () =>
+    queryClient.invalidateQueries({ queryKey: qk.quotes.all });
 
   // Reprecifica um orçamento ainda não congelado usando o preço atual da
   // tabela de milhas. Mantém o valor de venda (acordado com o cliente) e
@@ -156,23 +160,21 @@ export default function VendedorOrcamentos() {
       pricing: newPricing,
     });
 
-    const updated = await localClient.entities.Quotes.update(quote.id, {
-      pricing: newPricing,
-      commission: newCommission,
-    });
-    if (!updated) {
-      toast({ title: "Erro ao atualizar preço", variant: "destructive" });
-      return;
+    let updated;
+    try {
+      updated = await updateQuote.mutateAsync({
+        id: quote.id,
+        updates: { pricing: newPricing, commission: newCommission },
+      });
+    } catch {
+      return; // Erro já notificado pelo toast central do queryClient.
     }
     toast({
       title: "Preço atualizado",
       description: "Custo e comissão recalculados com base na tabela atual.",
     });
     setDetailQuote(updated);
-    await reload();
   };
-
-  useEffect(() => { if (user?.id) reload();   }, [user?.id, isAdmin]);
 
   const filtered = useMemo(() => {
     let list = [...quotes];
@@ -228,11 +230,14 @@ export default function VendedorOrcamentos() {
     if (statusChangeTo === "Recusado" && statusExtra.reject_reason) {
       updates.rejection_reason = statusExtra.reject_reason;
     }
-    await localClient.entities.Quotes.update(statusChangeQuote.id, updates);
+    try {
+      await updateQuote.mutateAsync({ id: statusChangeQuote.id, updates });
+    } catch {
+      return; // Erro já notificado pelo toast central do queryClient.
+    }
     toast({ title: `Status atualizado para: ${statusChangeTo}` });
     setStatusChangeQuote(null);
     setStatusChangeTo(null);
-    reload();
   };
 
   const copyWhatsapp = async (text) => {
@@ -430,7 +435,7 @@ export default function VendedorOrcamentos() {
         onClose={() => setEmissionDialogQuote(null)}
         onSuccess={() => {
           toast({ title: "Enviado para emissão", description: "A equipe de suporte foi notificada." });
-          reload();
+          refreshQuotes();
         }}
       />
 
@@ -444,7 +449,7 @@ export default function VendedorOrcamentos() {
         quote={quickEditQuote}
         onSaved={() => {
           toast({ title: "Valores atualizados" });
-          reload();
+          refreshQuotes();
         }}
       />
 

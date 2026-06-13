@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import {
   Trophy, TrendingUp, Target, DollarSign, Clock, ChevronRight,
   Award, Check, Map, Table as TableIcon,
@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";
-import { localClient } from "@/api/localClient";
+import { useUsers, useQuotes } from "@/api/hooks";
 import {
   CAREER_LEVELS, getSellerStats, getCurrentLevel, getNextLevel,
   getBonusTier, getBonusValue,
@@ -27,20 +27,9 @@ const fmtMonth = (label) => label.charAt(0).toUpperCase() + label.slice(1);
 
 export default function VendedorCarreira() {
   const { user, isAdmin } = useAuth();
-  const [users, setUsers] = useState([]);
-  const [quotes, setQuotes] = useState([]);
+  const { data: users = [] } = useUsers();
+  const { data: quotes = [] } = useQuotes();
   const [selectedSellerId, setSelectedSellerId] = useState(null);
-
-  useEffect(() => {
-    (async () => {
-      const [usersList, quotesList] = await Promise.all([
-        localClient.entities.Users.list(),
-        localClient.entities.Quotes.list(),
-      ]);
-      setUsers(usersList || []);
-      setQuotes(quotesList || []);
-    })();
-  }, []);
 
   const sellersList = useMemo(
     () => users.filter((u) => u.role === "vendedor"),
