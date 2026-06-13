@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { localClient } from "@/api/localClient";
+import { updateQuote } from "@/api/quotes";
+import { queryClientInstance } from "@/lib/query-client";
 import { supabase } from "@/lib/supabase";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
@@ -112,7 +113,9 @@ export function EmissionDialog({ quote, open, onClose, onSuccess }) {
         .from("pcd-emission-files")
         .getPublicUrl(fileName);
 
-      const updated = await localClient.entities.Quotes.update(quote.id, {
+      // updateQuote lança em caso de falha (o antigo localClient retornava
+      // null) — o catch abaixo já trata exibindo a mensagem de erro.
+      await updateQuote(quote.id, {
         status: "Aguardando Emissão",
         payment_method: formData.payment_method,
         payment_installments: isInstallment
@@ -124,7 +127,10 @@ export function EmissionDialog({ quote, open, onClose, onSuccess }) {
         passenger_data: passengerData,
         sent_to_emission_date: new Date().toISOString(),
       });
-      if (!updated) throw new Error("Falha ao atualizar orçamento.");
+
+      // Telas que abrem este dialog leem de useQuotes() — invalida o cache
+      // para refletir o novo status imediatamente.
+      queryClientInstance.invalidateQueries({ queryKey: ["quotes"] });
 
       onSuccess?.();
       onClose();

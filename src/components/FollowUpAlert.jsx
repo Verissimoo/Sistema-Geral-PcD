@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Bell } from "lucide-react";
-import { localClient } from "@/api/localClient";
+import { listQuotes, updateQuote } from "@/api/quotes";
 import { useAuth } from "@/lib/AuthContext";
 import { getNextSentStatus } from "@/lib/followUpHelper";
 import { cn } from "@/lib/utils";
@@ -16,9 +16,16 @@ export function FollowUpAlert() {
 
   const load = useCallback(async () => {
     if (!user?.id) return;
-    const all = (await localClient.entities.Quotes.list()) || [];
-    const mine = isAdmin ? all : all.filter((q) => q.seller_id === user.id);
-    setPendentes(mine.filter((q) => q.status === "FollowUp Pendente"));
+    try {
+      const all = (await listQuotes()) || [];
+      const mine = isAdmin ? all : all.filter((q) => q.seller_id === user.id);
+      setPendentes(mine.filter((q) => q.status === "FollowUp Pendente"));
+    } catch (e) {
+      // Camada nova lança erro; o antigo localClient retornava [] em falha.
+      // Replicamos: loga e zera a lista sem quebrar o polling.
+      console.error("[FollowUpAlert]", e);
+      setPendentes([]);
+    }
   }, [user?.id, isAdmin]);
 
   useEffect(() => {
@@ -109,11 +116,16 @@ function RegistrarFollowUpButton({ quote, onDone }) {
     const novoStatus =
       getNextSentStatus(quote.followup_count || 0) || "FollowUp 3 Enviado";
     const novoCount = (Number(quote.followup_count) || 0) + 1;
-    await localClient.entities.Quotes.update(quote.id, {
-      status: novoStatus,
-      followup_count: novoCount,
-      last_followup_date: new Date().toISOString(),
-    });
+    try {
+      await updateQuote(quote.id, {
+        status: novoStatus,
+        followup_count: novoCount,
+        last_followup_date: new Date().toISOString(),
+      });
+    } catch (e) {
+      // localClient antigo engolia o erro e o fluxo seguia — preservamos.
+      console.error("[FollowUpAlert]", e);
+    }
     setLoading(false);
     onDone?.();
   };

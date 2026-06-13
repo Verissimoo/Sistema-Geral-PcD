@@ -19,7 +19,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
-import { localClient } from "@/api/localClient";
+import { updateQuote } from "@/api/quotes";
+import { queryClientInstance } from "@/lib/query-client";
 import { computeCommission } from "@/lib/pricingCalculator";
 import { useAuth } from "@/lib/AuthContext";
 import { RefreshCw, Minus, Plus, AlertTriangle, Info, Sparkles } from "lucide-react";
@@ -184,16 +185,13 @@ export default function QuickPriceEditDialog({ open, onOpenChange, quote, onSave
         updatePayload.partner_base_sale_value = finalSaleValue;
       }
 
-      const updated = await localClient.entities.Quotes.update(quote.id, updatePayload);
+      // updateQuote lança em caso de falha (o antigo localClient retornava
+      // null) — o catch abaixo já exibe o toast de erro.
+      const updated = await updateQuote(quote.id, updatePayload);
 
-      if (!updated) {
-        toast({
-          title: "Erro ao salvar",
-          description: "Tente novamente em instantes.",
-          variant: "destructive",
-        });
-        return;
-      }
+      // Telas que abrem este dialog leem de useQuotes() — invalida o cache
+      // para refletir os novos valores imediatamente.
+      queryClientInstance.invalidateQueries({ queryKey: ["quotes"] });
 
       onSaved?.(updated);
       onOpenChange(false);
