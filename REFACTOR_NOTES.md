@@ -85,6 +85,30 @@ prevista para `listPaged` — preservar na Etapa 8.
   página). Ex.: VendedorOrcamento 120 KB, ProjectKanban 112 KB, VendedorCotacao
   80 KB — só baixam quando a rota é acessada.
 
+## Etapa 7 — decomposição dos god components
+
+15 páginas > 500 linhas decompostas em página-orquestrador + hooks (lógica
+pura) + componentes (JSX coeso), por feature. Extração MECÂNICA (corpos movidos
+byte-for-byte; só imports/exports ajustados) — zero mudança de
+comportamento/cálculo/ordem de hooks. **Nenhuma página > 500 linhas** ao final.
+Destaques: VendedorOrcamento 4649→272, VendedorCotacao 2351→100 (era a página
+"Manual do Vendedor", apresentacional), Dashboard 1053→156.
+
+**Componentes (não-página) que permanecem > 500 linhas** — aceitável pelo
+critério ("nenhum arquivo de PÁGINA > 500"); são blocos coesos cuja
+fragmentação adicional traria risco sem ganho:
+- `features/orcamento/components/BlocoPrecificacao.jsx` (~1478) — núcleo de
+  precificação (milhas/dinheiro/híbrido, split, multi-programa, blocos extras,
+  cost_is_total, EUR). Não fragmentado para não arriscar a lógica financeira.
+- `features/orcamento/components/BlocoItinerario.jsx` (~959) e `BlocoGerar.jsx`
+  (~585).
+- `features/cotacao/components/manualPrimitives.jsx` (~550) e
+  `ManualTabsGerais.jsx` (~517) — coleções de componentes apresentacionais.
+
+Nota: VendedorCotacao — cada `<TabsContent>` agora envolve o conteúdo da aba
+extraída num `<div className="space-y-6">`; como o TabsContent passa a ter um
+único filho, o espaçamento renderizado é idêntico ao original.
+
 ## Correções de lint sem mudança de comportamento
 
 - Imports/variáveis não usados removidos via `eslint --fix` (sobras de
