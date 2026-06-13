@@ -6,12 +6,9 @@ import pluginUnusedImports from "eslint-plugin-unused-imports";
 
 export default [
   {
-    files: [
-      "src/components/**/*.{js,mjs,cjs,jsx}",
-      "src/pages/**/*.{js,mjs,cjs,jsx}",
-      "src/Layout.jsx",
-    ],
-    ignores: ["src/lib/**/*", "src/components/ui/**/*"],
+    // Cobre toda a árvore src (estrutura feature-based). shadcn/ui é vendored.
+    files: ["src/**/*.{js,mjs,cjs,jsx}"],
+    ignores: ["src/shared/ui/**/*", "dist/**/*"],
     ...pluginJs.configs.recommended,
     ...pluginReact.configs.flat.recommended,
     languageOptions: {
@@ -55,6 +52,16 @@ export default [
         { ignore: ["cmdk-input-wrapper", "toast-close"] },
       ],
       "react-hooks/rules-of-hooks": "error",
+      // exhaustive-deps fica como warn agora (invisível ao --quiet); vira error
+      // no passo final da Etapa 9, após decomposição estabilizada.
+      "react-hooks/exhaustive-deps": "warn",
+    },
+  },
+  {
+    // Testes: habilita globais de browser + Node onde necessário.
+    files: ["src/**/__tests__/**/*.{js,jsx}"],
+    languageOptions: {
+      globals: { ...globals.browser, ...globals.node },
     },
   },
 ];
