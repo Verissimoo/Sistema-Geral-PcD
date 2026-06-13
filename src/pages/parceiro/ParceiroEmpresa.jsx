@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   Building2, Loader2, Image as ImageIcon, Palette,
 } from "lucide-react";
@@ -9,7 +9,14 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/lib/AuthContext";
-import { localClient } from "@/api/localClient";
+import {
+  usePartner,
+  usePartnerCompany,
+  usePartnerCompanies,
+  useCreatePartnerCompany,
+  useUpdatePartnerCompany,
+  useUpdatePartner,
+} from "@/api/hooks";
 import { supabase } from "@/lib/supabase";
 import PartnerLogo from "@/components/PartnerLogo";
 
@@ -19,7 +26,6 @@ export default function ParceiroEmpresa() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const [company, setCompany] = useState(null);
   const [formData, setFormData] = useState({
     name: "", cnpj: "", phone: "", email: "",
     address: "", city: "", state: "",
@@ -29,51 +35,61 @@ export default function ParceiroEmpresa() {
   const [logoPreview, setLogoPreview] = useState(null);
   const [coverFile, setCoverFile] = useState(null);
   const [coverPreview, setCoverPreview] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   // Trava síncrona contra clique duplo no salvar.
   const isSavingRef = useRef(false);
 
-  const load = async () => {
-    setLoading(true);
-    try {
-      const partner = await localClient.entities.Partners.get(user.id);
+  const {
+    data: partner,
+    isLoading: partnerLoading,
+    isFetched: partnerFetched,
+  } = usePartner(user?.id);
+  const companyId = partner?.company_id;
+  const {
+    data: companyById,
+    isLoading: companyByIdLoading,
+    isFetched: companyByIdFetched,
+  } = usePartnerCompany(companyId);
+  // Fallback: tenta buscar empresa por partner_id (caso vínculo ainda não tenha sido feito)
+  const needsCompanyFallback =
+    !!user?.id && partnerFetched && (!companyId || (companyByIdFetched && !companyById));
+  const { data: allCompanies = [], isLoading: companiesLoading } = usePartnerCompanies({
+    enabled: needsCompanyFallback,
+  });
 
-      let c = null;
-      if (partner?.company_id) {
-        c = await localClient.entities.PartnerCompanies.get(partner.company_id);
-      }
-      // Fallback: tenta buscar empresa por partner_id (caso vínculo ainda não tenha sido feito)
-      if (!c) {
-        const all = (await localClient.entities.PartnerCompanies.list()) || [];
-        c = all.find((x) => x.partner_id === user.id) || null;
-      }
+  const company = useMemo(() => {
+    if (companyById) return companyById;
+    if (!needsCompanyFallback) return null;
+    return allCompanies.find((x) => x.partner_id === user?.id) || null;
+  }, [companyById, needsCompanyFallback, allCompanies, user?.id]);
+  const loading =
+    !user?.id ||
+    partnerLoading ||
+    companyByIdLoading ||
+    (needsCompanyFallback && companiesLoading);
 
-      if (c) {
-        setCompany(c);
-        setFormData({
-          name: c.name || "",
-          cnpj: c.cnpj || "",
-          phone: c.phone || "",
-          email: c.email || "",
-          address: c.address || "",
-          city: c.city || "",
-          state: c.state || "",
-          primary_color: c.primary_color || "#0B1E3D",
-          secondary_color: c.secondary_color || "#F4A224",
-        });
-        setLogoPreview(c.logo_url || null);
-        setCoverPreview(c.cover_image_url || null);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+  const updateCompany = useUpdatePartnerCompany();
+  const createCompany = useCreatePartnerCompany();
+  const updatePartner = useUpdatePartner();
 
+  // Preenche o formulário a partir da empresa carregada — re-executa quando a
+  // empresa muda (inclusive após salvar, replicando o reload do código antigo).
   useEffect(() => {
-    if (user?.id) load();
-     
-  }, [user?.id]);
+    if (!company) return;
+    setFormData({
+      name: company.name || "",
+      cnpj: company.cnpj || "",
+      phone: company.phone || "",
+      email: company.email || "",
+      address: company.address || "",
+      city: company.city || "",
+      state: company.state || "",
+      primary_color: company.primary_color || "#0B1E3D",
+      secondary_color: company.secondary_color || "#F4A224",
+    });
+    setLogoPreview(company.logo_url || null);
+    setCoverPreview(company.cover_image_url || null);
+  }, [company]);
 
   const handleLogoChange = (e) => {
     const file = e.target.files?.[0];
@@ -111,8 +127,19 @@ export default function ParceiroEmpresa() {
       let logoUrl = company?.logo_url || null;
       let coverUrl = company?.cover_image_url || null;
 
-      if (logoFile) logoUrl = await uploadFile(logoFile, "logo");
-      if (coverFile) coverUrl = await uploadFile(coverFile, "cover");
+      try {
+        if (logoFile) logoUrl = await uploadFile(logoFile, "logo");
+        if (coverFile) coverUrl = await uploadFile(coverFile, "cover");
+      } catch (err) {
+        // Upload de storage não passa pelo react-query — toast local.
+        console.error(err);
+        toast({
+          title: "Erro ao salvar",
+          description: err.message || "Tente novamente.",
+          variant: "destructive",
+        });
+        return;
+      }
 
       const payload = {
         name: formData.name.trim(),
@@ -129,26 +156,23 @@ export default function ParceiroEmpresa() {
         partner_id: user.id,
       };
 
-      if (company) {
-        const updated = await localClient.entities.PartnerCompanies.update(company.id, payload);
-        if (!updated) throw new Error("Falha ao atualizar empresa.");
-      } else {
-        const created = await localClient.entities.PartnerCompanies.create(payload);
-        if (!created?.id) throw new Error("Falha ao criar empresa.");
-        await localClient.entities.Partners.update(user.id, { company_id: created.id });
+      try {
+        if (company) {
+          await updateCompany.mutateAsync({ id: company.id, updates: payload });
+        } else {
+          const created = await createCompany.mutateAsync(payload);
+          await updatePartner.mutateAsync({ id: user.id, updates: { company_id: created.id } });
+        }
+      } catch {
+        // Erro já exibido pelo toast central (query-client).
+        return;
       }
 
       toast({ title: "Empresa atualizada", description: "Suas informações foram salvas." });
       setLogoFile(null);
       setCoverFile(null);
-      await load();
-    } catch (err) {
-      console.error(err);
-      toast({
-        title: "Erro ao salvar",
-        description: err.message || "Tente novamente.",
-        variant: "destructive",
-      });
+      // A invalidação automática das mutations refaz o fetch da empresa,
+      // que re-popula o formulário (substitui o antigo await load()).
     } finally {
       isSavingRef.current = false;
       setSaving(false);

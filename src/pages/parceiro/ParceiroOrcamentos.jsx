@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FileStack, Search, Plane, DollarSign, Clock, CheckCircle2,
@@ -12,7 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { localClient } from "@/api/localClient";
+import { useQuotes, usePartner, usePartnerCompany, usePartnerCompanies } from "@/api/hooks";
 import { useAuth } from "@/lib/AuthContext";
 import { sanitizeQuotesForPartner } from "@/lib/sanitizeQuoteForPartner";
 import PartnerLogo from "@/components/PartnerLogo";
@@ -25,44 +25,45 @@ const isPriced = (q) =>
 export default function ParceiroOrcamentos() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [quotes, setQuotes] = useState([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
-  const [loading, setLoading] = useState(true);
-  const [company, setCompany] = useState(null);
-  const [companyLoading, setCompanyLoading] = useState(true);
 
-  useEffect(() => {
-    const load = async () => {
-      if (!user?.id) return;
-      setLoading(true);
-      const all = (await localClient.entities.Quotes.list()) || [];
-      const mine = all.filter((q) => q.partner_id === user.id);
-      setQuotes(sanitizeQuotesForPartner(mine));
-      setLoading(false);
-    };
-    load();
-  }, [user?.id]);
+  const { data: allQuotes = [], isLoading: quotesLoading } = useQuotes({ enabled: !!user?.id });
+  const loading = !user?.id || quotesLoading;
 
-  useEffect(() => {
-    const loadCompany = async () => {
-      if (!user?.id) return;
-      setCompanyLoading(true);
-      const partner = await localClient.entities.Partners.get(user.id);
-      let c = null;
-      if (partner?.company_id) {
-        c = await localClient.entities.PartnerCompanies.get(partner.company_id);
-      }
-      // Fallback: tenta achar pela coluna partner_id
-      if (!c) {
-        const list = (await localClient.entities.PartnerCompanies.list()) || [];
-        c = list.find((x) => x.partner_id === user.id) || null;
-      }
-      setCompany(c);
-      setCompanyLoading(false);
-    };
-    loadCompany();
-  }, [user?.id]);
+  const quotes = useMemo(() => {
+    const mine = allQuotes.filter((q) => q.partner_id === user?.id);
+    return sanitizeQuotesForPartner(mine);
+  }, [allQuotes, user?.id]);
+
+  const {
+    data: partner,
+    isLoading: partnerLoading,
+    isFetched: partnerFetched,
+  } = usePartner(user?.id);
+  const companyId = partner?.company_id;
+  const {
+    data: companyById,
+    isLoading: companyByIdLoading,
+    isFetched: companyByIdFetched,
+  } = usePartnerCompany(companyId);
+  // Fallback: tenta achar pela coluna partner_id
+  const needsCompanyFallback =
+    !!user?.id && partnerFetched && (!companyId || (companyByIdFetched && !companyById));
+  const { data: allCompanies = [], isLoading: companiesLoading } = usePartnerCompanies({
+    enabled: needsCompanyFallback,
+  });
+
+  const company = useMemo(() => {
+    if (companyById) return companyById;
+    if (!needsCompanyFallback) return null;
+    return allCompanies.find((x) => x.partner_id === user?.id) || null;
+  }, [companyById, needsCompanyFallback, allCompanies, user?.id]);
+  const companyLoading =
+    !user?.id ||
+    partnerLoading ||
+    companyByIdLoading ||
+    (needsCompanyFallback && companiesLoading);
 
   const metrics = useMemo(() => {
     const total = quotes.length;

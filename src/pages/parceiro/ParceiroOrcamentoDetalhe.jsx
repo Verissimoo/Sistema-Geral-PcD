@@ -14,7 +14,8 @@ import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
-import { localClient } from "@/api/localClient";
+import { useQuote, useUpdateQuote, usePartner, usePartnerCompany } from "@/api/hooks";
+import { getPartner, getPartnerCompany } from "@/api/partners";
 import { openQuoteInNewTab } from "@/lib/generateQuoteHTML";
 import { useAuth } from "@/lib/AuthContext";
 import { parseBR, sanitizeBRInput } from "@/lib/parseBR";
@@ -27,8 +28,6 @@ export default function ParceiroOrcamentoDetalhe() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const [quote, setQuote] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   // Trava síncrona contra clique duplo no botão de definir preço.
   const isSavingRef = useRef(false);
@@ -39,61 +38,77 @@ export default function ParceiroOrcamentoDetalhe() {
   const [clientEmail, setClientEmail] = useState("");
   const [partnerInfo, setPartnerInfo] = useState({ name: "", phone: "", email: "" });
   const [coBranding, setCoBranding] = useState(false);
-  const [company, setCompany] = useState(null);
 
+  const {
+    data: rawQuote,
+    isLoading: quoteLoading,
+    isFetched: quoteFetched,
+  } = useQuote(id);
+  const updateQuote = useUpdateQuote();
+
+  // Empresa do parceiro (para o PDF)
+  const { data: partner, isLoading: partnerLoading } = usePartner(user?.id);
+  const { data: company = null, isLoading: companyLoading } = usePartnerCompany(
+    partner?.company_id
+  );
+
+  // Sanitização defensiva: a página só consome a versão sem
+  // custos/Nipon/RAV/comissão — assim React DevTools e Network também
+  // ficam limpos para a parceira inspecionando o DOM.
+  const quote = useMemo(() => {
+    if (!rawQuote || rawQuote.partner_id !== user?.id) return null;
+    return sanitizeQuoteForPartner(rawQuote);
+  }, [rawQuote, user?.id]);
+
+  // Orçamento inexistente ou de outro parceiro: avisa e volta para a lista.
   useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      const raw = await localClient.entities.Quotes.get(id);
-      if (!raw) {
-        toast({ title: "Orçamento não encontrado", variant: "destructive" });
-        navigate("/parceiro/orcamentos", { replace: true });
-        return;
-      }
-      if (raw.partner_id !== user?.id) {
-        toast({ title: "Você não tem acesso a este orçamento", variant: "destructive" });
-        navigate("/parceiro/orcamentos", { replace: true });
-        return;
-      }
-      // Sanitização defensiva: o state da página só recebe a versão sem
-      // custos/Nipon/RAV/comissão — assim React DevTools e Network também
-      // ficam limpos para a parceira inspecionando o DOM.
-      const q = sanitizeQuoteForPartner(raw);
-      setQuote(q);
-      if (q.partner_sale_value != null) {
-        setSaleValue(
-          Number(q.partner_sale_value).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-        );
-      }
-      if (q.partner_client_data) {
-        setClientName(q.partner_client_data.name || "");
-        setClientPhone(q.partner_client_data.phone || "");
-        setClientEmail(q.partner_client_data.email || "");
-        setPartnerInfo({
-          name: q.partner_client_data.partner_name || user?.name || "",
-          phone: q.partner_client_data.partner_phone || user?.phone || "",
-          email: q.partner_client_data.partner_email || user?.email || "",
-        });
-      } else {
-        setPartnerInfo({
-          name: user?.name || "",
-          phone: user?.phone || "",
-          email: user?.email || "",
-        });
-      }
-      setCoBranding(q.partner_co_branding === true);
+    if (!user?.id || !quoteFetched) return;
+    if (!rawQuote) {
+      toast({ title: "Orçamento não encontrado", variant: "destructive" });
+      navigate("/parceiro/orcamentos", { replace: true });
+      return;
+    }
+    if (rawQuote.partner_id !== user.id) {
+      toast({ title: "Você não tem acesso a este orçamento", variant: "destructive" });
+      navigate("/parceiro/orcamentos", { replace: true });
+    }
+  }, [rawQuote, quoteFetched, user?.id, navigate, toast]);
 
-      // Carrega empresa do parceiro (para o PDF)
-      const partner = await localClient.entities.Partners.get(user.id);
-      if (partner?.company_id) {
-        const c = await localClient.entities.PartnerCompanies.get(partner.company_id);
-        if (c) setCompany(c);
-      }
+  // Preenche o formulário uma única vez por orçamento (refetches posteriores
+  // não sobrescrevem o que a parceira estiver digitando).
+  const seededQuoteIdRef = useRef(null);
+  useEffect(() => {
+    if (!quote || seededQuoteIdRef.current === quote.id) return;
+    seededQuoteIdRef.current = quote.id;
+    if (quote.partner_sale_value != null) {
+      setSaleValue(
+        Number(quote.partner_sale_value).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      );
+    }
+    if (quote.partner_client_data) {
+      setClientName(quote.partner_client_data.name || "");
+      setClientPhone(quote.partner_client_data.phone || "");
+      setClientEmail(quote.partner_client_data.email || "");
+      setPartnerInfo({
+        name: quote.partner_client_data.partner_name || user?.name || "",
+        phone: quote.partner_client_data.partner_phone || user?.phone || "",
+        email: quote.partner_client_data.partner_email || user?.email || "",
+      });
+    } else {
+      setPartnerInfo({
+        name: user?.name || "",
+        phone: user?.phone || "",
+        email: user?.email || "",
+      });
+    }
+    setCoBranding(quote.partner_co_branding === true);
+  }, [quote, user?.name, user?.phone, user?.email]);
 
-      setLoading(false);
-    };
-    if (user?.id) load();
-  }, [id, user?.id, user?.name, user?.phone, user?.email, navigate, toast]);
+  // Mantém o spinner enquanto carrega — e também enquanto o redirect acima
+  // estiver em andamento (orçamento inválido), como no comportamento original.
+  const accessInvalid = quoteFetched && (!rawQuote || rawQuote.partner_id !== user?.id);
+  const loading =
+    !user?.id || quoteLoading || partnerLoading || companyLoading || accessInvalid;
 
   // Floor de margem para a parceira = o que ela paga à PCD. NUNCA derivar de
   // pricing.nipon_value (campo interno PCD que a sanitização remove); sempre
@@ -150,13 +165,11 @@ export default function ParceiroOrcamentoDetalhe() {
         partner_co_branding: coBranding,
         total_value: saleValueNumber,
       };
-      const updated = await localClient.entities.Quotes.update(quote.id, updates);
-      if (!updated) {
-        toast({ title: "Erro ao salvar", variant: "destructive" });
-        return;
-      }
-      setQuote(sanitizeQuoteForPartner(updated));
+      await updateQuote.mutateAsync({ id: quote.id, updates });
       toast({ title: "Orçamento atualizado!", description: "Valor e dados do cliente salvos." });
+    } catch {
+      // Erro já exibido pelo toast central (query-client); o catch só
+      // impede que a falha escape do handler.
     } finally {
       isSavingRef.current = false;
       setSaving(false);
@@ -170,7 +183,10 @@ export default function ParceiroOrcamentoDetalhe() {
     // Persiste a preferência de co-branding antes de gerar
     if (quote.partner_co_branding !== coBranding) {
       try {
-        await localClient.entities.Quotes.update(quote.id, { partner_co_branding: coBranding });
+        await updateQuote.mutateAsync({
+          id: quote.id,
+          updates: { partner_co_branding: coBranding },
+        });
       } catch {
         /* não bloqueia geração */
       }
@@ -179,9 +195,13 @@ export default function ParceiroOrcamentoDetalhe() {
     // Recarrega empresa em caso de alteração recente
     let companyForPDF = company;
     if (!companyForPDF) {
-      const partner = await localClient.entities.Partners.get(user.id);
-      if (partner?.company_id) {
-        companyForPDF = await localClient.entities.PartnerCompanies.get(partner.company_id);
+      try {
+        const freshPartner = await getPartner(user.id);
+        if (freshPartner?.company_id) {
+          companyForPDF = await getPartnerCompany(freshPartner.company_id);
+        }
+      } catch {
+        /* segue sem empresa — não bloqueia geração */
       }
     }
 

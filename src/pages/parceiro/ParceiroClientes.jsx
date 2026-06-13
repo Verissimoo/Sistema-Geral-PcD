@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import {
   Users, Phone, Mail, Search, FileStack, DollarSign,
 } from "lucide-react";
@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { localClient } from "@/api/localClient";
+import { useQuotes } from "@/api/hooks";
 import { useAuth } from "@/lib/AuthContext";
 import { sanitizeQuotesForPartner } from "@/lib/sanitizeQuoteForPartner";
 import { formatBRL } from "@/shared/lib/format";
@@ -21,21 +21,15 @@ const initials = (name = "") =>
 
 export default function ParceiroClientes() {
   const { user } = useAuth();
-  const [quotes, setQuotes] = useState([]);
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const load = async () => {
-      if (!user?.id) return;
-      setLoading(true);
-      const all = (await localClient.entities.Quotes.list()) || [];
-      const mine = all.filter((q) => q.partner_id === user.id && q.partner_client_data);
-      setQuotes(sanitizeQuotesForPartner(mine));
-      setLoading(false);
-    };
-    load();
-  }, [user?.id]);
+  const { data: allQuotes = [], isLoading: quotesLoading } = useQuotes({ enabled: !!user?.id });
+  const loading = !user?.id || quotesLoading;
+
+  const quotes = useMemo(() => {
+    const mine = allQuotes.filter((q) => q.partner_id === user?.id && q.partner_client_data);
+    return sanitizeQuotesForPartner(mine);
+  }, [allQuotes, user?.id]);
 
   const clientes = useMemo(() => {
     const map = new Map();
