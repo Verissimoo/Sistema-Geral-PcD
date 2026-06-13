@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { supabaseClient } from "@/api/supabaseClient";
+import { useState } from "react";
+import { useRituals, useUpdateRitual } from "@/api/hooks";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,22 +13,14 @@ const typeColors = {
 };
 
 export default function Rituals() {
-  const [rituals, setRituals] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { data: rituals = [], isLoading: loading } = useRituals();
+  const updateRitual = useUpdateRitual();
   const [showForm, setShowForm] = useState(false);
   const [editRitual, setEditRitual] = useState(null);
 
-  const load = async () => {
-    const data = await supabaseClient.entities.Ritual.list();
-    setRituals(data);
-    setLoading(false);
-  };
-
-  useEffect(() => { load(); }, []);
-
-  const toggleCompleted = async (ritual) => {
-    await supabaseClient.entities.Ritual.update(ritual.id, { completed: !ritual.completed });
-    load();
+  const toggleCompleted = (ritual) => {
+    // Invalidação automática pós-mutation recarrega a lista
+    updateRitual.mutate({ id: ritual.id, updates: { completed: !ritual.completed } });
   };
 
   if (loading) {
@@ -111,7 +103,6 @@ export default function Rituals() {
       <RitualFormDialog
         open={showForm}
         onClose={() => { setShowForm(false); setEditRitual(null); }}
-        onSave={load}
         ritual={editRitual}
       />
     </div>

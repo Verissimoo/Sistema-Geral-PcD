@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { supabaseClient } from "@/api/supabaseClient";
+import { useState, useMemo, useCallback } from "react";
+import { useContractors, useProjects } from "@/api/hooks";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -374,24 +374,15 @@ function ContractorGoalCard({ contractor, totalPoints, config }) {
 }
 
 export default function Goals() {
-  const [contractors, setContractors] = useState([]);
-  const [projects, setProjects] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { data: allContractors = [], isLoading: contractorsLoading } = useContractors();
+  const { data: projects = [], isLoading: projectsLoading } = useProjects();
+  const loading = contractorsLoading || projectsLoading;
+  const contractors = useMemo(
+    () => allContractors.filter((x) => x.status === "Ativo"),
+    [allContractors]
+  );
   const [config, setConfig] = useState(loadGoalsConfig());
   const [showConfig, setShowConfig] = useState(false);
-
-  useEffect(() => {
-    async function load() {
-      const [c, p] = await Promise.all([
-        supabaseClient.entities.Contractor.list(),
-        supabaseClient.entities.Project.list(),
-      ]);
-      setContractors(c.filter((x) => x.status === "Ativo"));
-      setProjects(p);
-      setLoading(false);
-    }
-    load();
-  }, []);
 
   const handleSaveConfig = useCallback((newConfig) => {
     saveGoalsConfig(newConfig);

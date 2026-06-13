@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabaseClient } from "@/api/supabaseClient";
+import { useContractors, useCreateProject, useUpdateProject } from "@/api/hooks";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,14 +21,12 @@ const emptyProject = {
   acceptance_monitored: false, change_log: [],
 };
 
-export default function ProjectFormDialog({ open, onClose, onSave, project }) {
+export default function ProjectFormDialog({ open, onClose, project }) {
   const [form, setForm] = useState(project || emptyProject);
-  const [contractors, setContractors] = useState([]);
+  const { data: contractors = [] } = useContractors();
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    supabaseClient.entities.Contractor.list().then(setContractors);
-  }, []);
+  const createProject = useCreateProject();
+  const updateProject = useUpdateProject();
 
   useEffect(() => {
     if (project) setForm(project);
@@ -76,15 +74,15 @@ export default function ProjectFormDialog({ open, onClose, onSave, project }) {
 
     try {
       if (project?.id) {
-        await supabaseClient.entities.Project.update(project.id, data);
+        await updateProject.mutateAsync({ id: project.id, updates: data });
       } else {
-        await supabaseClient.entities.Project.create(data);
+        await createProject.mutateAsync(data);
       }
-      onSave();
+      // Invalidação automática pós-mutation recarrega as listas
       onClose();
     } catch (error) {
+      // Toast central de erro já notifica o usuário; mantém o dialog aberto
       console.error('Erro ao salvar projeto:', error);
-      alert('Erro ao salvar os dados: ' + (error.message || JSON.stringify(error)));
     } finally {
       setSaving(false);
     }

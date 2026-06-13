@@ -1,5 +1,7 @@
-import { useState, useEffect } from "react";
-import { supabaseClient } from "@/api/supabaseClient";
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useProjects, useUpdateProject } from "@/api/hooks";
+import { qk } from "@/api/queryKeys";
 import { DragDropContext } from "@hello-pangea/dnd";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
@@ -10,38 +12,31 @@ import { calculateScore } from "@/lib/scoring";
 const COLUMNS = ["Backlog", "Em andamento", "Em validação", "Concluído", "Cancelado"];
 
 export default function ProjectKanban() {
-  const [projects, setProjects] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { data: projects = [], isLoading: loading } = useProjects();
+  const updateProject = useUpdateProject();
   const [showForm, setShowForm] = useState(false);
   const [editProject, setEditProject] = useState(null);
-
-  const load = async () => {
-    const data = await supabaseClient.entities.Project.list();
-    setProjects(data);
-    setLoading(false);
-  };
-
-  useEffect(() => { load(); }, []);
 
   const onDragEnd = async (result) => {
     if (!result.destination) return;
     const { draggableId, destination } = result;
     const newStatus = destination.droppableId;
-    
+
     const project = projects.find(p => p.id === draggableId);
     if (!project) return;
 
-    // Atualização otimista do estado local
+    // Atualização otimista do cache local
     const calculatedScore = newStatus === "Concluído" ? calculateScore(project) : null;
-    
-    setProjects(prev => prev.map(p => 
-      p.id === draggableId 
-        ? { 
-            ...p, 
-            status: newStatus, 
+
+    queryClient.setQueryData(qk.projects.list(), (prev = []) => prev.map(p =>
+      p.id === draggableId
+        ? {
+            ...p,
+            status: newStatus,
             final_score: calculatedScore,
             completion_date: newStatus === "Concluído" ? new Date().toISOString().split("T")[0] : p.completion_date
-          } 
+          }
         : p
     ));
 
@@ -50,20 +45,19 @@ export default function ProjectKanban() {
       updateData.final_score = calculatedScore;
       updateData.completion_date = new Date().toISOString().split("T")[0];
     }
-    
+
     updateData.change_log = [
       ...(project.change_log || []),
       { date: new Date().toISOString(), description: `Status alterado para: ${newStatus}`, changed_by: "sistema" }
     ];
 
     try {
-      await supabaseClient.entities.Project.update(draggableId, updateData);
-      // Recarrega para garantir que pegamos IDs gerados e logs do servidor
-      await load();
+      // A invalidação automática pós-mutation recarrega IDs gerados e logs do servidor
+      await updateProject.mutateAsync({ id: draggableId, updates: updateData });
     } catch (err) {
       console.error("Erro ao sincronizar drag-and-drop:", err);
       // Fallback: recarrega estado original em caso de erro
-      load();
+      queryClient.invalidateQueries({ queryKey: qk.projects.all });
     }
   };
 
@@ -116,7 +110,6 @@ export default function ProjectKanban() {
       <ProjectFormDialog
         open={showForm}
         onClose={() => { setShowForm(false); setEditProject(null); }}
-        onSave={load}
         project={editProject}
       />
     </div>

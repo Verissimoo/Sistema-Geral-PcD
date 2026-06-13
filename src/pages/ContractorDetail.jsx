@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { supabaseClient } from "@/api/supabaseClient";
+import { useState, useMemo } from "react";
+import { useContractors, useProjects } from "@/api/hooks";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -179,23 +179,19 @@ function AutomacoesCard({ contractor, onEdit }) {
 
 export default function ContractorDetail() {
   const { id } = useParams();
-  const [contractor, setContractor] = useState(null);
-  const [projects, setProjects] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { data: allContractors = [], isLoading: contractorsLoading } = useContractors();
+  const { data: allProjects = [], isLoading: projectsLoading } = useProjects();
+  const loading = contractorsLoading || projectsLoading;
   const [showEdit, setShowEdit] = useState(false);
 
-  const load = async () => {
-    const [allContractors, allProjects] = await Promise.all([
-      supabaseClient.entities.Contractor.list(),
-      supabaseClient.entities.Project.list(),
-    ]);
-    const c = allContractors.find(x => x.id === id);
-    setContractor(c);
-    setProjects(allProjects.filter(p => p.contractor_id === id));
-    setLoading(false);
-  };
-
-  useEffect(() => { load(); }, [id]);
+  const contractor = useMemo(
+    () => allContractors.find(x => x.id === id),
+    [allContractors, id]
+  );
+  const projects = useMemo(
+    () => allProjects.filter(p => p.contractor_id === id),
+    [allProjects, id]
+  );
 
   if (loading) {
     return (
@@ -285,7 +281,6 @@ export default function ContractorDetail() {
         <ContractorFormDialog
           open={showEdit}
           onClose={() => setShowEdit(false)}
-          onSave={load}
           contractor={contractor}
         />
       )}

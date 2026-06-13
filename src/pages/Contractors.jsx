@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { supabaseClient } from "@/api/supabaseClient";
+import { useState } from "react";
+import { useContractors, useProjects } from "@/api/hooks";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,24 +17,12 @@ const statusColors = {
 };
 
 export default function Contractors() {
-  const [contractors, setContractors] = useState([]);
-  const [projects, setProjects] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { data: contractors = [], isLoading: contractorsLoading } = useContractors();
+  const { data: projects = [], isLoading: projectsLoading } = useProjects();
+  const loading = contractorsLoading || projectsLoading;
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const config = loadGoalsConfig();
-
-  const load = async () => {
-    const [data, allProjects] = await Promise.all([
-      supabaseClient.entities.Contractor.list(),
-      supabaseClient.entities.Project.list(),
-    ]);
-    setContractors(data);
-    setProjects(allProjects);
-    setLoading(false);
-  };
-
-  useEffect(() => { load(); }, []);
 
   const filtered = contractors.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase())
@@ -126,7 +114,7 @@ export default function Contractors() {
         </div>
       )}
 
-      <ContractorFormDialog open={showForm} onClose={() => setShowForm(false)} onSave={load} />
+      <ContractorFormDialog open={showForm} onClose={() => setShowForm(false)} />
     </div>
   );
 }

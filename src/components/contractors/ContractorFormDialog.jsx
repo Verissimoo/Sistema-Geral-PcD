@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { supabaseClient } from "@/api/supabaseClient";
+import { useCreateContractor, useUpdateContractor } from "@/api/hooks";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-export default function ContractorFormDialog({ open, onClose, onSave, contractor }) {
+export default function ContractorFormDialog({ open, onClose, contractor }) {
   const [form, setForm] = useState(contractor || {
     name: "",
     scope_type: "TI/Automações",
@@ -15,21 +15,23 @@ export default function ContractorFormDialog({ open, onClose, onSave, contractor
     status: "Ativo",
   });
   const [saving, setSaving] = useState(false);
+  const createContractor = useCreateContractor();
+  const updateContractor = useUpdateContractor();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
     try {
       if (contractor?.id) {
-        await supabaseClient.entities.Contractor.update(contractor.id, form);
+        await updateContractor.mutateAsync({ id: contractor.id, updates: form });
       } else {
-        await supabaseClient.entities.Contractor.create(form);
+        await createContractor.mutateAsync(form);
       }
-      onSave();
+      // Invalidação automática pós-mutation recarrega as listas
       onClose();
     } catch (error) {
+      // Toast central de erro já notifica o usuário; mantém o dialog aberto
       console.error('Erro ao salvar prestador:', error);
-      alert('Erro ao salvar os dados: ' + (error.message || JSON.stringify(error)));
     } finally {
       setSaving(false);
     }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FileText, CheckCircle2, TrendingUp, DollarSign, Users,
@@ -13,7 +13,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { localClient } from "@/api/localClient";
+import { useQuotes, useUsers, useCommercialGoals } from "@/api/hooks";
 import { filterCommercialQuotes } from "@/lib/commercialFilter";
 import {
   getMonthRevenue, getRevenueQuotesInPeriod, APPROVED_PIPELINE_STATUSES,
@@ -53,21 +53,9 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [periodo, setPeriodo] = useState("30");
   const [periodoCustom, setPeriodoCustom] = useState({ start: "", end: "" });
-  const [allQuotes, setAllQuotes] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [goals, setGoals] = useState([]);
-
-  useEffect(() => {
-    Promise.all([
-      localClient.entities.Quotes.list(),
-      localClient.entities.Users.list(),
-      localClient.entities.CommercialGoals.list(),
-    ]).then(([qs, us, gs]) => {
-      setAllQuotes(qs || []);
-      setUsers(us || []);
-      setGoals(gs || []);
-    });
-  }, []);
+  const { data: allQuotes = [] } = useQuotes();
+  const { data: users = [] } = useUsers();
+  const { data: goals = [] } = useCommercialGoals();
 
   const periodDates = useMemo(() => {
     const now = new Date();

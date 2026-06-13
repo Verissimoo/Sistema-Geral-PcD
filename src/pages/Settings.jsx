@@ -7,13 +7,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/lib/AuthContext";
-import { localClient } from "@/api/localClient";
+import { useQueryClient } from "@tanstack/react-query";
+import { listQuotes, updateQuote, deleteQuote } from "@/api/quotes";
+import { listMiles } from "@/api/miles";
+import { qk } from "@/api/queryKeys";
 import { computePricingTotals, buildCommissionSnapshot } from "@/lib/pricingCalculator";
 import { checkMilesPriceFreshness, FROZEN_STATUSES } from "@/lib/priceFreshness";
 
 export default function Settings() {
   const { isAdmin } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [cleaning, setCleaning] = useState(false);
   const isCleaningRef = useRef(false);
   const [recalculando, setRecalculando] = useState(false);
@@ -31,7 +35,7 @@ export default function Settings() {
     isCleaningRef.current = true;
     setCleaning(true);
     try {
-      const allQuotes = (await localClient.entities.Quotes.list()) || [];
+      const allQuotes = (await listQuotes()) || [];
 
       const byNumber = {};
       for (const q of allQuotes) {
@@ -72,7 +76,7 @@ export default function Settings() {
         );
         const [, ...toDelete] = items;
         for (const dup of toDelete) {
-          await localClient.entities.Quotes.delete(dup.id);
+          await deleteQuote(dup.id);
           deleted++;
         }
       }
@@ -89,6 +93,7 @@ export default function Settings() {
         variant: "destructive",
       });
     } finally {
+      queryClient.invalidateQueries({ queryKey: qk.quotes.all });
       isCleaningRef.current = false;
       setCleaning(false);
     }
@@ -108,7 +113,7 @@ export default function Settings() {
     isRecalculandoRef.current = true;
     setRecalculando(true);
     try {
-      const allQuotes = (await localClient.entities.Quotes.list()) || [];
+      const allQuotes = (await listQuotes()) || [];
       let verificadas = 0;
       let corrigidas = 0;
       const detalhes = [];
@@ -124,7 +129,7 @@ export default function Settings() {
         const diff = Math.abs(snapshot.total - oldTotal);
 
         if (diff > 0.01) {
-          await localClient.entities.Quotes.update(q.id, {
+          await updateQuote(q.id, {
             commission: {
               ...(q.commission || {}),
               ...snapshot,
@@ -161,6 +166,7 @@ export default function Settings() {
         variant: "destructive",
       });
     } finally {
+      queryClient.invalidateQueries({ queryKey: qk.quotes.all });
       isRecalculandoRef.current = false;
       setRecalculando(false);
     }
@@ -175,8 +181,8 @@ export default function Settings() {
     setAuditandoPrecos(true);
     try {
       const [allQuotes, milesTable] = await Promise.all([
-        localClient.entities.Quotes.list(),
-        localClient.entities.MilesTable.list(),
+        listQuotes(),
+        listMiles(),
       ]);
       const ativos = (allQuotes || []).filter(
         (q) =>
@@ -238,7 +244,7 @@ export default function Settings() {
     isNormalizandoRef.current = true;
     setNormalizando(true);
     try {
-      const allQuotes = (await localClient.entities.Quotes.list()) || [];
+      const allQuotes = (await listQuotes()) || [];
       let verificadas = 0;
       let atualizadas = 0;
       const detalhes = [];
@@ -249,7 +255,7 @@ export default function Settings() {
         const derived = computePricingTotals(q);
         const niponSalvo = Number(q.pricing.nipon_value) || 0;
         if (Math.abs(derived.niponPerPax - niponSalvo) <= 0.01) continue;
-        await localClient.entities.Quotes.update(q.id, {
+        await updateQuote(q.id, {
           pricing: { ...q.pricing, nipon_value: derived.niponPerPax },
         });
         atualizadas++;
@@ -279,6 +285,7 @@ export default function Settings() {
         variant: "destructive",
       });
     } finally {
+      queryClient.invalidateQueries({ queryKey: qk.quotes.all });
       isNormalizandoRef.current = false;
       setNormalizando(false);
     }

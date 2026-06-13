@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useMemo, useRef } from "react";
 import {
   Users, UserPlus, Pencil, ShieldCheck, ShieldOff, Lock,
   Crown, AlertCircle, Eye, EyeOff, Trash2, Phone, Mail, Handshake,
@@ -20,7 +20,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
-import { localClient } from "@/api/localClient";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useUsers, useCreateUser, useUpdateUser,
+  usePartners, useCreatePartner, useUpdatePartner,
+} from "@/api/hooks";
+import { deleteUser } from "@/api/users";
+import { deletePartner, updatePartnerCompany } from "@/api/partners";
+import { qk } from "@/api/queryKeys";
 import { CAREER_LEVELS } from "@/lib/careerPlan";
 import { useAuth } from "@/lib/AuthContext";
 import { formatDateBR } from "@/shared/lib/format";
@@ -38,7 +45,13 @@ const initials = (name = "") =>
 export default function UserManagement() {
   const { toast } = useToast();
   const { user: currentUser } = useAuth();
-  const [users, setUsers] = useState([]);
+  const queryClient = useQueryClient();
+  const { data: usersList = [] } = useUsers();
+  const { data: partnersList = [] } = usePartners();
+  const createUser = useCreateUser();
+  const updateUser = useUpdateUser();
+  const createPartner = useCreatePartner();
+  const updatePartner = useUpdatePartner();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({
@@ -51,14 +64,10 @@ export default function UserManagement() {
   const [userToDelete, setUserToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  const reload = async () => {
-    const [usersList, partnersList] = await Promise.all([
-      localClient.entities.Users.list(),
-      localClient.entities.Partners.list(),
-    ]);
+  const users = useMemo(() => {
     const merged = [
-      ...(usersList || []).map((u) => ({ ...u, _source: "users" })),
-      ...(partnersList || []).map((p) => ({
+      ...usersList.map((u) => ({ ...u, _source: "users" })),
+      ...partnersList.map((p) => ({
         ...p,
         _source: "partners",
         role: "parceiro",
@@ -69,9 +78,8 @@ export default function UserManagement() {
         new Date(b.created_date || 0).getTime() -
         new Date(a.created_date || 0).getTime()
     );
-    setUsers(merged);
-  };
-  useEffect(() => { reload(); }, []);
+    return merged;
+  }, [usersList, partnersList]);
 
   const metrics = useMemo(() => {
     const total = users.length;
@@ -170,8 +178,9 @@ export default function UserManagement() {
             status: form.status,
           };
           if (form.password) updates.password = form.password;
-          const updated = await localClient.entities.Partners.update(editing.id, updates);
-          if (!updated) {
+          try {
+            await updatePartner.mutateAsync({ id: editing.id, updates });
+          } catch {
             setFormError("Erro ao atualizar parceiro. Tente novamente.");
             setSaving(false);
             return;
@@ -188,8 +197,9 @@ export default function UserManagement() {
             updates.role = form.role;
           }
           if (form.password) updates.password = form.password;
-          const updated = await localClient.entities.Users.update(editing.id, updates);
-          if (!updated) {
+          try {
+            await updateUser.mutateAsync({ id: editing.id, updates });
+          } catch {
             setFormError("Erro ao atualizar usuário. Tente novamente.");
             setSaving(false);
             return;
@@ -198,15 +208,17 @@ export default function UserManagement() {
         }
       } else {
         if (isPartner) {
-          const created = await localClient.entities.Partners.create({
-            name: form.name.trim(),
-            username,
-            password: form.password,
-            phone: form.phone.trim(),
-            email: form.email.trim(),
-            status: form.status || "Ativo",
-          });
-          if (!created) {
+          let created;
+          try {
+            created = await createPartner.mutateAsync({
+              name: form.name.trim(),
+              username,
+              password: form.password,
+              phone: form.phone.trim(),
+              email: form.email.trim(),
+              status: form.status || "Ativo",
+            });
+          } catch {
             setFormError("Erro ao criar parceiro. Tente novamente.");
             setSaving(false);
             return;
@@ -216,16 +228,18 @@ export default function UserManagement() {
             description: `${created.name} poderá configurar a empresa no primeiro acesso ao portal.`,
           });
         } else {
-          const created = await localClient.entities.Users.create({
-            name: form.name.trim(),
-            username,
-            password: form.password,
-            role: form.role || "vendedor",
-            status: form.status || "Ativo",
-            career_level: form.role === "vendedor" ? form.career_level : null,
-            created_date: new Date().toISOString(),
-          });
-          if (!created) {
+          let created;
+          try {
+            created = await createUser.mutateAsync({
+              name: form.name.trim(),
+              username,
+              password: form.password,
+              role: form.role || "vendedor",
+              status: form.status || "Ativo",
+              career_level: form.role === "vendedor" ? form.career_level : null,
+              created_date: new Date().toISOString(),
+            });
+          } catch {
             setFormError("Erro ao criar usuário. Tente novamente.");
             setSaving(false);
             return;
@@ -242,29 +256,24 @@ export default function UserManagement() {
         }
       }
       setDialogOpen(false);
-      await reload();
     } finally {
       isSavingRef.current = false;
       setSaving(false);
     }
   };
 
-  const entityFor = (u) =>
-    u?._source === "partners"
-      ? localClient.entities.Partners
-      : localClient.entities.Users;
-
   const toggleStatus = async (u) => {
     const next = u.status === "Ativo" ? "Inativo" : "Ativo";
     if (next === "Inativo" && !confirm(`Desativar ${u.name}?`)) return;
-    const updated = await entityFor(u).update(u.id, { status: next });
-    if (!updated) {
-      toast({ title: "Erro ao atualizar status", variant: "destructive" });
+    const mutation = u._source === "partners" ? updatePartner : updateUser;
+    try {
+      await mutation.mutateAsync({ id: u.id, updates: { status: next } });
+    } catch {
+      // Erro já notificado pelo toast central
       return;
     }
     const label = u._source === "partners" ? "Parceiro" : "Usuário";
     toast({ title: `${label} ${next.toLowerCase()}`, description: u.name });
-    await reload();
   };
 
   const handleDelete = async (u) => {
@@ -292,23 +301,25 @@ export default function UserManagement() {
       // Parceiro: desvincula empresa antes de excluir (mantém o registro da empresa)
       if (u._source === "partners" && u.company_id) {
         try {
-          await localClient.entities.PartnerCompanies.update(u.company_id, { partner_id: null });
+          await updatePartnerCompany(u.company_id, { partner_id: null });
+          queryClient.invalidateQueries({ queryKey: qk.partnerCompanies.all });
         } catch (err) {
           console.warn("Falha ao desvincular empresa do parceiro:", err);
         }
       }
 
-      const result = await entityFor(u).delete(u.id);
-      if (!result) {
-        toast({ title: "Erro ao excluir", variant: "destructive" });
-        return;
+      if (u._source === "partners") {
+        await deletePartner(u.id);
+        queryClient.invalidateQueries({ queryKey: qk.partners.all });
+      } else {
+        await deleteUser(u.id);
+        queryClient.invalidateQueries({ queryKey: qk.users.all });
       }
       toast({
         title: u._source === "partners" ? "Parceiro excluído" : "Usuário excluído",
         description: `${u.name} foi removido. Orçamentos/cotações anteriores preservam o nome no histórico.`,
       });
       setUserToDelete(null);
-      await reload();
     } catch (err) {
       toast({
         title: "Erro ao excluir",
