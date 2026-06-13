@@ -69,6 +69,22 @@ para preservar os resumos atuais.
 datas, total_value etc.) e nos `get` de detalhe. `pagination.jsx` é a UI
 prevista para `listPaged` — preservar na Etapa 8.
 
+## Etapa 6 — rotas declarativas + lazy loading (bundle)
+
+- `app/routes.js`: tabela declarativa (path/roles/lazy import). Paths e
+  allowedRoles idênticos ao App.jsx anterior (validado rota a rota).
+- `app/App.jsx`: gera as `<Route>` da tabela com `React.lazy` + `<Suspense>`
+  (fallback = mesmo spinner do ProtectedRoute). Os componentes lazy são
+  resolvidos UMA vez em escopo de módulo (`LAZY_ROUTES`) — chamar `lazy()` no
+  render remontaria a página a cada re-render.
+- Login segue fora do Layout e sem proteção; catch-all `*` → PageNotFound.
+
+**Bundle (npm run build):**
+- Antes (Etapa 5): 1 chunk único `index-*.js` = **1.415 KB** (gzip 381 KB).
+- Depois: entry `index-*.js` = **472 KB** + **113 chunks** sob demanda (1 por
+  página). Ex.: VendedorOrcamento 120 KB, ProjectKanban 112 KB, VendedorCotacao
+  80 KB — só baixam quando a rota é acessada.
+
 ## Correções de lint sem mudança de comportamento
 
 - Imports/variáveis não usados removidos via `eslint --fix` (sobras de
