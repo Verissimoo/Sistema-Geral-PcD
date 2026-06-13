@@ -1,29 +1,14 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  FileStack, Search, Plus, Eye, Calendar, DollarSign,
-  CheckCircle2, Send, FileText, Copy, Check, Download,
-  Clock, XCircle, PlusCircle, AlertTriangle, RefreshCw,
-  Edit, FilePlus,
-} from "lucide-react";
+import { FileStack, Plus } from "lucide-react";
 import QuickPriceEditDialog from "@/shared/components/QuickPriceEditDialog";
 import { EmissionDialog } from "@/features/emissoes/components/EmissionDialog";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
-import { Input } from "@/shared/ui/input";
-import { Label } from "@/shared/ui/label";
 import { Badge } from "@/shared/ui/badge";
-import { Textarea } from "@/shared/ui/textarea";
-import { Separator } from "@/shared/ui/separator";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/shared/ui/dialog";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/shared/ui/select";
-import {
-  Popover, PopoverContent, PopoverTrigger,
-} from "@/shared/ui/popover";
 import { useToast } from "@/shared/ui/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/shared/lib/utils";
@@ -31,63 +16,15 @@ import { useQuotes, useMilesTable, useUpdateQuote } from "@/api/hooks";
 import { qk } from "@/api/queryKeys";
 import { openQuoteInNewTab } from "@/features/orcamento/lib/generateQuoteHTML";
 import { useAuth } from "@/features/auth/AuthContext";
-import { computePricingTotals, computeCommission, buildCommissionSnapshot } from "@/shared/lib/pricingCalculator";
-import { checkMilesPriceFreshness, FROZEN_STATUSES } from "@/features/orcamento/lib/priceFreshness";
-import { formatBRL, formatDateBR } from "@/shared/lib/format";
-
-const STATUSES = [
-  "Enviado",
-  "FollowUp Pendente",
-  "FollowUp 1 Enviado",
-  "FollowUp 2 Enviado",
-  "FollowUp 3 Enviado",
-  "Aprovado",
-  "Aguardando Emissão",
-  "Emitido",
-  "Recusado",
-  "Cancelado",
-];
-
-const STATUS_LABELS = {
-  Enviado: "Enviado",
-  "FollowUp Pendente": "⚡ Follow-up Pendente",
-  "FollowUp 1 Enviado": "Follow-up 1 ✓",
-  "FollowUp 2 Enviado": "Follow-up 2 ✓",
-  "FollowUp 3 Enviado": "Follow-up 3 ✓",
-  Aprovado: "Aprovado",
-  "Aguardando Emissão": "⏳ Aguardando Emissão",
-  Emitido: "✓ Emitido",
-  Recusado: "Recusado",
-  Cancelado: "Cancelado",
-};
-
-const STATUS_STYLES = {
-  Enviado: "bg-accent/10 text-accent border-accent/30 hover:bg-accent/10",
-  "FollowUp Pendente": "bg-warning/10 text-warning border-warning/30 hover:bg-warning/10 animate-pulse",
-  "FollowUp 1 Enviado": "bg-accent/10 text-accent border-accent/30 hover:bg-accent/10",
-  "FollowUp 2 Enviado": "bg-accent/10 text-accent border-accent/30 hover:bg-accent/10",
-  "FollowUp 3 Enviado": "bg-accent/10 text-accent border-accent/30 hover:bg-accent/10",
-  Aprovado: "bg-success/10 text-success border-success/30 hover:bg-success/10",
-  "Aguardando Emissão": "bg-warning/10 text-warning border-warning/30 hover:bg-warning/10",
-  Emitido: "bg-accent/10 text-accent border-accent/30 hover:bg-accent/10",
-  Recusado: "bg-danger/10 text-danger border-danger/30 hover:bg-danger/10",
-  Cancelado: "bg-bg-elevated text-text-secondary border-border hover:bg-bg-elevated",
-};
-
-const timeAgo = (iso) => {
-  if (!iso) return "—";
-  const diffMs = Date.now() - new Date(iso).getTime();
-  const min = Math.floor(diffMs / 60000);
-  if (min < 1) return "agora";
-  if (min < 60) return `há ${min} min`;
-  const h = Math.floor(min / 60);
-  if (h < 24) return `há ${h}h`;
-  const d = Math.floor(h / 24);
-  if (d < 30) return `há ${d}d`;
-  const months = Math.floor(d / 30);
-  if (months < 12) return `há ${months} ${months === 1 ? "mês" : "meses"}`;
-  return new Date(iso).toLocaleDateString("pt-BR");
-};
+import { STATUS_LABELS, STATUS_STYLES } from "@/features/orcamento/lib/quoteStatus";
+import { vendedorTimeAgo } from "@/features/orcamento/lib/vendedorTimeAgo";
+import { useVendedorOrcamentosFilters } from "@/features/orcamento/hooks/useVendedorOrcamentosFilters";
+import { useRecalculatePrice } from "@/features/orcamento/hooks/useRecalculatePrice";
+import { VendedorMetricCards } from "@/features/orcamento/components/VendedorMetricCards";
+import { VendedorQuoteFilters } from "@/features/orcamento/components/VendedorQuoteFilters";
+import { VendedorQuoteRow } from "@/features/orcamento/components/VendedorQuoteRow";
+import { VendedorQuoteDetail } from "@/features/orcamento/components/VendedorQuoteDetail";
+import { VendedorStatusChangeDialog } from "@/features/orcamento/components/VendedorStatusChangeDialog";
 
 export default function VendedorOrcamentos() {
   const navigate = useNavigate();
@@ -110,11 +47,15 @@ export default function VendedorOrcamentos() {
   const [quickEditQuote, setQuickEditQuote] = useState(null);
   const [quickEditOpen, setQuickEditOpen] = useState(false);
 
-  // Vendedor enxerga apenas as próprias cotações; admin vê todas.
-  const quotes = useMemo(
-    () => (isAdmin ? allQuotes : allQuotes.filter((q) => q.seller_id === user?.id)),
-    [allQuotes, isAdmin, user?.id]
-  );
+  const { quotes, filtered, metrics } = useVendedorOrcamentosFilters({
+    allQuotes,
+    isAdmin,
+    userId: user?.id,
+    search,
+    statusFilter,
+    periodFilter,
+    sortBy,
+  });
 
   // Dialogs externos (EmissionDialog/QuickPriceEditDialog) gravam via módulo
   // puro, sem invalidation automática — invalidamos manualmente após salvar.
@@ -124,91 +65,11 @@ export default function VendedorOrcamentos() {
   // Reprecifica um orçamento ainda não congelado usando o preço atual da
   // tabela de milhas. Mantém o valor de venda (acordado com o cliente) e
   // recalcula custo + comissão. Snapshot completo via pricingCalculator.
-  const handleRecalculatePrice = async (quote, freshness) => {
-    if (!freshness || freshness.isFresh) return;
-    if (FROZEN_STATUSES.has(quote.status)) {
-      toast({
-        title: "Status congelado",
-        description: "Cotações emitidas/canceladas/recusadas não podem ser reprecificadas.",
-        variant: "destructive",
-      });
-      return;
-    }
-    const ok = window.confirm(
-      `Atualizar o preço deste orçamento de ${formatBRL(freshness.usedPrice)}/mil para ${formatBRL(freshness.currentPrice)}/mil?\n\n` +
-        "O custo será recalculado, mas o valor de venda ao cliente permanece. Margem e comissão são recalculados."
-    );
-    if (!ok) return;
-
-    const newCostPerThousand = Number(freshness.currentPrice) || 0;
-    const milesQty = Number(quote.pricing?.miles_qty) || 0;
-    const newCostBrl = (milesQty / 1000) * newCostPerThousand;
-
-    const tentativePricing = {
-      ...(quote.pricing || {}),
-      miles_value_per_thousand: newCostPerThousand,
-      cost_brl: newCostBrl,
-      cost_brl_calc: newCostBrl,
-      reprecified_at: new Date().toISOString(),
-    };
-    // Sincroniza nipon_value snapshot com o cálculo dinâmico (custo × 1.10 ou
-    // × 1.0 para Azul). Sem isso, o snapshot fica stale após o recalc.
-    const derived = computePricingTotals({ ...quote, pricing: tentativePricing });
-    const newPricing = { ...tentativePricing, nipon_value: derived.niponPerPax };
-    const newCommission = buildCommissionSnapshot({
-      ...quote,
-      pricing: newPricing,
-    });
-
-    let updated;
-    try {
-      updated = await updateQuote.mutateAsync({
-        id: quote.id,
-        updates: { pricing: newPricing, commission: newCommission },
-      });
-    } catch {
-      return; // Erro já notificado pelo toast central do queryClient.
-    }
-    toast({
-      title: "Preço atualizado",
-      description: "Custo e comissão recalculados com base na tabela atual.",
-    });
-    setDetailQuote(updated);
-  };
-
-  const filtered = useMemo(() => {
-    let list = [...quotes];
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      list = list.filter((x) => x.client?.name?.toLowerCase().includes(q));
-    }
-    if (statusFilter !== "Todos") {
-      list = list.filter((x) => (x.status || "Enviado") === statusFilter);
-    }
-    if (periodFilter !== "all") {
-      const days = periodFilter === "week" ? 7 : 30;
-      const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
-      list = list.filter((x) => new Date(x.created_date).getTime() >= cutoff);
-    }
-    if (sortBy === "recent") {
-      list.sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
-    } else if (sortBy === "value") {
-      list.sort((a, b) => (b.total_value || 0) - (a.total_value || 0));
-    } else if (sortBy === "status") {
-      list.sort((a, b) => (a.status || "").localeCompare(b.status || ""));
-    }
-    return list;
-  }, [quotes, search, statusFilter, periodFilter, sortBy]);
-
-  const metrics = useMemo(() => {
-    const total = quotes.length;
-    const enviados = quotes.filter((x) => x.status === "Enviado").length;
-    const aprovados = quotes.filter((x) => x.status === "Aprovado").length;
-    const valorAprovado = quotes
-      .filter((x) => x.status === "Aprovado")
-      .reduce((acc, x) => acc + (Number(x.total_value) || 0), 0);
-    return { total, enviados, aprovados, valorAprovado };
-  }, [quotes]);
+  const handleRecalculatePrice = useRecalculatePrice({
+    updateQuote,
+    toast,
+    onUpdated: setDetailQuote,
+  });
 
   const openStatusChange = (quote, newStatus) => {
     setStatusChangeQuote(quote);
@@ -288,74 +149,19 @@ export default function VendedorOrcamentos() {
       </div>
 
       {/* Métricas */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <MetricCard
-          icon={<FileStack className="h-4 w-4" />}
-          label="Total de Orçamentos"
-          value={metrics.total}
-        />
-        <MetricCard
-          icon={<Send className="h-4 w-4" />}
-          label="Enviados"
-          value={metrics.enviados}
-          color="text-accent"
-        />
-        <MetricCard
-          icon={<CheckCircle2 className="h-4 w-4" />}
-          label="Aprovados"
-          value={metrics.aprovados}
-          color="text-success"
-        />
-        <MetricCard
-          icon={<DollarSign className="h-4 w-4" />}
-          label="Valor Aprovado"
-          value={formatBRL(metrics.valorAprovado)}
-          color="text-success"
-          isText
-        />
-      </div>
+      <VendedorMetricCards metrics={metrics} />
 
       {/* Filtros */}
-      <Card className="border-border/50">
-        <CardContent className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_180px_180px_160px] gap-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nome do cliente..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Todos">Todos os status</SelectItem>
-                {STATUSES.map((s) => (
-                  <SelectItem key={s} value={s}>{STATUS_LABELS[s] || s}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={periodFilter} onValueChange={setPeriodFilter}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os períodos</SelectItem>
-                <SelectItem value="week">Última semana</SelectItem>
-                <SelectItem value="month">Último mês</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="recent">Mais recente</SelectItem>
-                <SelectItem value="value">Maior valor</SelectItem>
-                <SelectItem value="status">Por status</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+      <VendedorQuoteFilters
+        search={search}
+        onSearchChange={setSearch}
+        statusFilter={statusFilter}
+        onStatusFilterChange={setStatusFilter}
+        periodFilter={periodFilter}
+        onPeriodFilterChange={setPeriodFilter}
+        sortBy={sortBy}
+        onSortByChange={setSortBy}
+      />
 
       {/* Lista */}
       {filtered.length === 0 ? (
@@ -381,7 +187,7 @@ export default function VendedorOrcamentos() {
       ) : (
         <div className="space-y-2">
           {filtered.map((q) => (
-            <QuoteRow
+            <VendedorQuoteRow
               key={q.id}
               quote={q}
               onView={() => setDetailQuote(q)}
@@ -405,14 +211,14 @@ export default function VendedorOrcamentos() {
               Cotação {detailQuote?.quote_number || `#${detailQuote?.id?.slice(0, 8)}`}
             </DialogTitle>
             <DialogDescription>
-              Criada {timeAgo(detailQuote?.created_date)} ·{" "}
+              Criada {vendedorTimeAgo(detailQuote?.created_date)} ·{" "}
               <Badge className={cn("ml-1", STATUS_STYLES[detailQuote?.status])}>
                 {STATUS_LABELS[detailQuote?.status] || detailQuote?.status}
               </Badge>
             </DialogDescription>
           </DialogHeader>
           {detailQuote && (
-            <QuoteDetail
+            <VendedorQuoteDetail
               quote={detailQuote}
               onCopyWhatsapp={() => copyWhatsapp(detailQuote.whatsapp_text)}
               copied={copied}
@@ -454,538 +260,14 @@ export default function VendedorOrcamentos() {
       />
 
       {/* Confirmação alteração de status */}
-      <Dialog
-        open={!!statusChangeQuote}
-        onOpenChange={(o) => !o && setStatusChangeQuote(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Alterar status</DialogTitle>
-            <DialogDescription>
-              Mudar de <strong>{statusChangeQuote?.status}</strong> para{" "}
-              <strong>{statusChangeTo}</strong>
-            </DialogDescription>
-          </DialogHeader>
-          {statusChangeTo === "Aprovado" && (
-            <div className="space-y-2">
-              <Label>Data de emissão prevista (opcional)</Label>
-              <Input
-                type="date"
-                value={statusExtra.emission_date}
-                onChange={(e) =>
-                  setStatusExtra((p) => ({ ...p, emission_date: e.target.value }))
-                }
-              />
-            </div>
-          )}
-          {statusChangeTo === "Recusado" && (
-            <div className="space-y-2">
-              <Label>Motivo da recusa (opcional)</Label>
-              <Textarea
-                rows={3}
-                value={statusExtra.reject_reason}
-                onChange={(e) =>
-                  setStatusExtra((p) => ({ ...p, reject_reason: e.target.value }))
-                }
-              />
-            </div>
-          )}
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setStatusChangeQuote(null)}>
-              Cancelar
-            </Button>
-            <Button onClick={confirmStatusChange}>Confirmar</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
-
-// ─── Subcomponentes ────────────────────────────────────────────────
-
-function MetricCard({ icon, label, value, color = "text-foreground", isText }) {
-  return (
-    <Card className="border-border/50">
-      <CardContent className="p-4">
-        <div className="flex items-center gap-2 text-muted-foreground text-xs mb-2">
-          <span className={color}>{icon}</span>
-          <span>{label}</span>
-        </div>
-        <div className={cn("font-bold", isText ? "text-lg" : "text-2xl", color)}>
-          {value}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-const FOLLOWUP_STATUSES = [
-  "Enviado",
-  "FollowUp Pendente",
-  "FollowUp 1 Enviado",
-  "FollowUp 2 Enviado",
-  "FollowUp 3 Enviado",
-];
-
-function StatusActionMenu({ quote, onMarkRejected, onSendToEmission }) {
-  const isEnviadoOuFollowUp = FOLLOWUP_STATUSES.includes(quote.status);
-  const isAprovado = quote.status === "Aprovado";
-
-  const followupTime = useMemo(() => {
-    if (!isEnviadoOuFollowUp) return null;
-    const refDate = quote.last_followup_date
-      ? new Date(quote.last_followup_date)
-      : new Date(quote.created_date);
-    const hoursSince = (Date.now() - refDate.getTime()) / (1000 * 60 * 60);
-    const hoursLeft = Math.max(0, 24 - hoursSince);
-    if (hoursLeft === 0) return "Follow-up pendente agora";
-    const h = Math.floor(hoursLeft);
-    const m = Math.floor((hoursLeft - h) * 60);
-    return `Próximo follow-up em ${h}h ${m}min`;
-  }, [isEnviadoOuFollowUp, quote.status, quote.last_followup_date, quote.created_date]);
-
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button type="button" className="inline-flex" title="Ações de status">
-          <Badge
-            className={cn(
-              "font-medium border cursor-pointer",
-              STATUS_STYLES[quote.status] || STATUS_STYLES.Enviado,
-            )}
-          >
-            {STATUS_LABELS[quote.status] || quote.status || "Enviado"}
-          </Badge>
-        </button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-72 p-2">
-        <div className="space-y-1">
-          {followupTime && (
-            <div className="px-3 py-2 text-xs bg-warning/10 border border-warning/30 rounded-md text-warning flex items-center gap-1.5">
-              <Clock className="h-3.5 w-3.5 shrink-0" /> {followupTime}
-            </div>
-          )}
-
-          {isEnviadoOuFollowUp && (
-            <>
-              <button
-                type="button"
-                onClick={() => onSendToEmission(quote)}
-                className="w-full text-left px-3 py-2 text-sm hover:bg-accent/10 rounded-md flex items-center gap-2 text-accent"
-              >
-                <Send className="h-4 w-4" /> Enviar para Emissão (cliente aprovou)
-              </button>
-              <button
-                type="button"
-                onClick={() => onMarkRejected(quote)}
-                className="w-full text-left px-3 py-2 text-sm hover:bg-danger/10 rounded-md flex items-center gap-2 text-danger"
-              >
-                <XCircle className="h-4 w-4" /> Marcar como Recusado
-              </button>
-            </>
-          )}
-
-          {isAprovado && (
-            <button
-              type="button"
-              onClick={() => onSendToEmission(quote)}
-              className="w-full text-left px-3 py-2 text-sm hover:bg-accent/10 rounded-md flex items-center gap-2 text-accent font-medium"
-            >
-              <Send className="h-4 w-4" /> Enviar para Emissão
-            </button>
-          )}
-
-          {["Aguardando Emissão", "Emitido", "Recusado", "Cancelado"].includes(quote.status) && (
-            <div className="px-3 py-2 text-xs text-muted-foreground">
-              Sem ações disponíveis neste status
-            </div>
-          )}
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-// Status em que a edição rápida não faz sentido (cotação congelada).
-const FROZEN_EDIT_STATUSES = new Set(["Emitido", "Cancelado", "Recusado"]);
-
-function QuoteRow({ quote, onView, onMarkRejected, onSendToEmission, onQuickEdit, onFullEdit }) {
-  const canEdit = !FROZEN_EDIT_STATUSES.has(quote.status);
-  const ida = quote.itinerary?.trechos?.find((t) => t.tipo === "ida")
-    || quote.itinerary?.trechos?.[0];
-  const route = ida ? `${ida.origem_iata} → ${ida.destino_iata}` : "—";
-  const companhia = ida?.companhia || "—";
-
-  return (
-    <Card className="border-border/50 hover:border-primary/30 transition-colors">
-      <CardContent className="p-4">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_auto_auto_auto] gap-3 items-center">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-semibold text-sm">{quote.client?.name || "—"}</span>
-              <span className="text-xs text-muted-foreground">
-                {quote.client?.phone || ""}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 mt-1.5 flex-wrap text-xs">
-              <span className="font-mono font-semibold text-foreground">{route}</span>
-              <span className="text-muted-foreground">·</span>
-              <span className="text-muted-foreground flex items-center gap-1">
-                <Calendar className="h-3 w-3" /> {formatDateBR(quote.dates?.departure)}
-              </span>
-              <Badge variant="secondary" className="text-[10px]">{companhia}</Badge>
-              <Badge variant="outline" className="text-[10px]">{quote.ticket_type || "Normal"}</Badge>
-            </div>
-          </div>
-
-          <div className="text-right min-w-[100px]">
-            <div className="text-xs text-muted-foreground">Total</div>
-            <div className="font-bold text-base">{formatBRL(quote.total_value)}</div>
-          </div>
-
-          <StatusActionMenu
-            quote={quote}
-            onMarkRejected={onMarkRejected}
-            onSendToEmission={onSendToEmission}
-          />
-
-          <span className="text-xs text-muted-foreground whitespace-nowrap">
-            {timeAgo(quote.created_date)}
-          </span>
-
-          <div className="flex items-center gap-1 justify-end flex-wrap">
-            {quote.status === "Emitido" && quote.emission_voucher_url && (
-              <a
-                href={quote.emission_voucher_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-semibold text-accent hover:text-accent hover:bg-accent/10 transition-colors"
-              >
-                <Download className="h-3.5 w-3.5" /> Baixar Voucher
-              </a>
-            )}
-            <Button size="sm" variant="ghost" onClick={onView} className="gap-1.5">
-              <Eye className="h-3.5 w-3.5" /> Detalhes
-            </Button>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button size="sm" variant="outline" disabled={!canEdit} className="gap-1.5">
-                  <Edit className="h-3.5 w-3.5" /> Editar
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="w-72 p-2">
-                <button
-                  type="button"
-                  onClick={() => onQuickEdit?.()}
-                  className="w-full text-left p-3 rounded-md hover:bg-warning/10 transition"
-                >
-                  <div className="flex items-center gap-2 mb-1">
-                    <RefreshCw className="w-4 h-4 text-warning" />
-                    <p className="font-semibold text-sm">Atualizar valores</p>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Mudar pontuação, custo, taxa ou venda. Mantém voos e cliente.
-                  </p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onFullEdit?.()}
-                  className="w-full text-left p-3 rounded-md hover:bg-accent/10 transition mt-1"
-                >
-                  <div className="flex items-center gap-2 mb-1">
-                    <FilePlus className="w-4 h-4 text-accent" />
-                    <p className="font-semibold text-sm">Edição completa</p>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Refazer cotação do zero (mudou voo, destino, cliente etc).
-                  </p>
-                </button>
-              </PopoverContent>
-            </Popover>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function QuoteDetail({
-  quote,
-  onCopyWhatsapp,
-  copied,
-  onPDF,
-  onNewQuoteForClient,
-  milesTable = [],
-  onRecalculatePrice,
-}) {
-  const isParceiroQuote = quote.recipient_type === "parceiro";
-  const totals = computePricingTotals(quote);
-  const commission = computeCommission(quote);
-  const multiPax = totals.passengers >= 2;
-  const renderPerPaxHint = (perPax) =>
-    multiPax ? (
-      <div className="text-[10px] text-muted-foreground">
-        {formatBRL(perPax)} × {totals.passengers}
-      </div>
-    ) : null;
-  const freshness = useMemo(
-    () => checkMilesPriceFreshness(quote, milesTable),
-    [quote, milesTable]
-  );
-  const isFrozen = FROZEN_STATUSES.has(quote.status);
-  return (
-    <div className="space-y-4 text-sm">
-      {/* Snapshot de preço desatualizado em relação à tabela de milhas atual */}
-      {!freshness.isFresh && (
-        <div className="bg-warning/10 border-2 border-warning/30 rounded-xl p-4">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
-            <div className="flex-1 min-w-0">
-              <p className="font-bold text-warning mb-1">
-                Preço da {freshness.programName} mudou desde esta cotação
-                {freshness.multipleSegments && ` (e em mais ${freshness.segmentsStale - 1} trecho${freshness.segmentsStale - 1 === 1 ? "" : "s"})`}
-              </p>
-              <p className="text-sm text-warning mb-2">
-                Cotado a <strong>{formatBRL(freshness.usedPrice)}/mil</strong>, hoje custa{" "}
-                <strong>{formatBRL(freshness.currentPrice)}/mil</strong>
-                <span className={freshness.priceChange > 0 ? "text-danger" : "text-success"}>
-                  {" "}
-                  ({freshness.priceChange > 0 ? "+" : ""}
-                  {formatBRL(freshness.priceChange)}/mil)
-                </span>
-                .
-              </p>
-              {isFrozen ? (
-                <p className="text-xs text-warning">
-                  Esta cotação já está no status <strong>{quote.status}</strong> — os valores
-                  ficam congelados para auditoria.
-                </p>
-              ) : freshness.multipleSegments ? (
-                <p className="text-xs text-warning">
-                  Quebra de Trecho com múltiplos programas — a reprecificação precisa ser
-                  feita criando uma nova cotação derivada.
-                </p>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="border-warning/30 text-warning hover:bg-warning/10"
-                  onClick={() => onRecalculatePrice?.(quote, freshness)}
-                >
-                  <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
-                  Atualizar preço para o valor atual
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Cliente */}
-      <Section title="Cliente">
-        <Field label="Nome" value={quote.client?.name} />
-        <Field label="Telefone" value={quote.client?.phone || "—"} />
-        <Field label="Origem do lead" value={quote.client?.lead_origin || "—"} />
-      </Section>
-
-      {/* Nova cotação para o mesmo cliente */}
-      {!isParceiroQuote && onNewQuoteForClient && (
-        <Button
-          onClick={onNewQuoteForClient}
-          variant="outline"
-          className="w-full gap-2 border-warning/30 text-warning hover:bg-warning/10 hover:text-warning"
-        >
-          <PlusCircle className="h-4 w-4" /> Nova cotação para este cliente
-        </Button>
-      )}
-
-      {/* Itinerário */}
-      <Section title="Itinerário">
-        {(quote.itinerary?.trechos || []).map((t, i) => {
-          const segs = Array.isArray(t.segmentos) ? t.segmentos : [];
-          const hiddenIdx = segs.findIndex((s) => s && s.is_hidden_city_stop);
-          const isHidden = hiddenIdx !== -1;
-          const destinoReal = isHidden ? segs[hiddenIdx] : null;
-          return (
-          <div key={i} className="p-3 rounded-lg bg-muted/40 border border-border space-y-1.5">
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="capitalize">{t.tipo}</Badge>
-              <span className="font-medium">{t.companhia} {t.numero_voo}</span>
-              {isHidden && (
-                <Badge className="bg-accent/10 text-accent border-accent/30 text-[10px]">
-                  ✈️ Hidden City
-                </Badge>
-              )}
-            </div>
-            <div className="flex items-center gap-3 text-sm">
-              <div>
-                <div className="font-bold text-base">{t.horario_saida}</div>
-                <div className="text-xs text-muted-foreground">
-                  {t.origem_cidade} ({t.origem_iata})
-                </div>
-              </div>
-              <div className="flex-1 text-center text-xs text-muted-foreground">
-                {t.duracao}
-                {t.escalas > 0 && ` · ${t.escalas} escala em ${t.aeroporto_escala}`}
-                {(!t.escalas || t.escalas === 0) && " · direto"}
-              </div>
-              <div className="text-right">
-                <div className={`font-bold text-base ${isHidden ? "line-through text-text-muted" : ""}`}>
-                  {t.horario_chegada}
-                </div>
-                <div className={`text-xs ${isHidden ? "line-through text-text-muted" : "text-muted-foreground"}`}>
-                  {t.destino_cidade} ({t.destino_iata})
-                </div>
-                {isHidden && destinoReal && (
-                  <div className="text-[10px] text-accent font-semibold mt-0.5">
-                    Pax desce em {destinoReal.destino_iata}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-          );
-        })}
-        <div className="grid grid-cols-3 gap-2 pt-2">
-          <Field label="Ida" value={formatDateBR(quote.dates?.departure)} />
-          <Field
-            label="Volta"
-            value={quote.dates?.one_way ? "Somente ida" : formatDateBR(quote.dates?.return)}
-          />
-          <Field label="Passageiros" value={quote.passengers || 1} />
-        </div>
-      </Section>
-
-      {/* Precificação — totais já consideram múltiplos passageiros. */}
-      <Section title={multiPax ? `Precificação · ${totals.passengers} passageiros` : "Precificação"}>
-        <Field
-          label="Tipo"
-          value={
-            quote.pricing?.type === "milhas"
-              ? `Milhas — ${quote.pricing?.program || "—"}`
-              : quote.pricing?.type === "milhas_dinheiro"
-                ? `Milhas + Dinheiro — ${quote.pricing?.program || quote.pricing?.program_name || "Azul"}`
-                : "Dinheiro"
-          }
-        />
-        {quote.pricing?.type === "milhas_dinheiro" && (
-          <>
-            <Field
-              label="Milhas"
-              value={`${(quote.pricing?.miles_qty || 0).toLocaleString("pt-BR")} mi/pax`}
-            />
-            <Field
-              label="Parte em dinheiro"
-              value={`${formatBRL(quote.pricing?.cash_part || 0)}/pax`}
-            />
-          </>
-        )}
-        <Field
-          label="Custo total"
-          value={
-            <div className="text-right">
-              <div>{formatBRL(totals.costTotal)}</div>
-              {renderPerPaxHint(totals.costPerPax)}
-            </div>
-          }
-        />
-        <Field
-          label="Nipon (mínimo)"
-          value={
-            <div className="text-right">
-              <div>{formatBRL(totals.niponTotal)}</div>
-              {renderPerPaxHint(totals.niponPerPax)}
-            </div>
-          }
-        />
-        <Field label="Venda" value={formatBRL(totals.saleTotal || quote.total_value)} />
-        <Field
-          label={`Margem bruta`}
-          value={
-            <span className={totals.margemBruta >= 0 ? "text-success" : "text-danger"}>
-              {formatBRL(totals.margemBruta)}
-            </span>
-          }
-        />
-        <Field
-          label={`Comissão total${commission.isCarteiraPropria ? " · Carteira própria 30%" : ""}`}
-          value={formatBRL(commission.total)}
-        />
-      </Section>
-
-      {/* Serviços */}
-      {(quote.services?.insurance?.active || quote.services?.transfer?.active || quote.additional) && (
-        <Section title="Serviços e adicionais">
-          {quote.services?.insurance?.active && (
-            <Field label="Seguro Viagem" value={formatBRL(quote.services.insurance.value)} />
-          )}
-          {quote.services?.transfer?.active && (
-            <Field label="Transfer" value={formatBRL(quote.services.transfer.value)} />
-          )}
-          {quote.additional && (
-            <Field
-              label={quote.additional.description || "Adicional"}
-              value={formatBRL(quote.additional.value)}
-            />
-          )}
-        </Section>
-      )}
-
-      {/* Concorrência */}
-      {quote.competitor && (
-        <Section title="Concorrência">
-          <Field label="Empresa" value={quote.competitor.name} />
-          <Field label="Valor" value={formatBRL(quote.competitor.value)} />
-          <Field label="Tarifa" value={quote.competitor.fare_type} />
-        </Section>
-      )}
-
-      {/* Total */}
-      <div className="p-4 rounded-lg bg-primary text-primary-foreground flex items-center justify-between">
-        <span className="text-xs uppercase tracking-wide opacity-80">Valor total</span>
-        <span className="text-2xl font-bold">{formatBRL(quote.total_value)}</span>
-      </div>
-
-      {/* WhatsApp */}
-      {quote.whatsapp_text && (
-        <Section title="Texto WhatsApp">
-          <Textarea
-            readOnly
-            value={quote.whatsapp_text}
-            className="min-h-[200px] font-mono text-xs"
-          />
-          <Button onClick={onCopyWhatsapp} variant="outline" className="gap-2 w-full">
-            {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-            {copied ? "Copiado!" : "Copiar texto"}
-          </Button>
-        </Section>
-      )}
-
-      <Separator />
-      <Button onClick={onPDF} className="w-full bg-[#0D2B6E] hover:bg-[#0A2259] text-white gap-2 h-11">
-        <FileText className="h-4 w-4" /> 📄 Baixar PDF
-      </Button>
-    </div>
-  );
-}
-
-function Section({ title, children }) {
-  return (
-    <div className="space-y-2">
-      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {title}
-      </div>
-      <div className="space-y-1.5">{children}</div>
-    </div>
-  );
-}
-
-function Field({ label, value }) {
-  return (
-    <div className="flex items-center justify-between gap-2 py-1 border-b border-border/40 last:border-0">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="font-medium text-right">{value || "—"}</span>
+      <VendedorStatusChangeDialog
+        statusChangeQuote={statusChangeQuote}
+        statusChangeTo={statusChangeTo}
+        statusExtra={statusExtra}
+        onStatusExtraChange={setStatusExtra}
+        onClose={() => setStatusChangeQuote(null)}
+        onConfirm={confirmStatusChange}
+      />
     </div>
   );
 }
