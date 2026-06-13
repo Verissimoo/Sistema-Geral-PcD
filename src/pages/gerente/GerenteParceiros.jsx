@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Handshake, ShieldCheck, ShieldOff, Building2, Phone, Mail,
@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { localClient } from "@/api/localClient";
+import { usePartners, usePartnerCompanies, useQuotes } from "@/api/hooks";
 import { formatBRL, formatDateBR } from "@/shared/lib/format";
 
 const initials = (name = "") =>
@@ -21,21 +21,9 @@ const initials = (name = "") =>
 
 export default function GerenteParceiros() {
   const navigate = useNavigate();
-  const [partners, setPartners] = useState([]);
-  const [companies, setCompanies] = useState([]);
-  const [quotes, setQuotes] = useState([]);
-
-  const reload = async () => {
-    const [partnersList, companiesList, quotesList] = await Promise.all([
-      localClient.entities.Partners.list(),
-      localClient.entities.PartnerCompanies.list(),
-      localClient.entities.Quotes.list(),
-    ]);
-    setPartners(partnersList || []);
-    setCompanies(companiesList || []);
-    setQuotes(quotesList || []);
-  };
-  useEffect(() => { reload(); }, []);
+  const { data: partners = [] } = usePartners();
+  const { data: companies = [] } = usePartnerCompanies();
+  const { data: quotes = [] } = useQuotes();
 
   const enriched = useMemo(() => {
     return partners.map((p) => {

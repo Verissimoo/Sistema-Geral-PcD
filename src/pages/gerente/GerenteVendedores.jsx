@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Users, Trophy, Calendar, Eye, ArrowUpDown, Medal,
@@ -12,7 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { localClient } from "@/api/localClient";
+import { useUsers, useQuotes } from "@/api/hooks";
 import { CAREER_LEVELS } from "@/lib/careerPlan";
 import { filterCommercialQuotes, getCommercialUsers } from "@/lib/commercialFilter";
 import { computePricingTotals } from "@/lib/pricingCalculator";
@@ -33,22 +33,11 @@ const SORT_FIELDS = {
 
 export default function GerenteVendedores() {
   const navigate = useNavigate();
-  const [users, setUsers] = useState([]);
-  const [quotes, setQuotes] = useState([]);
+  const { data: users = [] } = useUsers();
+  const { data: quotes = [] } = useQuotes();
   const [periodo, setPeriodo] = useState("30");
   const [periodoCustom, setPeriodoCustom] = useState({ start: "", end: "" });
   const [sortBy, setSortBy] = useState("receita");
-
-  useEffect(() => {
-    (async () => {
-      const [usersList, quotesList] = await Promise.all([
-        localClient.entities.Users.list(),
-        localClient.entities.Quotes.list(),
-      ]);
-      setUsers(usersList || []);
-      setQuotes(quotesList || []);
-    })();
-  }, []);
 
   const periodRange = useMemo(() => {
     const now = new Date();

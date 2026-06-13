@@ -17,7 +17,10 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
-import { localClient } from "@/api/localClient";
+import {
+  useClients, useQuotes, useClientOriginsQuery,
+  useCreateClientOrigin, useUpdateClientOrigin, useDeleteClientOrigin,
+} from "@/api/hooks";
 import { useAuth } from "@/lib/AuthContext";
 import { useClientOrigins, invalidateClientOrigins } from "@/lib/useClientOrigins";
 import { ClientOriginBadge } from "@/components/ClientOriginBadge";
@@ -48,23 +51,12 @@ export default function GerenteClientes() {
   const navigate = useNavigate();
   const { isAdmin, isGerente } = useAuth();
   const origins = useClientOrigins();
-  const [clients, setClients] = useState([]);
-  const [quotes, setQuotes] = useState([]);
+  const { data: clients = [] } = useClients();
+  const { data: quotes = [] } = useQuotes();
   const [search, setSearch] = useState("");
   const [originFilter, setOriginFilter] = useState("Todas");
   const [statusFilter, setStatusFilter] = useState("Todos");
   const [manageOriginsOpen, setManageOriginsOpen] = useState(false);
-
-  useEffect(() => {
-    (async () => {
-      const [clientsList, quotesList] = await Promise.all([
-        localClient.entities.Clients.list(),
-        localClient.entities.Quotes.list(),
-      ]);
-      setClients(clientsList || []);
-      setQuotes(quotesList || []);
-    })();
-  }, []);
 
   // Enriquece clientes com dados agregados dos quotes
   const enriched = useMemo(() => {
@@ -259,40 +251,36 @@ export default function GerenteClientes() {
 
 function ManageOriginsDialog({ open, onOpenChange }) {
   const { toast } = useToast();
-  const [origins, setOrigins] = useState([]);
+  const { data: origins = [] } = useClientOriginsQuery();
+  const createOrigin = useCreateClientOrigin();
+  const updateOrigin = useUpdateClientOrigin();
+  const deleteOrigin = useDeleteClientOrigin();
   const [newLabel, setNewLabel] = useState("");
   const [newColor, setNewColor] = useState("#64748B");
   const [newScope, setNewScope] = useState("geral");
   const [saving, setSaving] = useState(false);
 
-  const load = async () => {
-    const list = (await localClient.entities.ClientOrigins.list()) || [];
-    setOrigins(list);
-    await invalidateClientOrigins();
-  };
-
   useEffect(() => {
-    if (open) load();
-     
+    // Garante lista fresca ao abrir o dialog (refetch via invalidation)
+    if (open) invalidateClientOrigins();
   }, [open]);
 
   const handleCreate = async () => {
     if (!newLabel.trim() || saving) return;
     setSaving(true);
     try {
-      const created = await localClient.entities.ClientOrigins.create({
-        label: newLabel.trim(),
-        color: newColor,
-        scope: newScope,
-      });
-      if (!created) {
-        toast({ title: "Erro ao criar tipo", variant: "destructive" });
+      try {
+        await createOrigin.mutateAsync({
+          label: newLabel.trim(),
+          color: newColor,
+          scope: newScope,
+        });
+      } catch {
         return;
       }
       setNewLabel("");
       setNewColor("#64748B");
       setNewScope("geral");
-      await load();
       toast({ title: "Tipo criado" });
     } finally {
       setSaving(false);
@@ -301,14 +289,20 @@ function ManageOriginsDialog({ open, onOpenChange }) {
 
   const handleDelete = async (id) => {
     if (!confirm("Excluir este tipo? Clientes já cadastrados com ele não serão alterados.")) return;
-    await localClient.entities.ClientOrigins.delete(id);
-    await load();
+    try {
+      await deleteOrigin.mutateAsync(id);
+    } catch {
+      return;
+    }
     toast({ title: "Tipo excluído" });
   };
 
   const handleUpdateColor = async (id, color) => {
-    await localClient.entities.ClientOrigins.update(id, { color });
-    await load();
+    try {
+      await updateOrigin.mutateAsync({ id, updates: { color } });
+    } catch {
+      /* toast central já exibe o erro */
+    }
   };
 
   return (

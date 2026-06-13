@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, MessageCircle, FileText, ShoppingCart, DollarSign,
@@ -13,7 +13,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { localClient } from "@/api/localClient";
+import { useQuotes, useClient } from "@/api/hooks";
 import { ClientOriginBadge } from "@/components/ClientOriginBadge";
 import { computePricingTotals } from "@/lib/pricingCalculator";
 import { formatBRL, formatDateBR, formatDateTimeBR } from "@/shared/lib/format";
@@ -52,31 +52,21 @@ export default function GerenteClienteDetalhe() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [client, setClient] = useState(null);
-  const [allQuotes, setAllQuotes] = useState([]);
+  const { data: allQuotes = [] } = useQuotes();
+  // useClient retorna null para "não encontrado" (não é erro)
+  const { data: clientFromStore, isLoading: clientLoading } = useClient(id);
   const [detailQuote, setDetailQuote] = useState(null);
 
-  useEffect(() => {
-    (async () => {
-      const [allQ, clientFromStore] = await Promise.all([
-        localClient.entities.Quotes.list(),
-        localClient.entities.Clients.get(id),
-      ]);
-      setAllQuotes(allQ || []);
-
-      let c = clientFromStore;
-      // Fallback: extrai dos quotes se cliente não estiver mais no store
-      if (!c) {
-        const fromQuote = (allQ || []).find(
-          (q) => q.client?.id === id || q.client_id === id
-        );
-        if (fromQuote?.client) {
-          c = { ...fromQuote.client, id };
-        }
-      }
-      setClient(c);
-    })();
-  }, [id]);
+  // Fallback: extrai dos quotes se cliente não estiver mais no store
+  const client = useMemo(() => {
+    if (clientFromStore) return clientFromStore;
+    if (clientLoading) return null;
+    const fromQuote = allQuotes.find(
+      (q) => q.client?.id === id || q.client_id === id
+    );
+    if (fromQuote?.client) return { ...fromQuote.client, id };
+    return null;
+  }, [clientFromStore, clientLoading, allQuotes, id]);
 
   const quotes = useMemo(
     () =>

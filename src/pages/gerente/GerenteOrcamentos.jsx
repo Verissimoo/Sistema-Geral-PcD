@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   FileStack, Search, Eye, FileText, Download,
@@ -26,7 +27,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
-import { localClient } from "@/api/localClient";
+import { useQuotes, useUsers, useMilesTable, useUpdateQuote } from "@/api/hooks";
+import { qk } from "@/api/queryKeys";
 import { openQuoteInNewTab } from "@/lib/generateQuoteHTML";
 import { CAREER_LEVELS } from "@/lib/careerPlan";
 import { computePricingTotals, computeCommission, buildCommissionSnapshot } from "@/lib/pricingCalculator";
@@ -98,9 +100,11 @@ export default function GerenteOrcamentos() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const [quotes, setQuotes] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [milesTable, setMilesTable] = useState([]);
+  const queryClient = useQueryClient();
+  const { data: quotes = [] } = useQuotes();
+  const { data: users = [] } = useUsers();
+  const { data: milesTable = [] } = useMilesTable();
+  const updateQuote = useUpdateQuote();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "Todos");
   const [sellerFilter, setSellerFilter] = useState("Todos");
@@ -110,18 +114,6 @@ export default function GerenteOrcamentos() {
   const [detailQuote, setDetailQuote] = useState(null);
   const [quickEditQuote, setQuickEditQuote] = useState(null);
   const [quickEditOpen, setQuickEditOpen] = useState(false);
-
-  const reload = async () => {
-    const [quotesList, usersList, mt] = await Promise.all([
-      localClient.entities.Quotes.list(),
-      localClient.entities.Users.list(),
-      localClient.entities.MilesTable.list(),
-    ]);
-    setQuotes(quotesList || []);
-    setUsers(usersList || []);
-    setMilesTable(mt || []);
-  };
-  useEffect(() => { reload(); }, []);
 
   // Reprecifica usando o preço atual da tabela — só para não-congelados.
   const handleRecalculatePrice = async (quote, freshness) => {
@@ -153,12 +145,14 @@ export default function GerenteOrcamentos() {
     const derived = computePricingTotals({ ...quote, pricing: tentativePricing });
     const newPricing = { ...tentativePricing, nipon_value: derived.niponPerPax };
     const newCommission = buildCommissionSnapshot({ ...quote, pricing: newPricing });
-    const updated = await localClient.entities.Quotes.update(quote.id, {
-      pricing: newPricing,
-      commission: newCommission,
-    });
-    if (!updated) {
-      toast({ title: "Erro ao atualizar preço", variant: "destructive" });
+    let updated;
+    try {
+      updated = await updateQuote.mutateAsync({
+        id: quote.id,
+        updates: { pricing: newPricing, commission: newCommission },
+      });
+    } catch {
+      // Toast de erro central já exibido pelo queryClient
       return;
     }
     toast({
@@ -166,7 +160,6 @@ export default function GerenteOrcamentos() {
       description: "Custo e comissão recalculados com base na tabela atual.",
     });
     setDetailQuote(updated);
-    await reload();
   };
 
   // Sincroniza statusFilter no querystring
@@ -261,9 +254,13 @@ export default function GerenteOrcamentos() {
     const updates = { status: newStatus };
     const dateColumn = STATUS_DATE_COLUMN[newStatus];
     if (dateColumn) updates[dateColumn] = new Date().toISOString();
-    await localClient.entities.Quotes.update(quote.id, updates);
+    try {
+      await updateQuote.mutateAsync({ id: quote.id, updates });
+    } catch {
+      // Toast de erro central já exibido pelo queryClient
+      return;
+    }
     toast({ title: `Status atualizado para: ${newStatus}` });
-    reload();
   };
 
   const exportPDF = (quote) => {
@@ -542,7 +539,9 @@ export default function GerenteOrcamentos() {
         quote={quickEditQuote}
         onSaved={() => {
           toast({ title: "Valores atualizados" });
-          reload();
+          // O dialog salva via localClient (fora da camada react-query) —
+          // invalida o cache para refletir os novos valores.
+          queryClient.invalidateQueries({ queryKey: qk.quotes.all });
         }}
       />
     </div>

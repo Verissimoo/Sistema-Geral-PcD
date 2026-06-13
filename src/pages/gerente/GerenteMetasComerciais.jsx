@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Target, TrendingUp, Calendar, CheckCircle2, Clock,
   Settings, Plus, Trash2, RotateCcw, AlertTriangle, Award,
@@ -17,7 +18,12 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
-import { localClient, seedCommercialGoals } from "@/api/localClient";
+import {
+  useCommercialGoals, useQuotes, useUsers,
+  useCreateGoal, useUpdateGoal, useDeleteGoal,
+} from "@/api/hooks";
+import { qk } from "@/api/queryKeys";
+import { seedCommercialGoals } from "@/api/seeds";
 import { filterCommercialQuotes } from "@/lib/commercialFilter";
 import { getRevenueQuotes } from "@/lib/revenueHelper";
 import { formatBRL } from "@/shared/lib/format";
@@ -74,9 +80,10 @@ const STRETCH_TRIGGERS = [
 
 export default function GerenteMetasComerciais() {
   const { toast } = useToast();
-  const [goals, setGoals] = useState([]);
-  const [quotes, setQuotes] = useState([]);
-  const [users, setUsers] = useState([]);
+  const { data: goals = [] } = useCommercialGoals();
+  const { data: quotes = [] } = useQuotes();
+  const { data: users = [] } = useUsers();
+  const updateGoal = useUpdateGoal();
   const [editOpen, setEditOpen] = useState(false);
 
   // Mês real do calendário (independente do status "Ativa" das metas seedadas)
@@ -93,35 +100,25 @@ export default function GerenteMetasComerciais() {
     return "Futura";
   };
 
-  const reload = async () => {
-    const all = (await localClient.entities.CommercialGoals.list()) || [];
-    // Atualiza status no Supabase para refletir o calendário real
-    const pendingUpdates = all
-      .filter((g) => g.status !== expectedStatus(g.month))
-      .map((g) =>
-        localClient.entities.CommercialGoals.update(g.id, {
-          status: expectedStatus(g.month),
+  // Atualiza status no Supabase para refletir o calendário real — a
+  // invalidation pós-mutation re-busca a lista já corrigida.
+  useEffect(() => {
+    const stale = goals.filter((g) => g.status !== expectedStatus(g.month));
+    if (stale.length === 0) return;
+    Promise.all(
+      stale.map((g) =>
+        updateGoal.mutateAsync({
+          id: g.id,
+          updates: { status: expectedStatus(g.month) },
         })
-      );
-    if (pendingUpdates.length > 0) await Promise.all(pendingUpdates);
+      )
+    ).catch(() => {
+      /* toast central já exibe o erro */
+    });
 
-    // Re-lê após eventuais updates e ordena cronologicamente
-    const [fresh, quotesList, usersList] = await Promise.all([
-      localClient.entities.CommercialGoals.list(),
-      localClient.entities.Quotes.list(),
-      localClient.entities.Users.list(),
-    ]);
-    const sorted = (fresh || []).sort((a, b) =>
-      (a.month || "").localeCompare(b.month || "")
-    );
-    setGoals(sorted);
-    setQuotes(quotesList || []);
-    setUsers(usersList || []);
-  };
+  }, [goals]);
 
-  useEffect(() => { reload(); }, []);
-
-  // sortedGoals = goals já chega ordenado de reload(), mas mantemos a garantia
+  // Ordena cronologicamente (a lista da API vem por created_date)
   const sortedGoals = useMemo(
     () => [...goals].sort((a, b) => (a.month || "").localeCompare(b.month || "")),
     [goals]
@@ -520,7 +517,6 @@ export default function GerenteMetasComerciais() {
         open={editOpen}
         onClose={() => setEditOpen(false)}
         goals={sortedGoals}
-        onChange={() => { reload(); }}
         toast={toast}
       />
     </div>
@@ -727,7 +723,11 @@ function Stat({ label, value }) {
 }
 
 // ─── Dialog de edição ────────────────────────────────────────────────
-function EditGoalsDialog({ open, onClose, goals, onChange, toast }) {
+function EditGoalsDialog({ open, onClose, goals, toast }) {
+  const queryClient = useQueryClient();
+  const createGoal = useCreateGoal();
+  const updateGoal = useUpdateGoal();
+  const deleteGoal = useDeleteGoal();
   const [drafts, setDrafts] = useState([]);
 
   useEffect(() => {
@@ -798,14 +798,13 @@ function EditGoalsDialog({ open, onClose, goals, onChange, toast }) {
 
   const handleSaveAll = async () => {
     // Persiste: atualiza existentes, cria novos, deleta removidos
-    const existing = (await localClient.entities.CommercialGoals.list()) || [];
-    const existingIds = new Set(existing.map((g) => g.id));
+    const existingIds = new Set(goals.map((g) => g.id));
     const draftIds = new Set(drafts.map((g) => g.id));
 
     // Deleta removidos
-    const deletes = existing
+    const deletes = goals
       .filter((g) => !draftIds.has(g.id))
-      .map((g) => localClient.entities.CommercialGoals.delete(g.id));
+      .map((g) => deleteGoal.mutateAsync(g.id));
 
     // Atualiza/cria
     const upserts = drafts.map((d) => {
@@ -826,27 +825,33 @@ function EditGoalsDialog({ open, onClose, goals, onChange, toast }) {
         status: d.status || "Futura",
       };
       if (existingIds.has(d.id)) {
-        return localClient.entities.CommercialGoals.update(d.id, payload);
+        return updateGoal.mutateAsync({ id: d.id, updates: payload });
       }
-      return localClient.entities.CommercialGoals.create(payload);
+      return createGoal.mutateAsync(payload);
     });
 
-    await Promise.all([...deletes, ...upserts]);
+    try {
+      await Promise.all([...deletes, ...upserts]);
+    } catch {
+      // Toast de erro central já exibido pelo queryClient
+      return;
+    }
 
     toast({ title: "Escada atualizada" });
-    onChange();
     onClose();
   };
 
   const handleReset = async () => {
     if (!confirm("Resetar todas as metas? Isso apaga as metas atuais e re-aplica o seed.")) return;
-    const existing = (await localClient.entities.CommercialGoals.list()) || [];
-    await Promise.all(
-      existing.map((g) => localClient.entities.CommercialGoals.delete(g.id))
-    );
+    try {
+      await Promise.all(goals.map((g) => deleteGoal.mutateAsync(g.id)));
+    } catch {
+      return;
+    }
     await seedCommercialGoals();
+    // O seed grava direto no Supabase (fora das mutations) — invalida o cache.
+    queryClient.invalidateQueries({ queryKey: qk.goals.all });
     toast({ title: "Metas resetadas para o padrão" });
-    onChange();
     onClose();
   };
 

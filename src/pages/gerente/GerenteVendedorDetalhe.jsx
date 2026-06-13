@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Award, MessageCircle, FileText, CheckCircle2,
@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { localClient } from "@/api/localClient";
+import { useUsers, useQuotes, useClients } from "@/api/hooks";
 import { CAREER_LEVELS } from "@/lib/careerPlan";
 import { getRevenueQuotes } from "@/lib/revenueHelper";
 import { computePricingTotals, computeCommission } from "@/lib/pricingCalculator";
@@ -69,35 +69,23 @@ export default function GerenteVendedorDetalhe() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [vendedor, setVendedor] = useState(null);
-  const [quotes, setQuotes] = useState([]);
-  const [clients, setClients] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { data: users = [], isLoading: usersLoading } = useUsers();
+  const { data: allQuotes = [], isLoading: quotesLoading } = useQuotes();
+  const { data: clients = [], isLoading: clientsLoading } = useClients();
+  const loading = usersLoading || quotesLoading || clientsLoading;
 
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      const [users, allQuotes, allClients] = await Promise.all([
-        localClient.entities.Users.list(),
-        localClient.entities.Quotes.list(),
-        localClient.entities.Clients.list(),
-      ]);
-      if (cancelled) return;
-      const found = (users || []).find((u) => u.id === id);
-      setVendedor(found || null);
-      setQuotes((allQuotes || []).filter((q) => q.seller_id === id));
-      setClients(allClients || []);
-      setLoading(false);
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [id]);
+  const vendedor = useMemo(
+    () => users.find((u) => u.id === id) || null,
+    [users, id]
+  );
+
+  const quotes = useMemo(
+    () => allQuotes.filter((q) => q.seller_id === id),
+    [allQuotes, id]
+  );
 
   const currentMonth = useMemo(() => {
     const n = new Date();
