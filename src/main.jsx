@@ -1,7 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import App from '@/App.jsx'
-import { ThemeProvider } from '@/lib/ThemeContext'
+import App from '@/app/App.jsx'
+import { ThemeProvider } from '@/shared/lib/ThemeContext'
 import '@/index.css'
 import { seedMilesIfEmpty, seedAdminUser, seedCommercialGoals } from '@/api/seeds'
 
