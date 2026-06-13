@@ -1,9 +1,21 @@
 import React from "react";
 
+// Hash determinístico → 6 dígitos. Antes era Math.random(), que gerava um
+// número DIFERENTE a cada render do mesmo orçamento (inconsistente no PDF).
+function hashTo6(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+  return String(100000 + (h % 900000));
+}
+
 const PdfTemplate = React.forwardRef(({ dados }, ref) => {
   if (!dados) return <div ref={ref} />;
 
-  const cotacaoNum = String(Math.floor(100000 + Math.random() * 900000));
+  // Deriva do id quando disponível; senão, do conteúdo identificador da cotação
+  // — estável entre renders.
+  const cotacaoNum = hashTo6(
+    String(dados.id || `${dados.textoCompleto || ""}|${dados.origem || ""}|${dados.destino || ""}`)
+  );
   const hoje = new Date();
   const dataFormatada = hoje.toLocaleDateString("pt-BR");
   const horaFormatada = hoje.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });

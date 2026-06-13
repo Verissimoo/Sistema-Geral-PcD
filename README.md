@@ -1,39 +1,76 @@
-**Welcome to your Base44 project** 
+# Sistema Geral PCD
 
-**About**
+Sistema interno da PassagensComDesconto — gestão de orçamentos de passagens
+(milhas/dinheiro/híbrido), precificação, comissões, metas comerciais, portais
+de vendedor/gerente/suporte/parceiro, emissões e plano de carreira.
 
-View and Edit  your app on [Base44.com](http://Base44.com) 
+Produção: https://sistema-geral-pcd.vercel.app
 
-This project contains everything you need to run your app locally.
+## Stack
 
-**Edit the code in your local development environment**
+- **React 18** + **Vite 6** (JavaScript)
+- **Tailwind CSS** + **shadcn/ui** (Radix) — tema escuro padrão, tokens semânticos
+- **TanStack Query** — camada de dados (cache, mutations, invalidação)
+- **Supabase** — banco / auth / storage
+- **react-router-dom** — rotas com lazy loading
+- **Vitest** — testes (lógica financeira)
 
-Any change pushed to the repo will also be reflected in the Base44 Builder.
+## Scripts
 
-**Prerequisites:** 
+| Comando | O que faz |
+|---|---|
+| `npm run dev` | Servidor de desenvolvimento (Vite) |
+| `npm run build` | Build de produção |
+| `npm run preview` | Servir o build localmente |
+| `npm test` | Testes (Vitest, single-run) |
+| `npm run test:watch` | Testes em watch |
+| `npm run lint` | ESLint |
+| `npm run lint:fix` | ESLint com auto-fix |
 
-1. Clone the repository using the project's Git URL 
-2. Navigate to the project directory
-3. Install dependencies: `npm install`
-4. Create an `.env.local` file and set the right environment variables
+## Setup
+
+1. `npm install`
+2. Crie um `.env.local` com as variáveis do Supabase:
+   ```
+   VITE_SUPABASE_URL=...
+   VITE_SUPABASE_ANON_KEY=...
+   ```
+3. `npm run dev`
+
+## Estrutura de pastas (feature-based)
 
 ```
-VITE_BASE44_APP_ID=your_app_id
-VITE_BASE44_APP_BASE_URL=your_backend_url
-
-e.g.
-VITE_BASE44_APP_ID=cbef744a8545c389ef439ea6
-VITE_BASE44_APP_BASE_URL=https://my-to-do-list-81bfaad7.base44.app
+src/
+  app/          App.jsx + tabela de rotas (routes.js, lazy loading)
+  api/          Camada de dados: store genérico, módulos por domínio
+                (quotes, clients, users, ...), hooks TanStack Query,
+                queryKeys, seeds
+  features/     Uma pasta por domínio (pages/ + components/ + lib/):
+                auth, orcamento, cotacao, milhas, metas, carreira, clientes,
+                vendedores, parceiros, emissoes, projetos, rituais, dashboard,
+                usuarios, configuracoes
+  shared/
+    components/ Layout, Sidebar, NotificationBell, ThemeToggle, ...
+    ui/         shadcn/ui (Radix) — apenas os componentes em uso
+    hooks/      use-mobile, useExchangeRate
+    lib/        format, parseBR, timeParser, exchangeRate, pricingCalculator,
+                utils, config, ThemeContext, query-client, supabase
+  data/         Conteúdo estático (cultura PCD)
 ```
 
-Run the app: `npm run dev`
+### Camada de dados
 
-**Publish your changes**
+Toda leitura/escrita passa por `src/api`. As páginas usam os hooks
+(`useQuotes`, `useUpdateQuote`, ...) — sem `useEffect`+`fetch`. Erros de
+query/mutation disparam um toast central (`shared/lib/query-client.js`).
 
-Open [Base44.com](http://Base44.com) and click on Publish.
+### Precificação
 
-**Docs & Support**
+`shared/lib/pricingCalculator.js` é a **fonte única de verdade** de custo,
+Nipon e comissão (coberto por testes de caracterização).
 
-Documentation: [https://docs.base44.com/Integrations/Using-GitHub](https://docs.base44.com/Integrations/Using-GitHub)
+## Testes & CI
 
-Support: [https://app.base44.com/support](https://app.base44.com/support)
+`npm test` roda a suíte Vitest (pricingCalculator, milesHelper, parseBR,
+timeParser, exchangeRate, sanitizeQuoteForPartner, format). O CI
+(`.github/workflows/ci.yml`) roda **lint + test + build** a cada push/PR.
