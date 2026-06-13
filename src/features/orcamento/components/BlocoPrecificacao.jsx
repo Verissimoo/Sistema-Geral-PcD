@@ -157,6 +157,7 @@ export default function BlocoPrecificacao({ formData, setFormData }) {
       });
     }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- deps intencionalmente estreitas (efeito de sync); incluir as faltantes mudaria comportamento
   }, [isSplit, totalVoos, splitUnits.map((u) => u.key).join("|")]);
 
   // Multi-programa só faz sentido enquanto !isSplit. Se mudar pra split, limpa.
@@ -169,6 +170,7 @@ export default function BlocoPrecificacao({ formData, setFormData }) {
       });
     }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- deps intencionalmente estreitas (efeito de sync); incluir as faltantes mudaria comportamento
   }, [canMultiProgram]);
 
   // Sincroniza trechos_pricing com os trechos do itinerário (mantém ordem,
@@ -200,6 +202,7 @@ export default function BlocoPrecificacao({ formData, setFormData }) {
       return { ...prev, pricing: { ...prev.pricing, trechos_pricing: novos } };
     });
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- deps intencionalmente estreitas (efeito de sync); incluir as faltantes mudaria comportamento
   }, [isMultiProgram, formData.itinerary?.trechos?.length, formData.itinerary?.trechos?.map((t) => t.tipo).join("|")]);
 
   const updateMultiTrechoPricing = (idx, patch) => {
@@ -404,6 +407,7 @@ export default function BlocoPrecificacao({ formData, setFormData }) {
       pricing: { ...p.pricing, nipon_value: calc.niponPorPessoa, cost_brl_calc: calc.cost_brl },
     }));
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- deps intencionalmente estreitas (efeito de sync); incluir as faltantes mudaria comportamento
   }, [calc.niponPorPessoa, calc.cost_brl, formData.pricing.is_split]);
 
   // Preço sugerido pela tabela (venda das milhas + taxas) × pax. Usado para
@@ -455,6 +459,7 @@ export default function BlocoPrecificacao({ formData, setFormData }) {
       };
     });
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- deps intencionalmente estreitas (efeito de sync); incluir as faltantes mudaria comportamento
   }, [isPriceOverridden, precoSugerido]);
 
   const aboveNipon = calc.saleTotal >= calc.nipon && calc.saleTotal > 0;

@@ -52,9 +52,9 @@ export default [
         { ignore: ["cmdk-input-wrapper", "toast-close"] },
       ],
       "react-hooks/rules-of-hooks": "error",
-      // exhaustive-deps fica como warn agora (invisível ao --quiet); vira error
-      // no passo final da Etapa 9, após decomposição estabilizada.
-      "react-hooks/exhaustive-deps": "warn",
+      // Enforça deps corretas em código NOVO. Os efeitos de sync pré-existentes
+      // (deps intencionalmente estreitas) estão marcados com eslint-disable-next-line.
+      "react-hooks/exhaustive-deps": "error",
     },
   },
   {

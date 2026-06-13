@@ -112,6 +112,7 @@ function MultiProgramTrechoCard({ trechoPricing, index, milesTable, onUpdate, pa
     ) return;
     onUpdate({ cost_per_thousand: cpt, sale_per_thousand: spt });
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- deps intencionalmente estreitas (efeito de sync); incluir as faltantes mudaria comportamento
   }, [cpt, spt]);
 
   const tax = parseBR(tp.tax);

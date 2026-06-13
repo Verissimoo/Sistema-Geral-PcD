@@ -98,6 +98,7 @@ export default function VendedorOrcamento() {
     })();
     return () => { cancelled = true; };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- deps intencionalmente estreitas (efeito de sync); incluir as faltantes mudaria comportamento
   }, [fromQuoteId]);
 
   const unlinkParent = () => {

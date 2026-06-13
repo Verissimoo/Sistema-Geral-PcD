@@ -53,6 +53,7 @@ export default function TrechoPricingCard({ trecho, index, milesTable, onChange 
       onChange({ ...trecho, cost_total, nipon_value });
     }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- deps intencionalmente estreitas (efeito de sync); incluir as faltantes mudaria comportamento
   }, [trecho.type, trecho.program_id, trecho.miles_qty, trecho.tax, trecho.cost_brl, trecho.is_azul, selectedProgram]);
 
   return (

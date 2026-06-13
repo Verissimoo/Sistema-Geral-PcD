@@ -394,6 +394,7 @@ Retorne APENAS o JSON, sem markdown nem comentários.`;
       if (!changed) return p;
       return { ...p, itinerary: { ...p.itinerary, trechos: next } };
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- deps intencionalmente estreitas (efeito de sync); incluir as faltantes mudaria comportamento
   }, [segmentosTimeKey]);
 
   const addTrechoManual = () => {

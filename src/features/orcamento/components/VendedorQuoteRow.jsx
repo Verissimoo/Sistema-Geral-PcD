@@ -39,6 +39,7 @@ function StatusActionMenu({ quote, onMarkRejected, onSendToEmission }) {
     const h = Math.floor(hoursLeft);
     const m = Math.floor((hoursLeft - h) * 60);
     return `Próximo follow-up em ${h}h ${m}min`;
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- deps intencionalmente estreitas (efeito de sync); incluir as faltantes mudaria comportamento
   }, [isEnviadoOuFollowUp, quote.status, quote.last_followup_date, quote.created_date]);
 
   return (

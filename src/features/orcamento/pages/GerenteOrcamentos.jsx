@@ -65,6 +65,7 @@ export default function GerenteOrcamentos() {
       setSearchParams(next, { replace: true });
     }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- deps intencionalmente estreitas (efeito de sync); incluir as faltantes mudaria comportamento
   }, [statusFilter]);
 
   const { sellers, filtered, summary, pendingOver48h } = useGerenteOrcamentosFilters({

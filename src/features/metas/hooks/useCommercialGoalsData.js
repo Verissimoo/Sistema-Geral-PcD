@@ -46,6 +46,7 @@ export function useCommercialGoalsData() {
       /* toast central já exibe o erro */
     });
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- deps intencionalmente estreitas (efeito de sync); incluir as faltantes mudaria comportamento
   }, [goals]);
 
   // Ordena cronologicamente (a lista da API vem por created_date)
