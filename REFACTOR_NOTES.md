@@ -42,6 +42,33 @@ documentado.
   **GerenteMetasComerciais.formatBRLShort**: formatos únicos — mantidos locais.
 - **generateQuoteHTML.formatDateLong**: formato único do PDF — mantido local.
 
+## Etapa 4 — paginação server-side (PARCIAL, com justificativa)
+
+**Conflito identificado:** as listas candidatas a paginação (orçamentos,
+clientes, emissões, histórico) NÃO são puramente de exibição — elas alimentam
+agregações no client:
+- `GerenteOrcamentos`/`VendedorOrcamentos`: cards de resumo (total, vendidos,
+  receita, ticket médio) via `reduce`/`length` sobre a lista filtrada inteira.
+- `Dashboard`, `GerenteVendedores`, `VendedorHome`, `GerenteVendedorDetalhe`,
+  `GerenteMetasComerciais`: rankings, receita, comissões — todos sobre o
+  conjunto completo de `useQuotes()` (16 consumidores da lista cheia).
+
+Paginar essas listas server-side (`.range()`) faria os somatórios enxergarem
+apenas uma página → **números errados em produção**, o que viola a regra nº1
+(nenhuma mudança de comportamento visível). Fazer certo exigiria mover as
+agregações para o banco (RPC/`count`/`sum`) — mudança de arquitetura e de
+comportamento fora do escopo "refatoração estrutural pura".
+
+**Entregue (estrutural, invisível):** primitivo `store.listPaged({ page,
+pageSize, columns, filters })` com `.range()` + `count:'exact'` + seleção
+explícita de colunas, pronto para as telas que vierem a separar exibição de
+agregação (ou quando a agregação migrar para RPC). Não foi ligado às páginas
+para preservar os resumos atuais.
+
+**Mantido:** `select('*')` nas listas compartilhadas (a agregação lê pricing,
+datas, total_value etc.) e nos `get` de detalhe. `pagination.jsx` é a UI
+prevista para `listPaged` — preservar na Etapa 8.
+
 ## Correções de lint sem mudança de comportamento
 
 - Imports/variáveis não usados removidos via `eslint --fix` (sobras de

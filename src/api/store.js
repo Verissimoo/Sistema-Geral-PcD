@@ -71,5 +71,35 @@ export function createStore(tableName, dateField = "created_date") {
       if (error) throw error;
       return data || [];
     },
+
+    // Listagem paginada server-side com seleção explícita de colunas.
+    // Retorna { rows, total } — `total` vem de count:'exact' (independe da
+    // página), permitindo paginação real sem trazer a tabela inteira.
+    //
+    // ATENÇÃO: só use em telas que NÃO agregam o conjunto completo no client.
+    // As listas atuais (orçamentos/clientes) calculam somatórios/contagens
+    // sobre todas as linhas — paginá-las exigiria mover a agregação para o
+    // banco (RPC/count). Ver REFACTOR_NOTES (Etapa 4).
+    listPaged: async ({
+      page = 0,
+      pageSize = 20,
+      columns = "*",
+      ascending = false,
+      filters = {},
+    } = {}) => {
+      const from = page * pageSize;
+      const to = from + pageSize - 1;
+      let q = supabase
+        .from(tableName)
+        .select(columns, { count: "exact" })
+        .order(dateField, { ascending })
+        .range(from, to);
+      for (const [key, value] of Object.entries(filters)) {
+        q = q.eq(key, value);
+      }
+      const { data, error, count } = await q;
+      if (error) throw error;
+      return { rows: data || [], total: count ?? 0 };
+    },
   };
 }
