@@ -18,6 +18,9 @@ export default function TaxaJurosTab() {
   const [valorVenda, setValorVenda] = useState('');
   const [parcela, setParcela] = useState('');
   const [isUrgente, setIsUrgente] = useState(false);
+  // Repassar a taxa ao cliente (marcado): cobra base + taxa, parcela sobre o total.
+  // Desmarcado (absorver): cliente paga só a base; a taxa sai do líquido do vendedor.
+  const [repassarTaxa, setRepassarTaxa] = useState(true);
 
   const selectedPlatform = PLATFORMS.find(p => p.name === platform);
   const modalities = selectedPlatform?.modalities || [];
@@ -45,9 +48,13 @@ export default function TaxaJurosTab() {
     const valorTaxa = venda * taxaPct / 100;
     const fixedFee = selectedModality.has_fixed_fee ? selectedModality.fixed_fee_value : 0;
     const totalComTaxa = venda + valorTaxa + fixedFee;
+    // A taxa da plataforma sempre sai do que o vendedor recebe.
     const liquidoRecebido = venda - valorTaxa - fixedFee;
     const numParcelas = parseParcelas(selectedRate.label);
-    const valorParcela = totalComTaxa / numParcelas;
+
+    // Repassar: cliente paga base + taxa. Absorver: cliente paga só a base.
+    const valorCobradoCliente = repassarTaxa ? totalComTaxa : venda;
+    const valorParcela = valorCobradoCliente / numParcelas;
 
     return {
       venda,
@@ -55,13 +62,15 @@ export default function TaxaJurosTab() {
       valorTaxa,
       fixedFee,
       totalComTaxa,
+      valorCobradoCliente,
       liquidoRecebido,
       numParcelas,
       valorParcela,
+      repassarTaxa,
       parcelaLabel: selectedRate.label,
       hasFixedFee: selectedModality.has_fixed_fee,
     };
-  }, [selectedRate, valorVenda, selectedModality]);
+  }, [selectedRate, valorVenda, selectedModality, repassarTaxa]);
 
   const gerarMensagem = () => {
     if (!resultado) return '';
@@ -70,12 +79,14 @@ export default function TaxaJurosTab() {
     mensagem += `👤 *Vendedor:* ${nomeVendedor}\n`;
     mensagem += `💰 *Valor base:* ${fmt(resultado.venda)}\n`;
     mensagem += `📊 *Parcelas:* ${resultado.parcelaLabel}\n`;
-    mensagem += `🏷️ *Taxa aplicada:* ${resultado.taxaPct.toFixed(2)}%\n`;
+    mensagem += `🏷️ *Taxa aplicada:* ${resultado.taxaPct.toFixed(2)}%`;
+    mensagem += resultado.repassarTaxa ? ` (repassada ao cliente)\n` : ` (absorvida pelo vendedor)\n`;
     if (resultado.hasFixedFee) {
       mensagem += `➕ *Taxa fixa:* ${fmt(resultado.fixedFee)}\n`;
     }
-    mensagem += `💳 *Valor total ao cliente:* ${fmt(resultado.totalComTaxa)}\n`;
+    mensagem += `💳 *Valor a cobrar do cliente:* ${fmt(resultado.valorCobradoCliente)}\n`;
     mensagem += `📦 *Cada parcela:* ${resultado.numParcelas}x de ${fmt(resultado.valorParcela)}\n`;
+    mensagem += `💚 *Líquido para o vendedor:* ${fmt(resultado.liquidoRecebido)}\n`;
     if (isUrgente) {
       mensagem += `\n🔥 *URGENTE* — cliente aguardando para fechar`;
     }
@@ -157,6 +168,24 @@ export default function TaxaJurosTab() {
               </SelectContent>
             </Select>
           </div>
+
+          {/* Toggle: repassar a taxa ao cliente ou absorver no líquido */}
+          <div className="flex items-start gap-2 pt-1">
+            <Checkbox
+              id="repassar-taxa"
+              checked={repassarTaxa}
+              onCheckedChange={(v) => setRepassarTaxa(!!v)}
+              className="mt-0.5"
+            />
+            <Label htmlFor="repassar-taxa" className="cursor-pointer leading-snug">
+              <span className="text-sm font-medium">Repassar taxas ao cliente</span>
+              <span className="block text-xs text-text-muted font-normal mt-0.5">
+                {repassarTaxa
+                  ? "Cliente paga a taxa — o valor cobrado já vem com a taxa embutida."
+                  : "Você absorve a taxa — cliente paga só o valor base e a taxa sai do seu líquido."}
+              </span>
+            </Label>
+          </div>
         </CardContent>
       </Card>
 
@@ -171,17 +200,20 @@ export default function TaxaJurosTab() {
         <CardContent>
           {resultado ? (
             <div className="space-y-4">
-              {/* DESTAQUE PRINCIPAL — valor total com taxa */}
+              {/* DESTAQUE PRINCIPAL — valor cobrado do cliente (com ou sem taxa embutida) */}
               <div className="bg-warning/10 border-2 border-warning/30 rounded-xl p-5">
                 <p className="text-xs uppercase tracking-wider text-warning mb-1">
-                  Valor total a cobrar do cliente
+                  {resultado.repassarTaxa
+                    ? "Valor total a cobrar do cliente"
+                    : "Valor cobrado do cliente"}
                 </p>
                 <p className="text-4xl font-semibold text-warning">
-                  {fmt(resultado.totalComTaxa)}
+                  {fmt(resultado.valorCobradoCliente)}
                 </p>
                 <p className="text-xs text-warning mt-2">
-                  Inclui taxa de {resultado.taxaPct.toFixed(2)}%
-                  {resultado.hasFixedFee ? ` + ${fmt(resultado.fixedFee)} fixo` : ''} repassada ao cliente
+                  {resultado.repassarTaxa
+                    ? `Inclui taxa de ${resultado.taxaPct.toFixed(2)}%${resultado.hasFixedFee ? ` + ${fmt(resultado.fixedFee)} fixo` : ''} repassada ao cliente`
+                    : `Cliente paga só o valor base — taxa de ${resultado.taxaPct.toFixed(2)}%${resultado.hasFixedFee ? ` + ${fmt(resultado.fixedFee)} fixo` : ''} absorvida pelo vendedor`}
                 </p>
               </div>
 
@@ -206,17 +238,27 @@ export default function TaxaJurosTab() {
                 </div>
                 <div className="bg-bg-elevated rounded-lg p-3">
                   <p className="text-xs text-muted-foreground">Taxa ({resultado.taxaPct.toFixed(2)}%)</p>
-                  <p className="font-semibold text-danger">+ {fmt(resultado.valorTaxa)}</p>
+                  <p className="font-semibold text-danger">− {fmt(resultado.valorTaxa)}</p>
                 </div>
                 {resultado.hasFixedFee && (
                   <div className="bg-bg-elevated rounded-lg p-3 col-span-2">
                     <p className="text-xs text-muted-foreground">Taxa fixa adicional</p>
-                    <p className="font-semibold text-danger">+ {fmt(resultado.fixedFee)}</p>
+                    <p className="font-semibold text-danger">− {fmt(resultado.fixedFee)}</p>
                   </div>
                 )}
-                <div className="bg-success/10 rounded-lg p-3 col-span-2">
-                  <p className="text-xs text-success">Valor líquido recebido (vendedor)</p>
-                  <p className="font-semibold text-success">{fmt(resultado.liquidoRecebido)}</p>
+                {/* Líquido — destaque forte quando a taxa é absorvida (é o número-chave) */}
+                <div className={`bg-success/10 rounded-lg p-4 col-span-2 ${resultado.repassarTaxa ? '' : 'border-2 border-success/40'}`}>
+                  <p className="text-xs text-success uppercase tracking-wider">
+                    Valor líquido recebido (vendedor)
+                  </p>
+                  <p className={`font-semibold text-success ${resultado.repassarTaxa ? 'text-lg' : 'text-3xl'}`}>
+                    {fmt(resultado.liquidoRecebido)}
+                  </p>
+                  {!resultado.repassarTaxa && (
+                    <p className="text-xs text-success/80 mt-1">
+                      Já descontada a taxa da plataforma do valor base
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

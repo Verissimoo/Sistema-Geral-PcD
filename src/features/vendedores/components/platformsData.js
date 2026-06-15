@@ -8,12 +8,12 @@ export const PLATFORMS = [
         has_fixed_fee: false,
         fixed_fee_value: 0,
         rates: [
-          { label: '1x', percentage: 4.20 }, { label: '2x', percentage: 6.09 },
-          { label: '3x', percentage: 7.01 }, { label: '4x', percentage: 7.91 },
-          { label: '5x', percentage: 8.80 }, { label: '6x', percentage: 9.67 },
-          { label: '7x', percentage: 12.59 }, { label: '8x', percentage: 13.42 },
-          { label: '9x', percentage: 14.25 }, { label: '10x', percentage: 15.06 },
-          { label: '11x', percentage: 15.87 }, { label: '12x', percentage: 16.66 }
+          { label: '1x', percentage: 2.29 }, { label: '2x', percentage: 3.18 },
+          { label: '3x', percentage: 3.18 }, { label: '4x', percentage: 3.18 },
+          { label: '5x', percentage: 3.18 }, { label: '6x', percentage: 3.18 },
+          { label: '7x', percentage: 5.39 }, { label: '8x', percentage: 5.39 },
+          { label: '9x', percentage: 5.39 }, { label: '10x', percentage: 5.39 },
+          { label: '11x', percentage: 5.39 }, { label: '12x', percentage: 5.39 }
         ]
       },
       {
@@ -40,12 +40,12 @@ export const PLATFORMS = [
         has_fixed_fee: true,
         fixed_fee_value: 1.50,
         rates: [
-          { label: 'À vista', percentage: 4.20 }, { label: '2x', percentage: 5.47 },
+          { label: 'À vista', percentage: 4.20 }, { label: '2x', percentage: 5.87 },
           { label: '3x', percentage: 6.76 }, { label: '4x', percentage: 8.06 },
-          { label: '5x', percentage: 9.38 }, { label: '6x', percentage: 10.71 },
+          { label: '5x', percentage: 9.38 }, { label: '6x', percentage: 9.67 },
           { label: '7x', percentage: 12.06 }, { label: '8x', percentage: 13.43 },
           { label: '9x', percentage: 14.81 }, { label: '10x', percentage: 16.22 },
-          { label: '11x', percentage: 17.63 }, { label: '12x', percentage: 19.07 }
+          { label: '11x', percentage: 16.53 }, { label: '12x', percentage: 17.28 }
         ]
       }
     ]
