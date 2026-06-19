@@ -332,6 +332,14 @@ export default function BlocoPrecificacao({ formData, setFormData }) {
         const cpt = Number(pr.cost_per_thousand) || appliedCostPerThousand;
         cost_brl = (milhas / 1000) * cpt + dinheiro;
         niponPorPessoa = (cost_brl + tax) * 1.10;
+      } else if (pr.type === "consolidadora") {
+        // Custo efetivo = Tarifa + Taxa de embarque − DU (taxa já embutida no
+        // custo, por isso custoPorPessoa = cost_brl + 0). Nipon sempre × 1.10.
+        const fare = parseBR(pr.fare_total);
+        const boarding = parseBR(pr.boarding_tax);
+        const du = parseBR(pr.du_value);
+        cost_brl = fare + boarding - du;
+        niponPorPessoa = cost_brl * 1.10;
       } else {
         const cost = parseBR(pr.cost_brl);
         const base = cost + tax;
@@ -596,10 +604,11 @@ export default function BlocoPrecificacao({ formData, setFormData }) {
             value={formData.pricing.type}
             onValueChange={(v) => setPricing({ type: v })}
           >
-            <TabsList className="grid grid-cols-3 w-full max-w-md">
+            <TabsList className="grid grid-cols-2 md:grid-cols-4 w-full max-w-2xl h-auto">
               <TabsTrigger value="milhas">Milhas</TabsTrigger>
               <TabsTrigger value="milhas_dinheiro">Milhas + Dinheiro</TabsTrigger>
               <TabsTrigger value="dinheiro">Dinheiro</TabsTrigger>
+              <TabsTrigger value="consolidadora">Consolidadora</TabsTrigger>
             </TabsList>
 
             <TabsContent value="milhas" className="space-y-4 mt-4">
@@ -915,6 +924,73 @@ export default function BlocoPrecificacao({ formData, setFormData }) {
                   <Row label={`VALOR NIPON${passengers >= 2 ? " (por pessoa)" : " (venda mínima)"}`} value={formatBRL(calc.niponPorPessoa)} bold accent />
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="consolidadora" className="space-y-4 mt-4">
+              <div className="bg-accent/10 border border-accent/30 rounded-lg p-3">
+                <p className="font-semibold text-sm text-accent">Tarifa de consolidadora</p>
+                <p className="text-xs text-text-muted mt-0.5">
+                  Custo = Tarifa + Taxa de embarque − DU. O DU (comissão da consolidadora)
+                  abate o custo. Nipon = custo × 1,10. O RAV é só a base da venda sugerida.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Tarifa total (R$)</Label>
+                  <Input type="text" inputMode="decimal" placeholder="Ex: 5.000,00"
+                    value={formData.pricing.fare_total ?? ""}
+                    onChange={(e) => setPricing({ fare_total: sanitizeBRInput(e.target.value) })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Taxa de embarque (R$)</Label>
+                  <Input type="text" inputMode="decimal" placeholder="Ex: 300,00"
+                    value={formData.pricing.boarding_tax ?? ""}
+                    onChange={(e) => setPricing({ boarding_tax: sanitizeBRInput(e.target.value) })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>DU — comissão da consolidadora (R$)</Label>
+                  <Input type="text" inputMode="decimal" placeholder="Ex: 200,00"
+                    value={formData.pricing.du_value ?? ""}
+                    onChange={(e) => setPricing({ du_value: sanitizeBRInput(e.target.value) })} />
+                </div>
+                <div className="space-y-2">
+                  <Label>RAV — acréscimo da agência (R$, opcional)</Label>
+                  <Input type="text" inputMode="decimal" placeholder="Ex: 400,00"
+                    value={formData.pricing.rav_value ?? ""}
+                    onChange={(e) => setPricing({ rav_value: sanitizeBRInput(e.target.value) })} />
+                </div>
+              </div>
+              {(parseBR(formData.pricing.fare_total) > 0 || parseBR(formData.pricing.boarding_tax) > 0) && (() => {
+                const fare = parseBR(formData.pricing.fare_total);
+                const boarding = parseBR(formData.pricing.boarding_tax);
+                const du = parseBR(formData.pricing.du_value);
+                const rav = parseBR(formData.pricing.rav_value);
+                const custoEfetivo = fare + boarding - du;
+                const nipon = custoEfetivo * 1.10;
+                const vendaSugerida = fare + boarding + rav;
+                return (
+                  <Card className="bg-muted/40 border-border/50">
+                    <CardContent className="p-4 space-y-1.5 text-sm">
+                      <Row label="Tarifa + Taxa de embarque" value={formatBRL(fare + boarding)} />
+                      <Row label="DU (abate do custo)" value={`− ${formatBRL(du)}`} muted />
+                      <Separator className="my-2" />
+                      <Row label={`Custo efetivo${passengers >= 2 ? " · por pessoa" : ""}`} value={formatBRL(custoEfetivo)} muted />
+                      <Row label={`VALOR NIPON${passengers >= 2 ? " (por pessoa)" : " (venda mínima)"}`} value={formatBRL(nipon)} bold accent />
+                      <Separator className="my-2" />
+                      <Row label="Venda sugerida (Tarifa + Taxa + RAV)" value={formatBRL(vendaSugerida)} bold />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="mt-1 w-full"
+                        onClick={() => setPricing({ sale_value: String(vendaSugerida), sale_per: "total", sale_currency: "BRL" })}
+                      >
+                        Usar {formatBRL(vendaSugerida)} como valor de venda
+                      </Button>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
             </TabsContent>
           </Tabs>
 

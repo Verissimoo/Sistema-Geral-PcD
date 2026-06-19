@@ -134,6 +134,11 @@ export default function BlocoGerar({ formData, totalValue, commission, onSaved }
       cost_brl: Number(formData.pricing.cost_brl_calc) || parseBR(formData.pricing.cost_brl),
       cash_part: parseBR(formData.pricing.cash_part),
       cost_per_thousand: Number(formData.pricing.cost_per_thousand) || 0,
+      // Consolidadora — normaliza para Number (toNumber no calc também tolera string)
+      fare_total: parseBR(formData.pricing.fare_total),
+      boarding_tax: parseBR(formData.pricing.boarding_tax),
+      du_value: parseBR(formData.pricing.du_value),
+      rav_value: parseBR(formData.pricing.rav_value),
       sale_value: parseBR(formData.pricing.sale_value),
     };
     if (Array.isArray(normalizedPricing.trechos)) {
