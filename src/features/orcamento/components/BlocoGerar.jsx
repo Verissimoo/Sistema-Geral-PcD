@@ -172,6 +172,14 @@ export default function BlocoGerar({ formData, totalValue, commission, onSaved }
         cost_is_total: b.cost_is_total === true,
       }));
     }
+    // Opções de pagamento (PDF): normaliza base_value para Number.
+    if (Array.isArray(normalizedPricing.sale_options)) {
+      normalizedPricing.sale_options = normalizedPricing.sale_options.map((o) => ({
+        ...o,
+        base_value: parseBR(o.base_value),
+        boleto_installments: Number(o.boleto_installments) || 1,
+      }));
+    }
     return {
       pricing: normalizedPricing,
       additional: formData.additional.active

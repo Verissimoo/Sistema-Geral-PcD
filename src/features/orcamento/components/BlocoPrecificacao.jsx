@@ -23,6 +23,7 @@ import { convertEurToBrl, convertBrlToEur, formatEUR } from "@/shared/lib/exchan
 import ExchangeRateBadge from "@/shared/components/ExchangeRateBadge";
 import { formatBRL } from "@/shared/lib/format";
 import { emissionBlockCN, EMPTY_EMISSION_BLOCK } from "@/features/orcamento/lib/orcamentoHelpers";
+import SaleOptionsEditor, { EMPTY_SALE_OPTION } from "./SaleOptionsEditor";
 import Row from "@/features/orcamento/components/Row";
 import EmissionBlockEditor from "@/features/orcamento/components/EmissionBlockEditor";
 import SplitPricing from "@/features/orcamento/components/SplitPricing";
@@ -256,6 +257,28 @@ export default function BlocoPrecificacao({ formData, setFormData }) {
       const arr = [...(p.pricing.extra_blocks || [])];
       arr.splice(idx, 1);
       return { ...p, pricing: { ...p.pricing, extra_blocks: arr } };
+    });
+
+  // Opções de pagamento (alternativas mostradas ao cliente no PDF).
+  const addSaleOption = () =>
+    setFormData((p) => ({
+      ...p,
+      pricing: {
+        ...p.pricing,
+        sale_options: [...(p.pricing.sale_options || []), { ...EMPTY_SALE_OPTION }],
+      },
+    }));
+  const updateSaleOption = (idx, patch) =>
+    setFormData((p) => {
+      const arr = [...(p.pricing.sale_options || [])];
+      arr[idx] = { ...arr[idx], ...patch };
+      return { ...p, pricing: { ...p.pricing, sale_options: arr } };
+    });
+  const removeSaleOption = (idx) =>
+    setFormData((p) => {
+      const arr = [...(p.pricing.sale_options || [])];
+      arr.splice(idx, 1);
+      return { ...p, pricing: { ...p.pricing, sale_options: arr } };
     });
 
   const selectedProgram = useMemo(
@@ -1374,6 +1397,14 @@ export default function BlocoPrecificacao({ formData, setFormData }) {
               </CardContent>
             </Card>
           )}
+
+          <Separator className="my-1" />
+          <SaleOptionsEditor
+            options={formData.pricing.sale_options || []}
+            onAdd={addSaleOption}
+            onUpdate={updateSaleOption}
+            onRemove={removeSaleOption}
+          />
         </CardContent>
       </Card>
       )}

@@ -4,6 +4,7 @@
 
 import { isNextDayArrival } from "@/shared/lib/timeParser";
 import { formatBRL } from "@/shared/lib/format";
+import { PLATFORMS, calcInstallment } from "@/shared/lib/cardFees";
 
 const formatDateLong = (dateStr) => {
   if (!dateStr) return "";
@@ -397,6 +398,61 @@ function buildPriceSection(data, dataFormatada, brandName = "PassagensComDescont
     </div>`;
 }
 
+// Seção "Escolha a forma de pagamento" — cards de opções (F3). O à vista
+// (valor principal do orçamento) vem destacado; as alternativas (cartão/boleto)
+// aparecem com peso menor. Retorna "" se não houver opções (retrocompat).
+function buildPaymentOptions(data) {
+  const opts = Array.isArray(data.pricing?.sale_options) ? data.pricing.sale_options : [];
+  if (opts.length === 0) return "";
+
+  const total = Number(data.total_value) || 0;
+  const card = (title, big, small, { best = false } = {}) => `
+    <div style="flex:1;min-width:200px;border:${best ? "2px solid #16a34a" : "1px solid #e5e7eb"};border-radius:12px;padding:16px;background:${best ? "#f0fdf4" : "#fff"};position:relative;">
+      ${best ? `<div style="position:absolute;top:-10px;left:16px;background:#16a34a;color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;text-transform:uppercase;letter-spacing:.04em;">À vista — melhor preço</div>` : ""}
+      <div style="font-size:12px;color:#6b7280;font-weight:600;margin-bottom:4px;">${esc(title)}</div>
+      <div style="font-size:${best ? "26px" : "20px"};font-weight:800;color:${best ? "#15803d" : "#111827"};">${esc(big)}</div>
+      ${small ? `<div style="font-size:11px;color:#6b7280;margin-top:4px;">${esc(small)}</div>` : ""}
+    </div>`;
+
+  const principalCard = card("Pagamento à vista", formatBRL(total), "Pix ou transferência", { best: true });
+
+  const optionCards = opts.map((o) => {
+    const base = Number(o.base_value) || 0;
+    if (o.method === "avista") {
+      return card(o.label || "À vista", formatBRL(base), "Pix ou transferência");
+    }
+    if (o.method === "boleto") {
+      const n = Math.max(1, Number(o.boleto_installments) || 1);
+      return card(
+        o.label || `Boleto ${n}x`,
+        `${n}x de ${formatBRL(base / n)}`,
+        `Total ${formatBRL(base)} · ⚠️ Confira as condições do boleto (sujeito à aprovação)`
+      );
+    }
+    // cartão
+    const acq = PLATFORMS.find((p) => p.name === o.acquirer);
+    const mod = acq?.modalities.find((m) => m.name === o.modality);
+    const rate = mod?.rates.find((r) => r.label === o.installments_label);
+    if (!rate) return card(o.label || "Cartão", formatBRL(base), "no cartão de crédito");
+    const fixed = mod.has_fixed_fee ? mod.fixed_fee_value : 0;
+    const r = calcInstallment(base, rate.percentage, fixed, rate.label);
+    return card(
+      o.label || `Cartão ${rate.label}`,
+      `${r.numParcelas}x de ${formatBRL(r.valorParcela)}`,
+      `Total ${formatBRL(r.totalComTaxa)} no cartão de crédito`
+    );
+  }).join("");
+
+  return `
+  <div style="margin:20px 0;">
+    <div style="font-size:15px;font-weight:700;color:#111827;margin-bottom:12px;">Escolha a melhor forma de pagamento</div>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;">
+      ${principalCard}
+      ${optionCards}
+    </div>
+  </div>`;
+}
+
 function buildIncluso(data, tipoViagem, companhia) {
   const items = [];
   items.push(`Passagem aérea ${tipoViagem}${companhia ? ` — ${companhia}` : ""}`);
@@ -698,6 +754,7 @@ export function generateQuoteHTML(data) {
   const summaryCardsHtml = buildSummaryCards(data, trechoIda, trechoVolta);
   const bagHtml = buildBaggage(data);
   const priceHtml = buildPriceSection(data, dataFormatada, brandName);
+  const paymentOptionsHtml = buildPaymentOptions(data);
   const inclusoHtml = buildIncluso(data, tipoViagem, companhia);
   const specialWarnHtml = buildSpecialWarning(data.ticket_type);
 
@@ -772,6 +829,7 @@ ${data.ticket_type === "Quebra de Trecho" ? "" : `
 <section class="sec" style="padding-top:0">
   <div class="sec-hd"><div class="sec-tag"><svg><use href="#ic-money"/></svg> ${data.competitor ? "Comparativo de Preços" : "Valor da Proposta"}</div><div class="sec-line"></div></div>
   ${priceHtml}
+  ${paymentOptionsHtml}
 </section>
 
 <section class="sec" style="padding-top:0">
