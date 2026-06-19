@@ -983,7 +983,7 @@ export default function BlocoPrecificacao({ formData, setFormData }) {
                         variant="outline"
                         size="sm"
                         className="mt-1 w-full"
-                        onClick={() => setPricing({ sale_value: String(vendaSugerida), sale_per: "total", sale_currency: "BRL" })}
+                        onClick={() => setPricing({ sale_value: String(vendaSugerida), sale_per: "total" })}
                       >
                         Usar {formatBRL(vendaSugerida)} como valor de venda
                       </Button>
