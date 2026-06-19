@@ -62,6 +62,17 @@ function isCarteiraPropriaOrigin(origin) {
 function emissionCostNipon(b) {
   if (!b) return { cost: 0, nipon: 0 };
   const tax = toNumber(b.tax);
+  if (b.type === "consolidadora") {
+    // Consolidadora: custo efetivo = Tarifa + Taxa de embarque − DU (o DU é a
+    // comissão que a agência recebe da consolidadora, abatendo o custo). Nipon
+    // SEMPRE +10% (não aplica regra de Azul). O RAV NÃO entra aqui — é só base
+    // da sugestão de venda (Tarifa + Taxa + RAV), tratada na UI.
+    const fare = toNumber(b.fare_total);
+    const boarding = toNumber(b.boarding_tax);
+    const du = toNumber(b.du_value);
+    const cost = fare + boarding - du;
+    return { cost, nipon: cost * 1.1 };
+  }
   if (b.type === "milhas_dinheiro") {
     const milhas = toNumber(b.miles_qty);
     const dinheiro = toNumber(b.cash_part);

@@ -140,6 +140,54 @@ describe("computePricingTotals — extra_blocks (blocos somados)", () => {
   });
 });
 
+describe("computePricingTotals — consolidadora", () => {
+  it("custo = tarifa + taxa − DU; nipon = custo × 1.1; RAV não entra no custo", () => {
+    const t = computePricingTotals({
+      passengers: 1,
+      pricing: {
+        type: "consolidadora",
+        fare_total: 5000, boarding_tax: 300, du_value: 200, rav_value: 400,
+      },
+    });
+    expect(t.costPerPax).toBeCloseTo(5100, 6); // 5000 + 300 − 200
+    expect(t.niponPerPax).toBeCloseTo(5610, 6); // 5100 × 1.1
+    expect(t.costTotal).toBeCloseTo(5100, 6);
+    expect(t.niponTotal).toBeCloseTo(5610, 6);
+  });
+
+  it("DU=0 e RAV=0 equivale a um bloco dinheiro do mesmo custo", () => {
+    const consol = computePricingTotals({
+      passengers: 1,
+      pricing: { type: "consolidadora", fare_total: 1000, boarding_tax: 100, du_value: 0 },
+    });
+    const dinheiro = computePricingTotals({
+      passengers: 1,
+      pricing: { type: "dinheiro", cost_brl: 1000, tax: 100 },
+    });
+    expect(consol.costPerPax).toBeCloseTo(dinheiro.costPerPax, 6);
+    expect(consol.niponPerPax).toBeCloseTo(dinheiro.niponPerPax, 6);
+  });
+
+  it("DU maior reduz o custo e aumenta a comissão total (venda fixa)", () => {
+    // DU abate o custo → Nipon menor → mais excedente sobre a venda fixa.
+    // (lucroNipon = nipon − custo = custo×0.1, então ele encolhe; mas o
+    // excedente×0.45 cresce mais e a comissão total sobe.)
+    const base = { type: "consolidadora", fare_total: 5000, boarding_tax: 300, sale_value: 6000, sale_per: "total" };
+    const semDu = computeCommission({ passengers: 1, client: { lead_origin: "x" }, pricing: { ...base, du_value: 0 } });
+    const comDu = computeCommission({ passengers: 1, client: { lead_origin: "x" }, pricing: { ...base, du_value: 500 } });
+    expect(comDu.costTotal).toBeLessThan(semDu.costTotal);
+    expect(comDu.total).toBeGreaterThan(semDu.total);
+  });
+
+  it("respeita cost_is_total (não multiplica por passageiros)", () => {
+    const t = computePricingTotals({
+      passengers: 3,
+      pricing: { type: "consolidadora", fare_total: 5000, boarding_tax: 300, du_value: 200, cost_is_total: true },
+    });
+    expect(t.costTotal).toBeCloseTo(5100, 6); // total, não ×3
+  });
+});
+
 describe("computePricingTotals — multi-programa", () => {
   it("soma trechos; Azul ×1.0 e demais ×1.1 por trecho", () => {
     const t = computePricingTotals({
