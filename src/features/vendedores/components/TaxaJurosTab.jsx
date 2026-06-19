@@ -8,7 +8,8 @@ import { Checkbox } from "@/shared/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 import { FINANCEIRO_WHATSAPP } from "@/shared/lib/config";
 import { useAuth } from "@/features/auth/AuthContext";
-import { PLATFORMS, fmt } from "./platformsData";
+import { PLATFORMS, calcInstallment } from "@/shared/lib/cardFees";
+import { fmt } from "./platformsData";
 
 // ─── Componente: Taxa de Juros do Cartão ────────────────────────────
 export default function TaxaJurosTab() {
@@ -32,25 +33,18 @@ export default function TaxaJurosTab() {
   useEffect(() => { setModality(''); setParcela(''); }, [platform]);
   useEffect(() => { setParcela(''); }, [modality]);
 
-  const parseParcelas = (label) => {
-    if (!label) return 1;
-    if (label === 'Débito' || label === 'À vista') return 1;
-    const m = label.match(/^(\d+)x$/);
-    return m ? parseInt(m[1], 10) : 1;
-  };
-
   const resultado = useMemo(() => {
     if (!selectedRate || !valorVenda) return null;
     const venda = parseFloat(valorVenda);
     if (!venda || isNaN(venda)) return null;
 
-    const taxaPct = selectedRate.percentage;
-    const valorTaxa = venda * taxaPct / 100;
     const fixedFee = selectedModality.has_fixed_fee ? selectedModality.fixed_fee_value : 0;
-    const totalComTaxa = venda + valorTaxa + fixedFee;
+    // Fórmula compartilhada (mesma do gerador de orçamento).
+    const { valorTaxa, totalComTaxa, numParcelas, taxaPct } = calcInstallment(
+      venda, selectedRate.percentage, fixedFee, selectedRate.label
+    );
     // A taxa da plataforma sempre sai do que o vendedor recebe.
     const liquidoRecebido = venda - valorTaxa - fixedFee;
-    const numParcelas = parseParcelas(selectedRate.label);
 
     // Repassar: cliente paga base + taxa. Absorver: cliente paga só a base.
     const valorCobradoCliente = repassarTaxa ? totalComTaxa : venda;
