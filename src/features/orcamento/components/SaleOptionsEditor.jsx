@@ -19,6 +19,7 @@ export const EMPTY_SALE_OPTION = {
   modality: "",
   installments_label: "",
   boleto_installments: "2",
+  boleto_entrada: "",
 };
 
 function optionPreview(opt) {
@@ -29,7 +30,11 @@ function optionPreview(opt) {
   }
   if (opt.method === "boleto") {
     const n = Math.max(1, parseInt(opt.boleto_installments, 10) || 1);
-    return { totalLabel: formatBRL(base), parcelaLabel: `${n}x de ${formatBRL(base / n)} (sem juros)` };
+    const entrada = Math.min(base, parseBR(opt.boleto_entrada));
+    const restante = Math.max(0, base - entrada);
+    const parcela = restante / n;
+    const entradaTxt = entrada > 0 ? `Entrada ${formatBRL(entrada)} + ` : "";
+    return { totalLabel: formatBRL(base), parcelaLabel: `${entradaTxt}${n}x de ${formatBRL(parcela)} (sem juros)` };
   }
   // cartão
   const acq = PLATFORMS.find((p) => p.name === opt.acquirer);
@@ -143,7 +148,13 @@ export default function SaleOptionsEditor({ options, onAdd, onUpdate, onRemove }
                 <div className="space-y-2">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div className="space-y-1.5">
-                      <Label className="text-xs">Nº de parcelas (sem juros)</Label>
+                      <Label className="text-xs">Entrada (R$, opcional)</Label>
+                      <Input type="text" inputMode="decimal" placeholder="Ex: 1.000,00"
+                        value={opt.boleto_entrada ?? ""}
+                        onChange={(e) => onUpdate(idx, { boleto_entrada: sanitizeBRInput(e.target.value) })} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Nº de parcelas do restante (sem juros)</Label>
                       <Input type="number" min="1" placeholder="Ex: 6"
                         value={opt.boleto_installments}
                         onChange={(e) => onUpdate(idx, { boleto_installments: e.target.value })} />
@@ -151,7 +162,7 @@ export default function SaleOptionsEditor({ options, onAdd, onUpdate, onRemove }
                   </div>
                   <div className="flex items-start gap-2 text-xs text-warning bg-warning/10 border border-warning/30 rounded p-2">
                     <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                    Confira as condições do boleto (sujeito à aprovação).
+                    O restante (valor base − entrada) é dividido nas parcelas sem juros. Confira as condições do boleto (sujeito à aprovação).
                   </div>
                 </div>
               )}

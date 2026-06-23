@@ -178,6 +178,7 @@ export default function BlocoGerar({ formData, totalValue, commission, onSaved }
         ...o,
         base_value: parseBR(o.base_value),
         boleto_installments: Number(o.boleto_installments) || 1,
+        boleto_entrada: parseBR(o.boleto_entrada),
       }));
     }
     return {

@@ -423,10 +423,16 @@ function buildPaymentOptions(data) {
     }
     if (o.method === "boleto") {
       const n = Math.max(1, Number(o.boleto_installments) || 1);
+      const entrada = Math.min(base, Number(o.boleto_entrada) || 0);
+      const restante = Math.max(0, base - entrada);
+      const parcela = restante / n;
+      const big = entrada > 0
+        ? `Entrada ${formatBRL(entrada)} + ${n}x de ${formatBRL(parcela)}`
+        : `${n}x de ${formatBRL(parcela)}`;
       return card(
         o.label || `Boleto ${n}x`,
-        `${n}x de ${formatBRL(base / n)}`,
-        `Total ${formatBRL(base)} · ⚠️ Confira as condições do boleto (sujeito à aprovação)`
+        big,
+        `Total ${formatBRL(base)} · sem juros · ⚠️ Confira as condições do boleto (sujeito à aprovação)`
       );
     }
     // cartão
