@@ -159,6 +159,11 @@ export const TICKET_TYPES = [
 ];
 
 export const initialFormData = {
+  // Tipo de orçamento: "aereo" (atual) ou "pacote" (voo opcional + hotel + adicionais).
+  // Ausência do campo em quotes antigos = "aereo" (retrocompatibilidade total).
+  quote_kind: "aereo",
+  // Modelo do pacote — preenchido nos próximos passos (hotel/adicionais).
+  package: { include_flight: true, hotel: null, additionals: [] },
   recipient_type: "cliente",
   partner_id: null,
   partner_name: null,

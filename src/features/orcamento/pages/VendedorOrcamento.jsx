@@ -3,6 +3,8 @@ import { useSearchParams } from "react-router-dom";
 import { FileText, AlertTriangle, ArrowLeft, ArrowRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
+import { Label } from "@/shared/ui/label";
+import { Checkbox } from "@/shared/ui/checkbox";
 import { useToast } from "@/shared/ui/use-toast";
 import { getQuote, listQuotes } from "@/api/quotes";
 import { computeCommission } from "@/shared/lib/pricingCalculator";
@@ -139,12 +141,18 @@ export default function VendedorOrcamento() {
 
   // Validação por bloco
   const isParceiroMode = formData.recipient_type === "parceiro";
+  // Tipo de orçamento e controle de voo no pacote.
+  const isPacote = formData.quote_kind === "pacote";
+  const includeFlight = formData.package?.include_flight !== false;
+  const showFlightSection = !isPacote || includeFlight;
   const canAdvance = useMemo(() => {
     switch (currentStep) {
       case 1:
         return isParceiroMode ? !!formData.partner_id : !!formData.client?.id;
       case 2: return formData.product === "aereo";
       case 3:
+        // Pacote sem voo: não exige itinerário/datas.
+        if (isPacote && !includeFlight) return true;
         return (
           formData.itinerary.trechos.length > 0 &&
           formData.itinerary_reviewed &&
@@ -162,7 +170,7 @@ export default function VendedorOrcamento() {
       }
       default: return true;
     }
-  }, [currentStep, formData, isParceiroMode]);
+  }, [currentStep, formData, isParceiroMode, isPacote, includeFlight]);
 
   const next = () => {
     if (!canAdvance) return;
@@ -185,6 +193,38 @@ export default function VendedorOrcamento() {
           Preencha as informações para gerar sua cotação profissional
         </p>
       </div>
+
+      {/* Tipo de orçamento — Aéreo (atual) ou Pacote (voo opcional + hotel) */}
+      <Card className="border-border/50">
+        <CardContent className="p-4 flex items-center gap-4 flex-wrap">
+          <Label className="text-sm font-medium">Tipo de orçamento</Label>
+          <div className="flex gap-1 bg-muted rounded-md p-0.5">
+            {[
+              { key: "aereo", label: "Aéreo" },
+              { key: "pacote", label: "Pacote" },
+            ].map((opt) => (
+              <button
+                key={opt.key}
+                type="button"
+                onClick={() => setFormData((p) => ({ ...p, quote_kind: opt.key }))}
+                className={
+                  "px-4 py-1.5 rounded text-sm font-medium transition-colors " +
+                  (formData.quote_kind === opt.key
+                    ? "bg-bg-surface shadow text-text-primary"
+                    : "text-text-muted hover:text-text-primary")
+                }
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          {isPacote && (
+            <span className="text-xs text-text-muted">
+              Voo opcional + hotel + adicionais (em construção).
+            </span>
+          )}
+        </CardContent>
+      </Card>
 
       {apiKeyMissing && (
         <div className="flex items-start gap-2 p-3 rounded-lg bg-warning/10 border border-warning/30 text-sm">
@@ -239,7 +279,46 @@ export default function VendedorOrcamento() {
         <CardContent>
           {currentStep === 1 && <BlocoCliente formData={formData} setFormData={setFormData} />}
           {currentStep === 2 && <BlocoProduto formData={formData} setFormData={setFormData} />}
-          {currentStep === 3 && <BlocoItinerario formData={formData} setFormData={setFormData} />}
+          {currentStep === 3 && (
+            <div className="space-y-6">
+              {isPacote && (
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-accent/5 border border-accent/30">
+                  <Checkbox
+                    id="no-flight"
+                    checked={!includeFlight}
+                    onCheckedChange={(c) =>
+                      setFormData((p) => ({
+                        ...p,
+                        package: { ...(p.package || {}), include_flight: !c },
+                      }))
+                    }
+                    className="mt-0.5"
+                  />
+                  <Label htmlFor="no-flight" className="text-sm cursor-pointer leading-snug font-medium">
+                    Não incluir voo neste pacote
+                    <span className="block text-xs text-text-muted font-normal mt-0.5">
+                      Marque para um pacote só de hotel/adicionais. A seção de voos fica oculta e não é obrigatória.
+                    </span>
+                  </Label>
+                </div>
+              )}
+
+              {showFlightSection && (
+                <BlocoItinerario formData={formData} setFormData={setFormData} />
+              )}
+
+              {isPacote && (
+                <>
+                  <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-text-muted">
+                    Seção de Hotel (em construção)
+                  </div>
+                  <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-text-muted">
+                    Seção de Adicionais (em construção)
+                  </div>
+                </>
+              )}
+            </div>
+          )}
           {currentStep === 4 && <BlocoPrecificacao formData={formData} setFormData={setFormData} />}
           {currentStep === 5 && (
             <BlocoGerar

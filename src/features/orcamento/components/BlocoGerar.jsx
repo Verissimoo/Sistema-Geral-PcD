@@ -128,6 +128,10 @@ export default function BlocoGerar({ formData, totalValue, commission, onSaved }
   const buildNormalizedPayload = () => {
     const normalizedPricing = {
       ...formData.pricing,
+      // Pacotes (passo de estrutura): gravados dentro do pricing (jsonb existente)
+      // para não exigir migration. Ausência = orçamento aéreo (retrocompat).
+      quote_kind: formData.quote_kind || "aereo",
+      package: formData.package || { include_flight: true, hotel: null, additionals: [] },
       program: formData.pricing.program_name,
       miles_qty: parseBR(formData.pricing.miles_qty),
       tax: parseBR(formData.pricing.tax),
