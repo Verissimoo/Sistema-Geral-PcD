@@ -16,6 +16,7 @@ import BlocoProduto from "@/features/orcamento/components/BlocoProduto";
 import BlocoItinerario from "@/features/orcamento/components/BlocoItinerario";
 import BlocoPrecificacao from "@/features/orcamento/components/BlocoPrecificacao";
 import BlocoGerar from "@/features/orcamento/components/BlocoGerar";
+import HotelSection, { EMPTY_HOTEL } from "@/features/orcamento/components/HotelSection";
 
 // ─── Componente Principal ───────────────────────────────────────────
 export default function VendedorOrcamento() {
@@ -309,9 +310,18 @@ export default function VendedorOrcamento() {
 
               {isPacote && (
                 <>
-                  <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-text-muted">
-                    Seção de Hotel (em construção)
-                  </div>
+                  <HotelSection
+                    hotel={formData.package?.hotel || EMPTY_HOTEL}
+                    onChange={(patch) =>
+                      setFormData((p) => ({
+                        ...p,
+                        package: {
+                          ...(p.package || {}),
+                          hotel: { ...(p.package?.hotel || EMPTY_HOTEL), ...patch },
+                        },
+                      }))
+                    }
+                  />
                   <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-text-muted">
                     Seção de Adicionais (em construção)
                   </div>

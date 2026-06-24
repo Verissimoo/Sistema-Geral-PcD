@@ -23,6 +23,30 @@ import {
 } from "@/features/orcamento/lib/orcamentoHelpers";
 import Row from "@/features/orcamento/components/Row";
 
+// Remove as fotos efêmeras do pacote antes de gravar (não vão pro banco) e
+// normaliza os valores monetários dos quartos. Mantém os metadados.
+function stripPackageForSave(pkg) {
+  const base = pkg || { include_flight: true, hotel: null, additionals: [] };
+  if (!base.hotel) return base;
+  const hotel = base.hotel;
+  return {
+    ...base,
+    hotel: {
+      ...hotel,
+      photos: [], // fotos do hotel — efêmeras, não persistem
+      nights: hotel.nights === "" || hotel.nights == null ? null : Number(hotel.nights),
+      rooms: Array.isArray(hotel.rooms)
+        ? hotel.rooms.map((r) => ({
+            id: r.id,
+            name: r.name,
+            value: parseBR(r.value),
+            photo: null, // foto do quarto — efêmera, não persiste
+          }))
+        : [],
+    },
+  };
+}
+
 // ─── Bloco 5 — Gerar ────────────────────────────────────────────────
 export default function BlocoGerar({ formData, totalValue, commission, onSaved }) {
   const [whatsappOpen, setWhatsappOpen] = useState(false);
@@ -131,7 +155,7 @@ export default function BlocoGerar({ formData, totalValue, commission, onSaved }
       // Pacotes (passo de estrutura): gravados dentro do pricing (jsonb existente)
       // para não exigir migration. Ausência = orçamento aéreo (retrocompat).
       quote_kind: formData.quote_kind || "aereo",
-      package: formData.package || { include_flight: true, hotel: null, additionals: [] },
+      package: stripPackageForSave(formData.package),
       program: formData.pricing.program_name,
       miles_qty: parseBR(formData.pricing.miles_qty),
       tax: parseBR(formData.pricing.tax),
