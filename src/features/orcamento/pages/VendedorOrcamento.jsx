@@ -149,7 +149,7 @@ export default function VendedorOrcamento() {
     switch (currentStep) {
       case 1:
         return isParceiroMode ? !!formData.partner_id : !!formData.client?.id;
-      case 2: return formData.product === "aereo";
+      case 2: return formData.product === "aereo" || formData.product === "pacote";
       case 3:
         // Pacote sem voo: não exige itinerário/datas.
         if (isPacote && !includeFlight) return true;
@@ -193,38 +193,6 @@ export default function VendedorOrcamento() {
           Preencha as informações para gerar sua cotação profissional
         </p>
       </div>
-
-      {/* Tipo de orçamento — Aéreo (atual) ou Pacote (voo opcional + hotel) */}
-      <Card className="border-border/50">
-        <CardContent className="p-4 flex items-center gap-4 flex-wrap">
-          <Label className="text-sm font-medium">Tipo de orçamento</Label>
-          <div className="flex gap-1 bg-muted rounded-md p-0.5">
-            {[
-              { key: "aereo", label: "Aéreo" },
-              { key: "pacote", label: "Pacote" },
-            ].map((opt) => (
-              <button
-                key={opt.key}
-                type="button"
-                onClick={() => setFormData((p) => ({ ...p, quote_kind: opt.key }))}
-                className={
-                  "px-4 py-1.5 rounded text-sm font-medium transition-colors " +
-                  (formData.quote_kind === opt.key
-                    ? "bg-bg-surface shadow text-text-primary"
-                    : "text-text-muted hover:text-text-primary")
-                }
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-          {isPacote && (
-            <span className="text-xs text-text-muted">
-              Voo opcional + hotel + adicionais (em construção).
-            </span>
-          )}
-        </CardContent>
-      </Card>
 
       {apiKeyMissing && (
         <div className="flex items-start gap-2 p-3 rounded-lg bg-warning/10 border border-warning/30 text-sm">

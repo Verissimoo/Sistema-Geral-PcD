@@ -443,6 +443,10 @@ export default function BlocoGerar({ formData, totalValue, commission, onSaved }
       : normalized.pricing;
     openQuoteInNewTab({
       quote_number: numberForPDF,
+      // Pacote: passa quote_kind + package CRU (com as fotos base64 efêmeras,
+      // que vivem só no estado e nunca vão pro banco) para o PDF injetar.
+      quote_kind: formData.quote_kind || "aereo",
+      package: formData.package || null,
       recipient_type: formData.recipient_type || "cliente",
       partner_id: formData.partner_id || null,
       partner_name: formData.partner_name || null,

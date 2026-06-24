@@ -5,6 +5,21 @@
 import { isNextDayArrival } from "@/shared/lib/timeParser";
 import { formatBRL } from "@/shared/lib/format";
 import { PLATFORMS, calcInstallment } from "@/shared/lib/cardFees";
+import { computePricingTotals } from "@/shared/lib/pricingCalculator";
+
+// Converte valor BR ("4.500,00"), ISO numérico ou number em número. As fotos do
+// PDF vêm do formData (strings BR); quotes do banco já vêm normalizados.
+const num = (v) => {
+  if (v == null || v === "") return 0;
+  if (typeof v === "number") return Number.isFinite(v) ? v : 0;
+  const s = String(v).trim();
+  if (s.includes(",")) {
+    const n = Number(s.replace(/\./g, "").replace(",", "."));
+    return Number.isFinite(n) ? n : 0;
+  }
+  const n = Number(s);
+  return Number.isFinite(n) ? n : 0;
+};
 
 const formatDateLong = (dateStr) => {
   if (!dateStr) return "";
@@ -519,6 +534,206 @@ function buildSpecialWarning(ticketType) {
   return "";
 }
 
+// ─── Builders de PACOTE (hotel / quartos / adicionais / preço) ──────
+
+// Seção de hospedagem: dados do hotel, galeria de fotos (data URLs base64
+// efêmeras vindas do formData) e cards de opções de quarto (o cliente escolhe
+// uma; a selecionada vem destacada). Trata 0/1/N fotos graciosamente.
+function buildHotelSection(pkg) {
+  const hotel = pkg?.hotel;
+  if (!hotel) return "";
+  const photos = (Array.isArray(hotel.photos) ? hotel.photos : []).filter((p) => p && p.src);
+  const rooms = Array.isArray(hotel.rooms) ? hotel.rooms : [];
+  const selectedId = hotel.selected_room_id || rooms[0]?.id || null;
+
+  const chips = [];
+  if (hotel.location)
+    chips.push(`<div class="hmeta"><svg><use href="#ic-pin"/></svg><span>${esc(hotel.location)}</span></div>`);
+  if (hotel.check_in)
+    chips.push(`<div class="hmeta"><svg><use href="#ic-cal"/></svg><span>Check-in · ${esc(formatDateLong(hotel.check_in))}</span></div>`);
+  if (hotel.check_out)
+    chips.push(`<div class="hmeta"><svg><use href="#ic-cal"/></svg><span>Check-out · ${esc(formatDateLong(hotel.check_out))}</span></div>`);
+  if (hotel.nights)
+    chips.push(`<div class="hmeta"><svg><use href="#ic-clock"/></svg><span>${esc(String(hotel.nights))} diária(s)</span></div>`);
+
+  // Galeria: 1 foto = imagem única; várias = principal grande + mosaico de
+  // miniaturas; nenhuma = nada (layout não quebra).
+  let galleryHtml = "";
+  if (photos.length === 1) {
+    galleryHtml = `<div class="hgal solo"><div class="hgal-main"><img src="${photos[0].src}" alt="Foto do hotel"/></div></div>`;
+  } else if (photos.length > 1) {
+    const [first, ...rest] = photos;
+    const thumbs = rest
+      .slice(0, 7)
+      .map((p) => `<div class="hgal-thumb"><img src="${p.src}" alt="Foto do hotel"/></div>`)
+      .join("");
+    galleryHtml = `<div class="hgal"><div class="hgal-main"><img src="${first.src}" alt="Foto do hotel"/></div><div class="hgal-thumbs">${thumbs}</div></div>`;
+  }
+
+  let roomsHtml = "";
+  if (rooms.length > 0) {
+    const cards = rooms
+      .map((r) => {
+        const sel = r.id === selectedId;
+        const val = num(r.value);
+        const photoHtml = r.photo
+          ? `<div class="room-photo"><img src="${r.photo}" alt="${esc(r.name || "Quarto")}"/></div>`
+          : `<div class="room-photo noimg"><svg><use href="#ic-bed"/></svg></div>`;
+        return `
+        <div class="room-card${sel ? " sel" : ""}">
+          ${sel ? `<div class="room-badge">✓ Selecionado</div>` : ""}
+          ${photoHtml}
+          <div class="room-body">
+            <div class="room-name">${esc(r.name || "Opção de quarto")}</div>
+            ${val > 0 ? `<div class="room-price">${esc(formatBRL(val))}</div>` : ""}
+          </div>
+        </div>`;
+      })
+      .join("");
+    roomsHtml = `
+      <div class="rooms-head">Escolha o seu quarto <span>${rooms.length} ${rooms.length > 1 ? "opções" : "opção"} · valor por estadia</span></div>
+      <div class="rooms-grid">${cards}</div>`;
+  }
+
+  return `
+  <section class="sec" style="padding-top:0">
+    <div class="sec-hd"><div class="sec-tag"><svg><use href="#ic-bed"/></svg> Hospedagem</div><div class="sec-line"></div></div>
+    <div class="hotel-card">
+      <div class="hotel-name">${esc(hotel.name || "Hotel")}</div>
+      ${chips.length ? `<div class="hmeta-row">${chips.join("")}</div>` : ""}
+      ${hotel.description ? `<div class="hotel-desc">${esc(hotel.description)}</div>` : ""}
+      ${galleryHtml}
+    </div>
+    ${roomsHtml}
+  </section>`;
+}
+
+// Lista de adicionais (nome + valor). Só renderiza se houver itens.
+function buildAdditionalsSection(pkg) {
+  const items = (Array.isArray(pkg?.additionals) ? pkg.additionals : []).filter(
+    (a) => a && (a.name || a.nome)
+  );
+  if (items.length === 0) return "";
+  const rows = items
+    .map(
+      (a) => `
+      <div class="add-item">
+        <div class="add-name"><svg><use href="#ic-check"/></svg> ${esc(a.name ?? a.nome ?? "")}</div>
+        <div class="add-val">${esc(formatBRL(num(a.value ?? a.valor)))}</div>
+      </div>`
+    )
+    .join("");
+  return `
+  <section class="sec" style="padding-top:0">
+    <div class="sec-hd"><div class="sec-tag"><svg><use href="#ic-plus"/></svg> Adicionais</div><div class="sec-line"></div></div>
+    <div class="adds-list">${rows}</div>
+  </section>`;
+}
+
+// Preço do pacote: "unico" (só o total, rotulado "Valor do pacote") ou
+// "discriminado" (linhas de Aéreo/Hospedagem/Adicionais/serviços + total).
+function buildPackagePriceSection(data, pkg, includeFlight, brandName) {
+  const safeBrand = esc(brandName);
+  const totals = computePricingTotals(data);
+  const total = Number(data.total_value) || totals.saleTotal;
+  const hotelSale = totals.hotelSale;
+  const additionalsSum = totals.additionalsSum;
+  const insurance = data.services?.insurance?.active ? num(data.services.insurance.value) : 0;
+  const transfer = data.services?.transfer?.active ? num(data.services.transfer.value) : 0;
+  // Aéreo = total − (hotel + adicionais + serviços), garantindo reconciliação.
+  const flightSale = includeFlight ? Math.max(0, total - hotelSale - additionalsSum - insurance - transfer) : 0;
+
+  const totalCard = `
+    <div class="price-highlight">
+      <div class="ph-left">
+        <div class="ph-label">Valor do pacote — ${safeBrand}</div>
+        <div class="ph-price"><span>R$</span>${total.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+        <div class="ph-per">Total da proposta</div>
+      </div>
+      <div class="ph-right">
+        <div class="ph-vs">
+          <span>parcelamento</span>
+          <span style="font-size:13px;color:rgba(255,255,255,.85);font-weight:600;">Consulte opções 💳</span>
+          <span>no cartão de crédito</span>
+        </div>
+      </div>
+    </div>`;
+
+  if ((pkg?.price_display || "unico") !== "discriminado") return totalCard;
+
+  const rows = [];
+  if (includeFlight && flightSale > 0) rows.push(["Aéreo", flightSale]);
+  if (hotelSale > 0) rows.push(["Hospedagem (quarto selecionado)", hotelSale]);
+  if (additionalsSum > 0) rows.push(["Adicionais", additionalsSum]);
+  if (insurance > 0) rows.push(["Seguro viagem", insurance]);
+  if (transfer > 0) rows.push(["Transfer", transfer]);
+
+  const rowsHtml = rows
+    .map(
+      ([lbl, val]) =>
+        `<div class="pkg-row"><span class="pkg-row-l">${esc(lbl)}</span><span class="pkg-row-v">${esc(formatBRL(val))}</span></div>`
+    )
+    .join("");
+
+  return `
+    <div class="pkg-breakdown">
+      ${rowsHtml}
+      <div class="pkg-row pkg-total"><span class="pkg-row-l">Total do pacote</span><span class="pkg-row-v">${esc(formatBRL(total))}</span></div>
+    </div>
+    ${totalCard}`;
+}
+
+// Cards-resumo para pacote SEM voo (substituem os cards de voo).
+function buildPackageSummaryCards(data, pkg) {
+  const hotel = pkg?.hotel || {};
+  const card = (icon, lbl, val, sub) => `
+    <div class="card"><div class="card-i"><svg><use href="#${icon}"/></svg></div>
+      <div><div class="card-lbl">${esc(lbl)}</div>
+      <div class="card-val">${esc(val)}</div>
+      <div class="card-sub">${esc(sub || "")}</div></div></div>`;
+  const cards = [];
+  if (hotel.name) cards.push(card("ic-bed", "Hotel", hotel.name, hotel.location || ""));
+  if (hotel.check_in) cards.push(card("ic-cal", "Check-in", formatDateLong(hotel.check_in), ""));
+  if (hotel.check_out) cards.push(card("ic-cal", "Check-out", formatDateLong(hotel.check_out), ""));
+  if (hotel.nights) cards.push(card("ic-clock", "Diárias", String(hotel.nights), ""));
+  cards.push(card("ic-bag", "Hóspedes", `${data.passengers || 1}`, (data.passengers || 1) > 1 ? "pessoas" : "pessoa"));
+  return cards.join("");
+}
+
+// "O que está incluso" adaptado ao pacote (voo opcional + hotel + adicionais).
+function buildPackageIncluso(data, pkg, includeFlight, tipoViagem, companhia) {
+  const items = [];
+  const bagQty = (v) =>
+    typeof v === "number" ? v : typeof v === "boolean" ? (v ? 1 : 0) : Number(v) || 0;
+  if (includeFlight) {
+    items.push(`Passagem aérea ${tipoViagem}${companhia ? ` — ${companhia}` : ""}`);
+    const personalQ = bagQty(data.baggage?.personal);
+    const carryQ = bagQty(data.baggage?.carry_on);
+    const checkedQ = bagQty(data.baggage?.checked);
+    if (personalQ > 0) items.push("Artigo pessoal (bolsa ou mochila)");
+    if (carryQ > 0) items.push(`${carryQ > 1 ? `${carryQ} bagagens de mão` : "Bagagem de mão"} até 10 kg`);
+    if (checkedQ > 0) items.push(`${checkedQ > 1 ? `${checkedQ} bagagens despachadas` : "Bagagem despachada"} 23 kg`);
+    items.push("Todas as taxas aeroportuárias inclusas");
+  }
+  const hotel = pkg?.hotel;
+  if (hotel?.name) {
+    const nightsTxt = hotel.nights ? ` · ${hotel.nights} diária(s)` : "";
+    items.push(`Hospedagem em ${hotel.name}${nightsTxt}`);
+  }
+  (Array.isArray(pkg?.additionals) ? pkg.additionals : [])
+    .filter((a) => a && (a.name || a.nome))
+    .forEach((a) => items.push(a.name ?? a.nome));
+  if (data.services?.insurance?.active) items.push("Seguro viagem");
+  if (data.services?.transfer?.active) items.push("Transfer aeroporto ↔ hotel");
+  items.push("Assessoria completa durante toda a viagem");
+  items.push("Atendimento personalizado 24 horas");
+
+  return `
+    <div class="incl-grid">
+      ${items.map((t) => `<div class="incl"><svg><use href="#ic-check"/></svg> ${esc(t)}</div>`).join("")}
+    </div>`;
+}
+
 // ─── CSS ────────────────────────────────────────────────────────────
 const CSS = `@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}img{display:block}
@@ -671,6 +886,47 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--s1);color:var(-
 .ft-r a{color:rgba(255,255,255,.65);text-decoration:none;}
 .ft-r-lbl{font-size:8px;color:rgba(255,255,255,.25);text-transform:uppercase;letter-spacing:1.5px;margin-right:5px;}
 
+.hotel-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:16px 18px;box-shadow:var(--shadow);}
+.hotel-name{font-size:18px;font-weight:800;color:var(--navy);letter-spacing:-.3px;line-height:1.15;}
+.hmeta-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+.hmeta{display:inline-flex;align-items:center;gap:6px;background:var(--s1);border:1px solid var(--border);border-radius:999px;padding:4px 11px;font-size:10.5px;color:var(--t2);font-weight:500;}
+.hmeta svg{width:11px;height:11px;color:var(--gold);}
+.hotel-desc{margin-top:12px;font-size:12px;color:var(--t2);line-height:1.6;}
+.hgal{display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-top:14px;}
+.hgal.solo{grid-template-columns:1fr;}
+.hgal-main{border-radius:10px;overflow:hidden;border:1px solid var(--border);}
+.hgal-main img{width:100%;height:260px;object-fit:cover;}
+.hgal-thumbs{display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:1fr;gap:8px;}
+.hgal-thumb{border-radius:8px;overflow:hidden;border:1px solid var(--border);}
+.hgal-thumb img{width:100%;height:100%;min-height:60px;object-fit:cover;}
+.rooms-head{display:flex;align-items:baseline;gap:10px;margin:18px 0 10px;font-size:14px;font-weight:800;color:var(--navy);}
+.rooms-head span{font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--t4);}
+.rooms-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;}
+.room-card{position:relative;background:var(--bg);border:1px solid var(--border);border-radius:10px;overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column;}
+.room-card.sel{border:2px solid var(--gold);box-shadow:0 0 0 3px var(--gold-l),var(--shadow);}
+.room-badge{position:absolute;top:8px;right:8px;z-index:2;background:var(--gold);color:#fff;font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:3px 9px;border-radius:999px;}
+.room-photo{height:120px;overflow:hidden;background:var(--s2);}
+.room-photo img{width:100%;height:100%;object-fit:cover;}
+.room-photo.noimg{display:flex;align-items:center;justify-content:center;background:var(--s1);}
+.room-photo.noimg svg{width:30px;height:30px;color:var(--t4);}
+.room-body{padding:11px 13px;flex:1;display:flex;flex-direction:column;justify-content:space-between;gap:8px;}
+.room-name{font-size:12.5px;font-weight:700;color:var(--t1);line-height:1.3;}
+.room-price{font-size:17px;font-weight:800;color:var(--navy);letter-spacing:-.3px;}
+.room-card.sel .room-price{color:var(--gold);}
+.adds-list{display:flex;flex-direction:column;gap:8px;}
+.add-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 15px;background:var(--s1);border:1px solid var(--border);border-radius:8px;}
+.add-name{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--t1);font-weight:500;}
+.add-name svg{width:11px;height:11px;color:var(--green);flex-shrink:0;}
+.add-val{font-size:13px;font-weight:700;color:var(--navy);white-space:nowrap;}
+.pkg-breakdown{background:var(--bg);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:12px;box-shadow:var(--shadow);}
+.pkg-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 18px;border-bottom:1px solid var(--border);font-size:12.5px;color:var(--t2);}
+.pkg-row:last-child{border-bottom:none;}
+.pkg-row-l{font-weight:500;}
+.pkg-row-v{font-weight:700;color:var(--t1);font-variant-numeric:tabular-nums;}
+.pkg-total{background:var(--s1);}
+.pkg-total .pkg-row-l{font-size:13px;font-weight:800;color:var(--navy);text-transform:uppercase;letter-spacing:1px;}
+.pkg-total .pkg-row-v{font-size:16px;font-weight:800;color:var(--navy);}
+
 @media print{
 @page{size:A4;margin:8mm 6mm;}
 body{background:#fff!important;padding-top:0!important;}
@@ -690,6 +946,8 @@ body{background:#fff!important;padding-top:0!important;}
 .ph-saving-val{font-size:15px!important;}
 .bag-grid{grid-template-columns:repeat(3,1fr)!important;}
 .flight,.cmp,.price-highlight,.bag-grid,.incl-grid{page-break-inside:avoid;}
+.hotel-card,.room-card,.add-item,.pkg-breakdown,.hgal-main,.hgal-thumb{page-break-inside:avoid;break-inside:avoid;}
+.hgal-main img{height:200px!important;}
 *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}}`;
 
 const SVG_ICONS = `<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
@@ -704,6 +962,9 @@ const SVG_ICONS = `<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
 <symbol id="ic-warn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
 <symbol id="ic-money" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></symbol>
 <symbol id="ic-dl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></symbol>
+<symbol id="ic-bed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 4v16M2 9h18a2 2 0 0 1 2 2v9M2 16h20M6 9V6a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v3"/></symbol>
+<symbol id="ic-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></symbol>
+<symbol id="ic-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></symbol>
 </svg>`;
 
 // ─── Função principal ───────────────────────────────────────────────
@@ -756,13 +1017,37 @@ export function generateQuoteHTML(data) {
       ? `Proposta personalizada para <strong>${esc(data.client?.name || "")}</strong> — com economia de ${esc(formatBRL(economia))} em relação ao mercado, pelo menor preço disponível.`
       : `Proposta personalizada para <strong>${esc(data.client?.name || "")}</strong> — com o melhor preço disponível e suporte completo.`;
 
+  // ── Pacote: quote_kind/package vêm no top-level (formData) ou aninhados em
+  // pricing (quotes do banco). Ausência = aéreo puro (retrocompat total).
+  const quoteKind = data.quote_kind || data.pricing?.quote_kind || "aereo";
+  const pkg = data.package || data.pricing?.package || null;
+  const isPacote = quoteKind === "pacote" && !!pkg;
+  const includeFlight = !isPacote || pkg.include_flight !== false;
+  const showFlight = !isPacote || includeFlight;
+
   const flightsHtml = trechos.map((t) => buildFlightCard(t, data)).join("");
-  const summaryCardsHtml = buildSummaryCards(data, trechoIda, trechoVolta);
+  const summaryCardsHtml =
+    isPacote && !includeFlight
+      ? buildPackageSummaryCards(data, pkg)
+      : buildSummaryCards(data, trechoIda, trechoVolta);
   const bagHtml = buildBaggage(data);
-  const priceHtml = buildPriceSection(data, dataFormatada, brandName);
+  const priceHtml = isPacote
+    ? buildPackagePriceSection(data, pkg, includeFlight, brandName)
+    : buildPriceSection(data, dataFormatada, brandName);
   const paymentOptionsHtml = buildPaymentOptions(data);
-  const inclusoHtml = buildIncluso(data, tipoViagem, companhia);
-  const specialWarnHtml = buildSpecialWarning(data.ticket_type);
+  const inclusoHtml = isPacote
+    ? buildPackageIncluso(data, pkg, includeFlight, tipoViagem, companhia)
+    : buildIncluso(data, tipoViagem, companhia);
+  const specialWarnHtml = showFlight ? buildSpecialWarning(data.ticket_type) : "";
+  const hotelSectionHtml = isPacote ? buildHotelSection(pkg) : "";
+  const additionalsSectionHtml = isPacote ? buildAdditionalsSection(pkg) : "";
+
+  // Rótulos do hero/eyebrow conforme o tipo.
+  const heroEyebrow = isPacote
+    ? (includeFlight ? `Pacote · ${esc(tipoViagem)}` : "Pacote · Hospedagem")
+    : `Viagem · ${esc(tipoViagem)}`;
+  // Destino de um pacote sem voo: localização/nome do hotel.
+  const pkgDestLabel = pkg?.hotel?.location || pkg?.hotel?.name || destinoCidade || "Seu destino";
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -806,9 +1091,24 @@ ${SVG_ICONS}
   </div>
 </header>
 
+${isPacote && !includeFlight ? `
 <section class="hero">
   <div>
-    <div class="hero-eyebrow">Viagem · ${esc(tipoViagem)}</div>
+    <div class="hero-eyebrow">${heroEyebrow}</div>
+    <h1 class="hero-title">${esc(pkg.hotel?.name || pkgDestLabel)}</h1>
+    <p class="hero-desc">${heroDesc}</p>
+  </div>
+  <div class="route-card" style="padding:4px;">
+    <div class="rc-seg" style="min-width:130px;">
+      <div class="rc-code" style="font-size:15px;line-height:1.2;padding:4px 0;">${esc(pkgDestLabel)}</div>
+      <div class="rc-city">Pacote de viagem</div>
+    </div>
+    <div class="rc-mid"><svg><use href="#ic-bed"/></svg><div class="rc-type">Hospedagem</div></div>
+  </div>
+</section>` : `
+<section class="hero">
+  <div>
+    <div class="hero-eyebrow">${heroEyebrow}</div>
     <h1 class="hero-title">${esc(origemCidade)} (${esc(origemIata)}) <span>para</span><br>${esc(destinoCidade)} (${esc(destinoIata)})</h1>
     <p class="hero-desc">${heroDesc}</p>
   </div>
@@ -817,23 +1117,27 @@ ${SVG_ICONS}
     <div class="rc-mid"><svg><use href="#ic-plane"/></svg><div class="rc-type">${trechoVolta ? "Ida e<br>Volta" : "Somente<br>Ida"}</div></div>
     <div class="rc-seg"><div class="rc-code">${esc(destinoIata)}</div><div class="rc-city">${esc(destinoCidade)}</div></div>
   </div>
-</section>
+</section>`}
 
 <div class="cards">${summaryCardsHtml}</div>
 
+${showFlight ? `
 <section class="sec">
   <div class="sec-hd"><div class="sec-tag"><svg><use href="#ic-plane"/></svg> Itinerário de Voo</div><div class="sec-line"></div></div>
   ${flightsHtml}
-</section>
+</section>` : ""}
 
-${data.ticket_type === "Quebra de Trecho" ? "" : `
+${showFlight && data.ticket_type !== "Quebra de Trecho" ? `
 <section class="sec" style="padding-top:0">
   <div class="sec-hd"><div class="sec-tag"><svg><use href="#ic-bag"/></svg> Franquia de Bagagem</div><div class="sec-line"></div></div>
   ${bagHtml}
-</section>`}
+</section>` : ""}
+
+${hotelSectionHtml}
+${additionalsSectionHtml}
 
 <section class="sec" style="padding-top:0">
-  <div class="sec-hd"><div class="sec-tag"><svg><use href="#ic-money"/></svg> ${data.competitor ? "Comparativo de Preços" : "Valor da Proposta"}</div><div class="sec-line"></div></div>
+  <div class="sec-hd"><div class="sec-tag"><svg><use href="#ic-money"/></svg> ${isPacote ? "Valor do Pacote" : data.competitor ? "Comparativo de Preços" : "Valor da Proposta"}</div><div class="sec-line"></div></div>
   ${priceHtml}
   ${paymentOptionsHtml}
 </section>
@@ -849,7 +1153,12 @@ ${specialWarnHtml}
   <div class="sec-hd"><div class="sec-tag"><svg><use href="#ic-warn"/></svg> Informações Importantes</div><div class="sec-line"></div></div>
   <div class="alert-list">
     <div class="alert"><svg><use href="#ic-warn"/></svg> Valores sujeitos a alteração até a efetivação da compra. Recomendamos o fechamento em até 24h para garantir o preço cotado.</div>
-    <div class="alert"><svg><use href="#ic-warn"/></svg> Cancelamentos e remarcações sujeitos às regras da ${esc(companhia || "companhia aérea")}, conforme tarifa ${esc(data.ticket_type || "Normal")}.</div>
+    ${showFlight
+      ? `<div class="alert"><svg><use href="#ic-warn"/></svg> Cancelamentos e remarcações sujeitos às regras da ${esc(companhia || "companhia aérea")}, conforme tarifa ${esc(data.ticket_type || "Normal")}.</div>`
+      : ""}
+    ${isPacote
+      ? `<div class="alert"><svg><use href="#ic-warn"/></svg> Disponibilidade da hospedagem e das opções de quarto sujeita a confirmação. Políticas de cancelamento e alterações seguem as regras do hotel/operadora.</div>`
+      : ""}
     <div class="alert"><svg><use href="#ic-warn"/></svg> Pagamentos via cartão de crédito podem estar sujeitos a taxas adicionais. Consulte as opções de parcelamento disponíveis.</div>
   </div>
 </section>
