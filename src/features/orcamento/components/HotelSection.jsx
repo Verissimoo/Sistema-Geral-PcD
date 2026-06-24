@@ -16,6 +16,12 @@ export const EMPTY_HOTEL = {
   check_out: "",
   nights: "",
   description: "",
+  // Comissão fixa da consolidadora (R$) — entra como LUCRO da agência sobre o
+  // hotel (ver pricingCalculator: análogo ao DU da consolidadora aérea).
+  hotel_commission: "",
+  // Quarto principal para o cálculo/comissão (o cliente escolhe um). Default na
+  // precificação = primeiro quarto quando vazio.
+  selected_room_id: null,
   photos: [],
   rooms: [],
 };
@@ -81,10 +87,29 @@ export default function HotelSection({ hotel, onChange }) {
   };
   const removePhoto = (idx) => setPhotos(photos.filter((_, i) => i !== idx));
 
-  const addRoom = () => setRooms([...rooms, { id: newId(), name: "", value: "", photo: null }]);
+  // Quarto principal para o cálculo (default = primeiro). O cliente escolhe um;
+  // o vendedor marca qual entra na precificação/comissão.
+  const selectedRoomId = h.selected_room_id || rooms[0]?.id || null;
+  const setSelectedRoom = (id) => onChange({ selected_room_id: id });
+
+  const addRoom = () => {
+    const id = newId();
+    const next = [...rooms, { id, name: "", value: "", photo: null }];
+    // Primeiro quarto criado vira automaticamente o principal.
+    onChange(rooms.length === 0 ? { rooms: next, selected_room_id: id } : { rooms: next });
+  };
   const updateRoom = (idx, patch) =>
     setRooms(rooms.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
-  const removeRoom = (idx) => setRooms(rooms.filter((_, i) => i !== idx));
+  const removeRoom = (idx) => {
+    const removed = rooms[idx];
+    const next = rooms.filter((_, i) => i !== idx);
+    // Se removeu o principal, reaponta para o primeiro restante.
+    if (removed?.id === selectedRoomId) {
+      onChange({ rooms: next, selected_room_id: next[0]?.id || null });
+    } else {
+      onChange({ rooms: next });
+    }
+  };
 
   const setRoomPhotoFromFile = async (idx, file) => {
     if (!file) return;
@@ -147,6 +172,18 @@ export default function HotelSection({ hotel, onChange }) {
             value={h.description} onChange={(e) => onChange({ description: e.target.value })} />
         </div>
 
+        {/* Comissão da consolidadora — campo INTERNO (não vai pro cliente/parceiro) */}
+        <div className="space-y-1.5 rounded-lg border border-accent/30 bg-accent/5 p-3">
+          <Label className="text-xs">Comissão da consolidadora (R$) — interno</Label>
+          <Input type="text" inputMode="decimal" placeholder="Ex: 500,00" className="max-w-xs"
+            value={h.hotel_commission}
+            onChange={(e) => onChange({ hotel_commission: sanitizeBRInput(e.target.value) })} />
+          <p className="text-[11px] text-text-muted">
+            Lucro da agência sobre o hotel. Não aparece no orçamento do cliente.
+            {parseBR(h.hotel_commission) > 0 && ` (${formatBRL(parseBR(h.hotel_commission))})`}
+          </p>
+        </div>
+
         {/* Galeria de fotos */}
         <div className="space-y-2">
           <Label>Fotos do hotel</Label>
@@ -187,11 +224,23 @@ export default function HotelSection({ hotel, onChange }) {
           {rooms.map((room, idx) => (
             <Card key={room.id} className="border-border bg-muted/30">
               <CardContent className="p-3 space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">Quarto {idx + 1}</span>
-                  <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-text-muted hover:text-danger" onClick={() => removeRoom(idx)} title="Remover">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-1.5 text-[11px] text-text-muted cursor-pointer select-none">
+                      <input
+                        type="radio"
+                        name="hotel-principal-room"
+                        className="accent-primary"
+                        checked={selectedRoomId === room.id}
+                        onChange={() => setSelectedRoom(room.id)}
+                      />
+                      Principal (cálculo)
+                    </label>
+                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-text-muted hover:text-danger" onClick={() => removeRoom(idx)} title="Remover">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="space-y-1.5">

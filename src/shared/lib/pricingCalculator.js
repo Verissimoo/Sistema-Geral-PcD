@@ -98,6 +98,52 @@ function emissionCostNipon(b) {
   return { cost, nipon: isAzulProgram(b) ? cost : cost * 1.1 };
 }
 
+// Decompõe o PACOTE (hotel + adicionais) nas contribuições de venda/custo/nipon.
+//
+// HOTEL — regra de negócio (confirmada com o dono do produto):
+//   O cliente escolhe UMA opção de quarto (selected_room_id; default = 1º).
+//   O valor desse quarto é a VENDA do hotel. A consolidadora já define uma
+//   comissão fixa em R$ (hotel_commission) — é o análogo do DU da consolidadora
+//   aérea: representa o lucro que sobra pra agência. Modelamos então:
+//       venda_hotel = valor do quarto selecionado
+//       custo_hotel = valor do quarto − hotel_commission   (vai pro fornecedor)
+//       nipon_hotel = valor do quarto   (hotel NÃO usa a regra de nipon ×1.10)
+//   Como nipon_hotel == venda_hotel, o hotel não gera "excedente" (a parcela de
+//   45%); seu lucro = nipon − custo = hotel_commission, comissionado pelo
+//   baseRate padrão (25%/30%) — exatamente a MESMA política do aéreo. Assim
+//   computeCommission não precisa de nenhum special-case para o hotel.
+//
+// ADICIONAIS — { name/nome, value/valor }[]: VENDA pura repassada ao cliente,
+//   sem custo e sem comissão. Entram com o MESMO valor em venda, nipon e custo
+//   (margem zero) para somar ao total do pacote sem virar lucro/excedente.
+function computePackageParts(pkg) {
+  const empty = {
+    hotelSale: 0, hotelCost: 0, hotelNipon: 0, hotelCommission: 0, additionalsSum: 0,
+  };
+  if (!pkg || typeof pkg !== "object") return empty;
+
+  let hotelSale = 0, hotelCost = 0, hotelNipon = 0, hotelCommission = 0;
+  if (pkg.hotel && typeof pkg.hotel === "object") {
+    const rooms = Array.isArray(pkg.hotel.rooms) ? pkg.hotel.rooms : [];
+    const selected =
+      rooms.find((r) => r && r.id === pkg.hotel.selected_room_id) || rooms[0] || null;
+    const roomValue = toNumber(selected?.value);
+    // A comissão nunca pode exceder a venda do quarto (dado inválido) — clamp
+    // mantém custo ≥ 0 e o lucro do hotel == hotel_commission.
+    hotelCommission = Math.min(toNumber(pkg.hotel.hotel_commission), roomValue);
+    hotelSale = roomValue;
+    hotelNipon = roomValue;
+    hotelCost = roomValue - hotelCommission;
+  }
+
+  let additionalsSum = 0;
+  if (Array.isArray(pkg.additionals)) {
+    for (const a of pkg.additionals) additionalsSum += toNumber(a?.value ?? a?.valor);
+  }
+
+  return { hotelSale, hotelCost, hotelNipon, hotelCommission, additionalsSum };
+}
+
 /**
  * Totais reais de uma cotação considerando múltiplos passageiros.
  * @param {object} quote — formato cru do banco OU do formData do gerador.
@@ -105,6 +151,14 @@ function emissionCostNipon(b) {
 export function computePricingTotals(quote) {
   const passengers = Math.max(1, parseInt(quote?.passengers, 10) || 1);
   const pricing = quote?.pricing || {};
+
+  // ── Pacote: quote_kind/package podem vir no top-level (formData) ou
+  // aninhados em pricing (persistência no jsonb). Ausência = aéreo puro
+  // (retrocompatibilidade total). Em pacote sem voo, o aéreo não conta.
+  const quoteKind = quote?.quote_kind || pricing.quote_kind || "aereo";
+  const pkg = quote?.package || pricing.package || null;
+  const isPacote = quoteKind === "pacote" && !!pkg;
+  const includeFlight = !isPacote || pkg.include_flight !== false;
 
   let costPerPax = 0;
   // Em multi-programa, o nipon é calculado trecho a trecho (cada trecho pode
@@ -161,22 +215,34 @@ export function computePricingTotals(quote) {
   const niponPerPax =
     niponPerPaxMulti != null ? niponPerPaxMulti : (isAzul ? costPerPax : costPerPax * 1.1);
 
-  // Venda total — prioriza pricing.sale_value (input do vendedor) e cai para
-  // quote.total_value (que já é o total final, incluindo serviços e adicionais).
+  // Venda do AÉREO — prioriza pricing.sale_value (input do vendedor) e cai para
+  // quote.total_value (orçamentos antigos). O fallback só vale no aéreo puro:
+  // em pacote o total_value salvo já inclui hotel/adicionais e dobraria a conta.
   const saleRaw = toNumber(pricing.sale_value);
   const isPerPerson = pricing.sale_per === "pessoa";
   const saleFromPricing = isPerPerson ? saleRaw * passengers : saleRaw;
-  // Se pricing.sale_value não foi informado mas o quote já tem total_value
-  // (caso de orçamentos antigos), usa o total armazenado direto.
-  const saleTotal = saleFromPricing > 0 ? saleFromPricing : toNumber(quote?.total_value);
+  const flightSaleRaw =
+    saleFromPricing > 0 ? saleFromPricing : (isPacote ? 0 : toNumber(quote?.total_value));
 
-  const costTotal = costPerPax * passengers;
-  const niponTotal = niponPerPax * passengers;
+  // Contribuição do AÉREO. Em pacote sem voo, zera tudo do aéreo.
+  const flightCostTotal = includeFlight ? costPerPax * passengers : 0;
+  const flightNiponTotal = includeFlight ? niponPerPax * passengers : 0;
+  const flightSaleTotal = includeFlight ? flightSaleRaw : 0;
+
+  // Contribuição do HOTEL + ADICIONAIS (ver computePackageParts).
+  const { hotelSale, hotelCost, hotelNipon, hotelCommission, additionalsSum } =
+    computePackageParts(isPacote ? pkg : null);
+
+  const costTotal = flightCostTotal + hotelCost + additionalsSum;
+  const niponTotal = flightNiponTotal + hotelNipon + additionalsSum;
+  const saleTotal = flightSaleTotal + hotelSale + additionalsSum;
 
   return {
     passengers,
-    costPerPax,
-    niponPerPax,
+    // Métricas por passageiro = só do aéreo (o pacote é um acréscimo fixo, não
+    // por pax). Zeradas quando o pacote não inclui voo.
+    costPerPax: includeFlight ? costPerPax : 0,
+    niponPerPax: includeFlight ? niponPerPax : 0,
     isPerPerson,
     saleTotal,
     costTotal,
@@ -184,6 +250,13 @@ export function computePricingTotals(quote) {
     lucroNipon: niponTotal - costTotal,
     excedente: Math.max(0, saleTotal - niponTotal),
     margemBruta: saleTotal - costTotal,
+    // Metadados do pacote — úteis para UI/PDF e auditoria.
+    isPacote,
+    includeFlight,
+    hotelSale,
+    hotelCost,
+    hotelCommission,
+    additionalsSum,
   };
 }
 

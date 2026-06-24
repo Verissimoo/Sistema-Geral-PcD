@@ -278,6 +278,164 @@ describe("computeCommission", () => {
   });
 });
 
+describe("computePricingTotals — pacotes (hotel + adicionais)", () => {
+  const hotelPkg = (over = {}) => ({
+    quote_kind: "pacote",
+    passengers: 1,
+    package: {
+      include_flight: false,
+      hotel: {
+        hotel_commission: 500,
+        rooms: [{ id: "r1", name: "Standard", value: 4500 }],
+      },
+      additionals: [],
+      ...over.package,
+    },
+    ...over.rest,
+  });
+
+  it("pacote só-hotel (include_flight=false): aéreo zerado; lucro = hotel_commission", () => {
+    const t = computePricingTotals(hotelPkg());
+    expect(t.isPacote).toBe(true);
+    expect(t.includeFlight).toBe(false);
+    expect(t.costPerPax).toBe(0);
+    expect(t.niponPerPax).toBe(0);
+    expect(t.saleTotal).toBeCloseTo(4500, 6);   // venda = valor do quarto
+    expect(t.niponTotal).toBeCloseTo(4500, 6);  // hotel não usa ×1.10
+    expect(t.costTotal).toBeCloseTo(4000, 6);   // 4500 − 500
+    expect(t.lucroNipon).toBeCloseTo(500, 6);   // = hotel_commission
+    expect(t.excedente).toBeCloseTo(0, 6);      // venda == nipon → sem excedente
+    expect(t.hotelCommission).toBeCloseTo(500, 6);
+  });
+
+  it("hotel sem comissão: lucro e comissão zero", () => {
+    const t = computePricingTotals(
+      hotelPkg({ package: { hotel: { hotel_commission: 0, rooms: [{ id: "r1", value: 3000 }] }, additionals: [] } })
+    );
+    expect(t.costTotal).toBeCloseTo(3000, 6);
+    expect(t.niponTotal).toBeCloseTo(3000, 6);
+    expect(t.lucroNipon).toBeCloseTo(0, 6);
+    const c = computeCommission(
+      hotelPkg({ package: { hotel: { hotel_commission: 0, rooms: [{ id: "r1", value: 3000 }] }, additionals: [] }, rest: { client: { lead_origin: "x" } } })
+    );
+    expect(c.total).toBeCloseTo(0, 6);
+  });
+
+  it("seleciona o quarto por selected_room_id (default = primeiro)", () => {
+    const base = {
+      quote_kind: "pacote",
+      passengers: 1,
+      package: {
+        include_flight: false,
+        hotel: {
+          hotel_commission: 0,
+          rooms: [
+            { id: "r1", value: 3000 },
+            { id: "r2", value: 5000 },
+          ],
+        },
+        additionals: [],
+      },
+    };
+    // default → primeiro quarto
+    expect(computePricingTotals(base).saleTotal).toBeCloseTo(3000, 6);
+    // marca o segundo como principal
+    const withSel = { ...base, package: { ...base.package, hotel: { ...base.package.hotel, selected_room_id: "r2" } } };
+    expect(computePricingTotals(withSel).saleTotal).toBeCloseTo(5000, 6);
+  });
+
+  it("comissão da consolidadora não excede a venda do quarto (clamp)", () => {
+    const t = computePricingTotals(
+      hotelPkg({ package: { hotel: { hotel_commission: 9999, rooms: [{ id: "r1", value: 4500 }] }, additionals: [] } })
+    );
+    expect(t.costTotal).toBeCloseTo(0, 6);       // custo nunca negativo
+    expect(t.hotelCommission).toBeCloseTo(4500, 6);
+    expect(t.lucroNipon).toBeCloseTo(4500, 6);
+  });
+
+  it("pacote voo + hotel: soma aéreo e hotel; lucros somam", () => {
+    const t = computePricingTotals({
+      quote_kind: "pacote",
+      passengers: 1,
+      pricing: { type: "dinheiro", cost_brl: 1000, tax: 100, sale_value: 2000, sale_per: "total" },
+      package: {
+        include_flight: true,
+        hotel: { hotel_commission: 400, rooms: [{ id: "r1", value: 3000 }] },
+        additionals: [],
+      },
+    });
+    // aéreo: custo 1100, nipon 1210, venda 2000 | hotel: venda 3000, nipon 3000, custo 2600
+    expect(t.costTotal).toBeCloseTo(3700, 6);
+    expect(t.niponTotal).toBeCloseTo(4210, 6);
+    expect(t.saleTotal).toBeCloseTo(5000, 6);
+    expect(t.lucroNipon).toBeCloseTo(510, 6);   // 110 (voo) + 400 (hotel)
+    expect(t.excedente).toBeCloseTo(790, 6);    // só do voo (2000 − 1210)
+  });
+
+  it("adicionais somam ao total sem afetar lucro/comissão", () => {
+    const semAdd = {
+      quote_kind: "pacote",
+      passengers: 1,
+      pricing: { type: "dinheiro", cost_brl: 1000, tax: 100, sale_value: 2000, sale_per: "total" },
+      client: { lead_origin: "x" },
+      package: { include_flight: true, hotel: { hotel_commission: 400, rooms: [{ id: "r1", value: 3000 }] }, additionals: [] },
+    };
+    const comAdd = {
+      ...semAdd,
+      package: { ...semAdd.package, additionals: [{ name: "Seguro", value: 200 }, { nome: "Passeio", valor: 300 }] },
+    };
+    const a = computeCommission(semAdd);
+    const b = computeCommission(comAdd);
+    expect(b.saleTotal - a.saleTotal).toBeCloseTo(500, 6);   // total cresce
+    expect(b.lucroNipon).toBeCloseTo(a.lucroNipon, 6);       // lucro inalterado
+    expect(b.excedente).toBeCloseTo(a.excedente, 6);         // excedente inalterado
+    expect(b.total).toBeCloseTo(a.total, 6);                 // comissão inalterada
+  });
+
+  it("comissão do hotel segue o baseRate (carteira própria = 30%)", () => {
+    const c = computeCommission({
+      quote_kind: "pacote",
+      passengers: 1,
+      client: { lead_origin: "Carteira Própria" },
+      package: { include_flight: false, hotel: { hotel_commission: 1000, rooms: [{ id: "r1", value: 5000 }] }, additionals: [] },
+    });
+    expect(c.baseRate).toBe(0.3);
+    expect(c.comissaoBase).toBeCloseTo(1000 * 0.3, 6);  // baseRate sobre o lucro do hotel
+    expect(c.comissaoExtra).toBeCloseTo(0, 6);
+    expect(c.total).toBeCloseTo(300, 6);
+  });
+
+  it("retrocompat: quote_kind ausente → idêntico ao aéreo puro", () => {
+    const q = { passengers: 2, pricing: { type: "dinheiro", cost_brl: 1000, tax: 100, sale_value: 3000, sale_per: "total" } };
+    const t = computePricingTotals(q);
+    expect(t.isPacote).toBe(false);
+    expect(t.costTotal).toBeCloseTo(2200, 6);
+    expect(t.niponTotal).toBeCloseTo(2420, 6);
+    expect(t.saleTotal).toBe(3000);
+    expect(t.lucroNipon).toBeCloseTo(220, 6);
+  });
+
+  it("quote_kind=pacote sem package → trata como aéreo (não quebra)", () => {
+    const t = computePricingTotals({ quote_kind: "pacote", passengers: 1, pricing: { type: "dinheiro", cost_brl: 1000, tax: 0 } });
+    expect(t.isPacote).toBe(false); // sem package não há pacote efetivo
+    expect(t.costTotal).toBeCloseTo(1000, 6);
+  });
+
+  it("lê package aninhado em pricing (persistência no jsonb)", () => {
+    const t = computePricingTotals({
+      passengers: 1,
+      pricing: {
+        type: "dinheiro", cost_brl: 1000, tax: 0, sale_value: 1500, sale_per: "total",
+        quote_kind: "pacote",
+        package: { include_flight: true, hotel: { hotel_commission: 200, rooms: [{ id: "r1", value: 2000 }] }, additionals: [] },
+      },
+    });
+    expect(t.isPacote).toBe(true);
+    expect(t.saleTotal).toBeCloseTo(3500, 6); // 1500 voo + 2000 hotel
+    expect(t.costTotal).toBeCloseTo(2800, 6); // 1000 voo + 1800 hotel
+  });
+});
+
 describe("buildCommissionSnapshot", () => {
   it("retorna o shape persistível com calculated_at ISO", () => {
     const s = buildCommissionSnapshot({

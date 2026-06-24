@@ -43,6 +43,38 @@ const SENSITIVE_QUOTE_FIELDS = [
   "emission_handled_by",
 ];
 
+// Remove campos INTERNOS do pacote (hotel/adicionais) antes de ir pro parceiro.
+// hotel_commission é a comissão fixa da consolidadora — é LUCRO interno da
+// agência (análogo ao DU) e NUNCA pode vazar. Mantemos só o que o parceiro
+// mostra ao cliente final: dados do hotel e dos quartos (nome + valor de VENDA)
+// e os adicionais. Fotos já são efêmeras (nunca chegam ao banco).
+function sanitizePackageForPartner(pkg) {
+  if (!pkg || typeof pkg !== "object") return pkg;
+  const hotel = pkg.hotel && typeof pkg.hotel === "object" ? pkg.hotel : null;
+  return {
+    include_flight: pkg.include_flight !== false,
+    hotel: hotel
+      ? {
+          name: hotel.name,
+          location: hotel.location,
+          check_in: hotel.check_in,
+          check_out: hotel.check_out,
+          nights: hotel.nights,
+          description: hotel.description,
+          selected_room_id: hotel.selected_room_id,
+          // value = preço de VENDA do quarto (o cliente vê). hotel_commission e
+          // qualquer campo de custo são removidos por construção (whitelist).
+          rooms: Array.isArray(hotel.rooms)
+            ? hotel.rooms.map((r) => ({ id: r?.id, name: r?.name, value: r?.value }))
+            : [],
+        }
+      : null,
+    additionals: Array.isArray(pkg.additionals)
+      ? pkg.additionals.map((a) => ({ name: a?.name ?? a?.nome, value: a?.value ?? a?.valor }))
+      : [],
+  };
+}
+
 export function sanitizeQuoteForPartner(quote) {
   if (!quote) return quote;
 
@@ -53,6 +85,11 @@ export function sanitizeQuoteForPartner(quote) {
   // Remover campos sensíveis do top-level
   for (const field of SENSITIVE_QUOTE_FIELDS) {
     delete safe[field];
+  }
+
+  // Pacote no top-level (formData) — sanitiza removendo hotel_commission/custos.
+  if (safe.package) {
+    safe.package = sanitizePackageForPartner(safe.package);
   }
 
   // Sanitizar pricing — mantemos apenas os metadados que o portal precisa
@@ -76,6 +113,10 @@ export function sanitizeQuoteForPartner(quote) {
       type: cleanPricing.type,
       program_name: cleanPricing.program_name,
       multi_program: cleanPricing.multi_program,
+      // quote_kind não é sensível (apenas "aereo"/"pacote"); package vai
+      // sanitizado (sem hotel_commission/custos) para o portal renderizar.
+      ...(cleanPricing.quote_kind && { quote_kind: cleanPricing.quote_kind }),
+      ...(cleanPricing.package && { package: sanitizePackageForPartner(cleanPricing.package) }),
       ...(trechosPricing && { trechos_pricing: trechosPricing }),
     };
   }

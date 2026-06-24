@@ -7,7 +7,7 @@ import { Label } from "@/shared/ui/label";
 import { Checkbox } from "@/shared/ui/checkbox";
 import { useToast } from "@/shared/ui/use-toast";
 import { getQuote, listQuotes } from "@/api/quotes";
-import { computeCommission } from "@/shared/lib/pricingCalculator";
+import { computeCommission, computePricingTotals } from "@/shared/lib/pricingCalculator";
 import { parseBR } from "@/shared/lib/parseBR";
 import { initialFormData } from "@/features/orcamento/lib/orcamentoHelpers";
 import Stepper from "@/features/orcamento/components/Stepper";
@@ -17,6 +17,7 @@ import BlocoItinerario from "@/features/orcamento/components/BlocoItinerario";
 import BlocoPrecificacao from "@/features/orcamento/components/BlocoPrecificacao";
 import BlocoGerar from "@/features/orcamento/components/BlocoGerar";
 import HotelSection, { EMPTY_HOTEL } from "@/features/orcamento/components/HotelSection";
+import AdicionaisSection from "@/features/orcamento/components/AdicionaisSection";
 
 // ─── Componente Principal ───────────────────────────────────────────
 export default function VendedorOrcamento() {
@@ -115,12 +116,10 @@ export default function VendedorOrcamento() {
     });
   };
 
-  // Cálculos derivados — considera nº de passageiros e modo "Cobrado por: pessoa | total".
+  // Cálculos derivados — via fonte única (pricingCalculator). saleTotal já trata
+  // pessoa/total, e em pacote inclui o quarto selecionado + adicionais.
   const totalValue = useMemo(() => {
-    const pr = formData.pricing;
-    const pax = Math.max(1, Number(formData.passengers) || 1);
-    const saleInput = parseBR(pr.sale_value);
-    const saleTotal = pr.sale_per === "total" ? saleInput : saleInput * pax;
+    const { saleTotal } = computePricingTotals(formData);
     return (
       saleTotal +
       (formData.additional.active ? parseBR(formData.additional.value) : 0) +
@@ -322,9 +321,15 @@ export default function VendedorOrcamento() {
                       }))
                     }
                   />
-                  <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-text-muted">
-                    Seção de Adicionais (em construção)
-                  </div>
+                  <AdicionaisSection
+                    additionals={formData.package?.additionals || []}
+                    onChange={(additionals) =>
+                      setFormData((p) => ({
+                        ...p,
+                        package: { ...(p.package || {}), additionals },
+                      }))
+                    }
+                  />
                 </>
               )}
             </div>

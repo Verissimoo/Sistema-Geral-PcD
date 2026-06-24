@@ -27,14 +27,22 @@ import Row from "@/features/orcamento/components/Row";
 // normaliza os valores monetários dos quartos. Mantém os metadados.
 function stripPackageForSave(pkg) {
   const base = pkg || { include_flight: true, hotel: null, additionals: [] };
-  if (!base.hotel) return base;
+  // Adicionais: normaliza valores BR → número (nome + valor de venda).
+  const additionals = Array.isArray(base.additionals)
+    ? base.additionals.map((a) => ({ name: a.name ?? a.nome ?? "", value: parseBR(a.value ?? a.valor) }))
+    : [];
+  if (!base.hotel) return { ...base, additionals };
   const hotel = base.hotel;
   return {
     ...base,
+    additionals,
     hotel: {
       ...hotel,
       photos: [], // fotos do hotel — efêmeras, não persistem
       nights: hotel.nights === "" || hotel.nights == null ? null : Number(hotel.nights),
+      // Comissão da consolidadora (interna) e quarto principal do cálculo persistem.
+      hotel_commission: parseBR(hotel.hotel_commission),
+      selected_room_id: hotel.selected_room_id ?? null,
       rooms: Array.isArray(hotel.rooms)
         ? hotel.rooms.map((r) => ({
             id: r.id,
