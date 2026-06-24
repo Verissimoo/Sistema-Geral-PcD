@@ -163,7 +163,9 @@ export const initialFormData = {
   // Ausência do campo em quotes antigos = "aereo" (retrocompatibilidade total).
   quote_kind: "aereo",
   // Modelo do pacote — preenchido nos próximos passos (hotel/adicionais).
-  package: { include_flight: true, hotel: null, additionals: [] },
+  // price_display controla como o total aparece no PDF: "unico" (só o total) ou
+  // "discriminado" (voo/hotel/adicionais em linhas separadas).
+  package: { include_flight: true, hotel: null, additionals: [], price_display: "unico" },
   recipient_type: "cliente",
   partner_id: null,
   partner_name: null,

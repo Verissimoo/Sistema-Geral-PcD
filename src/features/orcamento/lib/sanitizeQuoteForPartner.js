@@ -53,6 +53,7 @@ function sanitizePackageForPartner(pkg) {
   const hotel = pkg.hotel && typeof pkg.hotel === "object" ? pkg.hotel : null;
   return {
     include_flight: pkg.include_flight !== false,
+    price_display: pkg.price_display === "discriminado" ? "discriminado" : "unico",
     hotel: hotel
       ? {
           name: hotel.name,

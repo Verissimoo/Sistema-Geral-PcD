@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import { FileText, AlertTriangle, ArrowLeft, ArrowRight } from "lucide-react";
+import { FileText, AlertTriangle, ArrowLeft, ArrowRight, Receipt } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
 import { Label } from "@/shared/ui/label";
@@ -330,6 +330,49 @@ export default function VendedorOrcamento() {
                       }))
                     }
                   />
+
+                  {/* Como apresentar o preço no PDF */}
+                  <Card className="border-border/50">
+                    <CardContent className="p-4 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Receipt className="h-4 w-4 text-primary" />
+                        <h3 className="text-sm font-semibold">Como apresentar o preço no PDF?</h3>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {[
+                          { value: "unico", title: "Preço único do pacote", desc: "Mostra só o total final somado." },
+                          { value: "discriminado", title: "Discriminado", desc: "Voo, hotel e adicionais em linhas separadas, com subtotais e total." },
+                        ].map((opt) => {
+                          const active = (formData.package?.price_display || "unico") === opt.value;
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() =>
+                                setFormData((p) => ({
+                                  ...p,
+                                  package: { ...(p.package || {}), price_display: opt.value },
+                                }))
+                              }
+                              className={`text-left rounded-lg border p-3 transition-colors ${
+                                active
+                                  ? "border-primary bg-primary/10"
+                                  : "border-border bg-muted/20 hover:bg-muted/40"
+                              }`}
+                            >
+                              <span className="flex items-center gap-2 text-sm font-medium">
+                                <span className={`grid h-4 w-4 place-items-center rounded-full border ${active ? "border-primary" : "border-border"}`}>
+                                  {active && <span className="h-2 w-2 rounded-full bg-primary" />}
+                                </span>
+                                {opt.title}
+                              </span>
+                              <span className="mt-1 block text-xs text-text-muted pl-6">{opt.desc}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
                 </>
               )}
             </div>
