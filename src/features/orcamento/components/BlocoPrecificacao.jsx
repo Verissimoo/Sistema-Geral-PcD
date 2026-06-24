@@ -442,11 +442,6 @@ export default function BlocoPrecificacao({ formData, setFormData }) {
       (formData.services.insurance.active ? parseBR(formData.services.insurance.value) : 0) +
       (formData.services.transfer.active ? parseBR(formData.services.transfer.value) : 0);
 
-    // Comissão do vendedor atribuída ao hotel (= comissão da consolidadora ×
-    // baseRate, já que o lucro do hotel é a própria comissão) e ao aéreo (resto).
-    const comissaoHotel = hotelCommission * baseRate;
-    const comissaoAereo = Math.max(0, comissaoTotal - comissaoHotel);
-
     return {
       cost_brl, venda_base, acrescimo,
       // Mantemos nomes antigos apontando aos totais para compatibilidade da UI:
@@ -462,7 +457,6 @@ export default function BlocoPrecificacao({ formData, setFormData }) {
       // ── Pacote ──
       isPacote, hotelSale, hotelCost, hotelCommission, additionalsSum,
       flightCustoTotal, flightNiponTotal, flightSaleTotal,
-      comissaoHotel, comissaoAereo,
     };
   }, [formData, appliedCostPerThousand, appliedSalePerThousand]);
 
@@ -1159,18 +1153,13 @@ export default function BlocoPrecificacao({ formData, setFormData }) {
                     </p>
                   )}
 
-                  {/* Consolidado: hotel + aéreo, em evidência */}
-                  <div className="bg-bg-surface border border-border rounded-lg p-3 space-y-1.5 text-sm">
+                  {/* Custo consolidado: hotel + aéreo. A comissão NÃO entra aqui —
+                      só é calculável depois do valor de venda (card abaixo). */}
+                  <div className="bg-bg-surface border border-border rounded-lg p-3 text-sm">
                     <div className="flex justify-between gap-3">
                       <span className="text-text-muted">Custo total</span>
                       {split(calc.hotelCost, calc.flightCustoTotal)}
                     </div>
-                    <div className="flex justify-between gap-3">
-                      <span className="text-text-muted">Comissão do vendedor</span>
-                      {split(calc.comissaoHotel, calc.comissaoAereo)}
-                    </div>
-                    <Separator className="my-1" />
-                    <Row label="Valor total do pacote (com adicionais)" value={formatBRL(calc.total)} bold accent />
                   </div>
                 </>
               );
