@@ -387,9 +387,37 @@ export default function BlocoPrecificacao({ formData, setFormData }) {
       niponTotal += cn.nipon * m;
     }
 
+    // ── Pacote: hotel (quarto selecionado) + adicionais entram nos totais ──
+    // Mesma regra do pricingCalculator (fonte de verdade): custo do hotel =
+    // valor do quarto − comissão da consolidadora; nipon do hotel = valor do
+    // quarto (sem ×1.10), então o lucro do hotel = a própria comissão.
+    // Adicionais entram igualmente em custo e nipon (venda pura, margem zero).
+    const isPacote = formData.quote_kind === "pacote" && !!formData.package;
+    let hotelSale = 0, hotelCost = 0, hotelCommission = 0, additionalsSum = 0;
+    if (isPacote) {
+      const pkg = formData.package;
+      if (pkg.hotel) {
+        const rooms = Array.isArray(pkg.hotel.rooms) ? pkg.hotel.rooms : [];
+        const sel = rooms.find((r) => r && r.id === pkg.hotel.selected_room_id) || rooms[0] || null;
+        const roomValue = parseBR(sel?.value);
+        hotelCommission = Math.min(parseBR(pkg.hotel.hotel_commission), roomValue);
+        hotelSale = roomValue;
+        hotelCost = roomValue - hotelCommission;
+      }
+      additionalsSum = (Array.isArray(pkg.additionals) ? pkg.additionals : [])
+        .reduce((s, a) => s + parseBR(a?.value ?? a?.valor), 0);
+    }
+    // Guarda os totais SÓ do aéreo antes de somar o pacote (para o detalhamento).
+    const flightCustoTotal = custoTotal;
+    const flightNiponTotal = niponTotal;
+    custoTotal = flightCustoTotal + hotelCost + additionalsSum;
+    niponTotal = flightNiponTotal + hotelSale + additionalsSum;
+
     const saleInput = parseBR(pr.sale_value);
     const isPerPerson = pr.sale_per !== "total";
-    const saleTotal = isPerPerson ? saleInput * passengers : saleInput;
+    const flightSaleTotal = isPerPerson ? saleInput * passengers : saleInput;
+    // Venda total do pacote = venda aérea + quarto selecionado + adicionais.
+    const saleTotal = flightSaleTotal + hotelSale + additionalsSum;
 
     // Comissão sempre sobre os totais. Taxa base depende da origem do lead:
     // Carteira própria → 30%; demais → 25%. Extra fixo em 45% do excedente.
@@ -414,6 +442,11 @@ export default function BlocoPrecificacao({ formData, setFormData }) {
       (formData.services.insurance.active ? parseBR(formData.services.insurance.value) : 0) +
       (formData.services.transfer.active ? parseBR(formData.services.transfer.value) : 0);
 
+    // Comissão do vendedor atribuída ao hotel (= comissão da consolidadora ×
+    // baseRate, já que o lucro do hotel é a própria comissão) e ao aéreo (resto).
+    const comissaoHotel = hotelCommission * baseRate;
+    const comissaoAereo = Math.max(0, comissaoTotal - comissaoHotel);
+
     return {
       cost_brl, venda_base, acrescimo,
       // Mantemos nomes antigos apontando aos totais para compatibilidade da UI:
@@ -426,6 +459,10 @@ export default function BlocoPrecificacao({ formData, setFormData }) {
       comissaoBase, excedente, comissaoExtra, comissaoTotal,
       baseRate, isCarteiraPropria,
       total,
+      // ── Pacote ──
+      isPacote, hotelSale, hotelCost, hotelCommission, additionalsSum,
+      flightCustoTotal, flightNiponTotal, flightSaleTotal,
+      comissaoHotel, comissaoAereo,
     };
   }, [formData, appliedCostPerThousand, appliedSalePerThousand]);
 
@@ -1081,6 +1118,67 @@ export default function BlocoPrecificacao({ formData, setFormData }) {
         </CardContent>
       </Card>
 
+      {/* 4A-Pacote — Hotel e adicionais entram no custo/comissão */}
+      {calc.isPacote && (
+        <Card className="border-accent/30 bg-accent/5">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Wallet className="h-4 w-4 text-accent" /> Pacote — Hotel e Adicionais
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {(() => {
+              const pkg = formData.package || {};
+              const hotel = pkg.hotel || {};
+              const rooms = Array.isArray(hotel.rooms) ? hotel.rooms : [];
+              const sel = rooms.find((r) => r && r.id === hotel.selected_room_id) || rooms[0] || null;
+              const roomName = sel?.name || "Quarto selecionado";
+              const split = (hotelVal, aereoVal) => (
+                <span>
+                  <strong>{formatBRL(hotelVal)}</strong> <span className="text-text-muted">(hotel)</span>
+                  {" + "}
+                  <strong>{formatBRL(aereoVal)}</strong> <span className="text-text-muted">(aéreo)</span>
+                  {" = "}
+                  <strong>{formatBRL(hotelVal + aereoVal)}</strong>
+                </span>
+              );
+              return (
+                <>
+                  {calc.hotelSale > 0 ? (
+                    <div className="bg-bg-surface border border-border rounded-lg p-3 space-y-1.5 text-sm">
+                      <Row label={`Valor do quarto (${roomName})`} value={formatBRL(calc.hotelSale)} bold />
+                      <Row label="Comissão da consolidadora (lucro do hotel)" value={formatBRL(calc.hotelCommission)} accent />
+                      <Row label="Custo do hotel (quarto − comissão)" value={formatBRL(calc.hotelCost)} muted />
+                      {calc.additionalsSum > 0 && (
+                        <Row label="Adicionais (repasse ao cliente)" value={formatBRL(calc.additionalsSum)} />
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-text-muted">
+                      Nenhum valor de quarto preenchido na etapa do hotel. Volte ao passo 3 para informar o quarto.
+                    </p>
+                  )}
+
+                  {/* Consolidado: hotel + aéreo, em evidência */}
+                  <div className="bg-bg-surface border border-border rounded-lg p-3 space-y-1.5 text-sm">
+                    <div className="flex justify-between gap-3">
+                      <span className="text-text-muted">Custo total</span>
+                      {split(calc.hotelCost, calc.flightCustoTotal)}
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <span className="text-text-muted">Comissão do vendedor</span>
+                      {split(calc.comissaoHotel, calc.comissaoAereo)}
+                    </div>
+                    <Separator className="my-1" />
+                    <Row label="Valor total do pacote (com adicionais)" value={formatBRL(calc.total)} bold accent />
+                  </div>
+                </>
+              );
+            })()}
+          </CardContent>
+        </Card>
+      )}
+
       {/* 4B - Valor de venda à parceira (input livre + feedback contextual) */}
       {isParceiroMode && (
         <Card className="border-warning/30 bg-warning/10">
@@ -1264,7 +1362,7 @@ export default function BlocoPrecificacao({ formData, setFormData }) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {passengers >= 2 && (
+          {passengers >= 2 && !calc.isPacote && (
             <Card className="bg-accent/5 border-accent/30">
               <CardContent className="p-3 space-y-1.5 text-sm">
                 <div className="text-[11px] uppercase tracking-widest text-muted-foreground">
@@ -1329,11 +1427,19 @@ export default function BlocoPrecificacao({ formData, setFormData }) {
             </div>
           </div>
 
-          {passengers >= 2 && calc.saleInput > 0 && (
+          {passengers >= 2 && calc.saleInput > 0 && !calc.isPacote && (
             <div className="text-xs text-muted-foreground">
               {calc.isPerPerson
                 ? <>Total da venda: <strong>{formatBRL(calc.saleTotal)}</strong> ({formatBRL(calc.saleInput)} × {passengers} pax)</>
                 : <>Por pessoa: <strong>{formatBRL(calc.saleTotal / passengers)}</strong> ({formatBRL(calc.saleTotal)} ÷ {passengers})</>}
+            </div>
+          )}
+
+          {calc.isPacote && (
+            <div className="text-xs text-text-muted">
+              Este é o valor do <strong>aéreo</strong>. O quarto selecionado ({formatBRL(calc.hotelSale)})
+              {calc.additionalsSum > 0 && <> e os adicionais ({formatBRL(calc.additionalsSum)})</>} já entram
+              automaticamente no total do pacote: <strong>{formatBRL(calc.total)}</strong>.
             </div>
           )}
 
