@@ -25,6 +25,8 @@ export const routes = [
   { path: "/gerente/clientes/:id", roles: ADMIN_GERENTE, page: () => import("@/features/clientes/pages/GerenteClienteDetalhe") },
   { path: "/gerente/orcamentos", roles: ADMIN_GERENTE, page: () => import("@/features/orcamento/pages/GerenteOrcamentos") },
   { path: "/gerente/parceiros", roles: ADMIN_GERENTE, page: () => import("@/features/parceiros/pages/GerenteParceiros") },
+  { path: "/gerente/campanhas", roles: ADMIN_GERENTE, page: () => import("@/features/campanhas/pages/GerenteCampanhas") },
+  { path: "/gerente/campanhas/:id", roles: ADMIN_GERENTE, page: () => import("@/features/campanhas/pages/GerenteCampanhaDetalhe") },
 
   // === PORTAL DO VENDEDOR ===
   { path: "/vendedor", roles: COMERCIAL, page: () => import("@/features/vendedores/pages/VendedorHome") },

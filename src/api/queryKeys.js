@@ -51,4 +51,9 @@ export const qk = {
     all: ["rituals"],
     list: () => ["rituals", "list"],
   },
+  campanhas: {
+    all: ["campanhas"],
+    list: () => ["campanhas", "list"],
+    detail: (id) => ["campanhas", "detail", id],
+  },
 };

@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import { Hotel, ImagePlus, Trash2, Plus, ArrowUp, ArrowDown, AlertTriangle } from "lucide-react";
+import { useState } from "react";
+import { Hotel, Trash2, Plus, ArrowUp, ArrowDown, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
 import { Label } from "@/shared/ui/label";
@@ -8,6 +8,7 @@ import { Textarea } from "@/shared/ui/textarea";
 import { parseBR, sanitizeBRInput } from "@/shared/lib/parseBR";
 import { formatBRL } from "@/shared/lib/format";
 import { compressImage, imageFileFromPaste } from "@/shared/lib/imageCompress";
+import PasteDropzone from "@/shared/components/hotel/PasteDropzone";
 
 export const EMPTY_HOTEL = {
   name: "",
@@ -284,33 +285,5 @@ export default function HotelSection({ hotel, onChange }) {
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-// Área de colar/selecionar imagem. tabIndex permite focar e colar (Ctrl+V).
-function PasteDropzone({ busy, compact, onPaste, onFiles }) {
-  const inputRef = useRef(null);
-  return (
-    <div
-      tabIndex={0}
-      onPaste={onPaste}
-      onClick={() => inputRef.current?.click()}
-      className={`cursor-pointer rounded-lg border border-dashed border-border bg-muted/20 hover:bg-muted/40 transition-colors text-center text-text-muted focus:outline-none focus:ring-2 focus:ring-ring ${compact ? "p-3 text-xs" : "p-4 text-sm"}`}
-    >
-      <ImagePlus className={`mx-auto mb-1 ${compact ? "h-4 w-4" : "h-5 w-5"}`} />
-      {busy ? "Processando imagem…" : "Clique para selecionar ou cole (Ctrl+V) uma imagem aqui"}
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        multiple={!compact}
-        className="hidden"
-        onChange={(e) => {
-          const files = Array.from(e.target.files || []);
-          if (files.length) onFiles(files);
-          e.target.value = "";
-        }}
-      />
-    </div>
   );
 }

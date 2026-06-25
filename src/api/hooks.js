@@ -14,6 +14,7 @@ import * as clientOriginsApi from "./clientOrigins";
 import * as contractorsApi from "./contractors";
 import * as projectsApi from "./projects";
 import * as ritualsApi from "./rituals";
+import * as campanhasApi from "./campanhas";
 
 function useInvalidate(keys) {
   const qc = useQueryClient();
@@ -247,4 +248,63 @@ export function useUpdateRitual() {
     mutationFn: ({ id, updates }) => ritualsApi.updateRitual(id, updates),
     onSuccess: invalidate,
   });
+}
+
+// ─── Campanhas (campanha → destinos → hotéis) ───────────────────────
+// Toda mutação invalida qk.campanhas.all, que cobre list + detail.
+export function useCampaigns(options = {}) {
+  return useQuery({ queryKey: qk.campanhas.list(), queryFn: campanhasApi.listCampaigns, ...options });
+}
+export function useCampaignFull(id, options = {}) {
+  return useQuery({
+    queryKey: qk.campanhas.detail(id),
+    queryFn: () => campanhasApi.getCampaignFull(id),
+    enabled: !!id,
+    ...options,
+  });
+}
+export function useCreateCampaign() {
+  const invalidate = useInvalidate([qk.campanhas.all]);
+  return useMutation({ mutationFn: campanhasApi.createCampaign, onSuccess: invalidate });
+}
+export function useUpdateCampaign() {
+  const invalidate = useInvalidate([qk.campanhas.all]);
+  return useMutation({
+    mutationFn: ({ id, updates }) => campanhasApi.updateCampaign(id, updates),
+    onSuccess: invalidate,
+  });
+}
+export function useDeleteCampaign() {
+  const invalidate = useInvalidate([qk.campanhas.all]);
+  return useMutation({ mutationFn: campanhasApi.deleteCampaign, onSuccess: invalidate });
+}
+export function useCreateDestination() {
+  const invalidate = useInvalidate([qk.campanhas.all]);
+  return useMutation({ mutationFn: campanhasApi.createDestination, onSuccess: invalidate });
+}
+export function useUpdateDestination() {
+  const invalidate = useInvalidate([qk.campanhas.all]);
+  return useMutation({
+    mutationFn: ({ id, updates }) => campanhasApi.updateDestination(id, updates),
+    onSuccess: invalidate,
+  });
+}
+export function useDeleteDestination() {
+  const invalidate = useInvalidate([qk.campanhas.all]);
+  return useMutation({ mutationFn: campanhasApi.deleteDestination, onSuccess: invalidate });
+}
+export function useCreateHotel() {
+  const invalidate = useInvalidate([qk.campanhas.all]);
+  return useMutation({ mutationFn: campanhasApi.createHotel, onSuccess: invalidate });
+}
+export function useUpdateHotel() {
+  const invalidate = useInvalidate([qk.campanhas.all]);
+  return useMutation({
+    mutationFn: ({ id, updates }) => campanhasApi.updateHotel(id, updates),
+    onSuccess: invalidate,
+  });
+}
+export function useDeleteHotel() {
+  const invalidate = useInvalidate([qk.campanhas.all]);
+  return useMutation({ mutationFn: campanhasApi.deleteHotel, onSuccess: invalidate });
 }

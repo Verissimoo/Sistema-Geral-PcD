@@ -5,7 +5,7 @@ import {
   Settings, X, Briefcase, Calendar,
   Store, ChevronDown, Wrench, Star, Info, Target, Kanban, FileStack, BookOpen,
   LogOut, Trophy, BarChart3, UserSearch, Shield, Handshake,
-  Headset, Send, CheckCircle, Building2, Home,
+  Headset, Send, CheckCircle, Building2, Home, Megaphone,
 } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
@@ -20,6 +20,7 @@ const gerenteSubItems = [
   { label: "Clientes", icon: UserSearch, path: "/gerente/clientes" },
   { label: "Orçamentos", icon: FileStack, path: "/gerente/orcamentos" },
   { label: "Parceiros", icon: Handshake, path: "/gerente/parceiros" },
+  { label: "Campanhas", icon: Megaphone, path: "/gerente/campanhas" },
 ];
 
 const contratosSubItems = [
