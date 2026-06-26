@@ -237,6 +237,18 @@ export default function BlocoPrecificacao({ formData, setFormData }) {
   const setPricing = (patch) =>
     setFormData((p) => ({ ...p, pricing: { ...p.pricing, ...patch } }));
 
+  // Edita o valor do quarto SELECIONADO direto na precificação — útil quando o
+  // preço do hotel depende do nº de diárias (confirmação na hora de fechar).
+  const setSelectedRoomValue = (val) =>
+    setFormData((p) => {
+      const pkg = p.package || {};
+      const hotel = pkg.hotel || {};
+      const rooms = Array.isArray(hotel.rooms) ? hotel.rooms : [];
+      const selId = hotel.selected_room_id || rooms[0]?.id;
+      const nextRooms = rooms.map((r) => (r.id === selId ? { ...r, value: val } : r));
+      return { ...p, package: { ...pkg, hotel: { ...hotel, rooms: nextRooms } } };
+    });
+
   // Blocos extras de tipo de emissão (vários tipos de tarifa somados).
   const addExtraBlock = () =>
     setFormData((p) => ({
@@ -1138,9 +1150,20 @@ export default function BlocoPrecificacao({ formData, setFormData }) {
               );
               return (
                 <>
-                  {calc.hotelSale > 0 ? (
-                    <div className="bg-bg-surface border border-border rounded-lg p-3 space-y-1.5 text-sm">
-                      <Row label={`Valor do quarto (${roomName})`} value={formatBRL(calc.hotelSale)} bold />
+                  {sel ? (
+                    <div className="bg-bg-surface border border-border rounded-lg p-3 space-y-2 text-sm">
+                      {/* Valor do quarto — EDITÁVEL aqui (varia com as diárias) */}
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-text-muted">Valor do quarto ({roomName})</span>
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          value={sel.value ?? ""}
+                          onChange={(e) => setSelectedRoomValue(sanitizeBRInput(e.target.value))}
+                          placeholder="Ex: 3.500,00"
+                          className="h-8 w-36 text-right font-semibold"
+                        />
+                      </div>
                       <Row label="Comissão da consolidadora (lucro do hotel)" value={formatBRL(calc.hotelCommission)} accent />
                       <Row label="Custo do hotel (quarto − comissão)" value={formatBRL(calc.hotelCost)} muted />
                       {calc.additionalsSum > 0 && (
@@ -1149,7 +1172,7 @@ export default function BlocoPrecificacao({ formData, setFormData }) {
                     </div>
                   ) : (
                     <p className="text-xs text-text-muted">
-                      Nenhum valor de quarto preenchido na etapa do hotel. Volte ao passo 3 para informar o quarto.
+                      Nenhum quarto cadastrado. Volte ao passo 3 (Hotel) para adicionar um quarto.
                     </p>
                   )}
 

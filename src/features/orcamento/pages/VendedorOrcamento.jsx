@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useLocation, useNavigate } from "react-router-dom";
 import { FileText, AlertTriangle, ArrowLeft, ArrowRight, Receipt } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
@@ -18,6 +18,7 @@ import BlocoPrecificacao from "@/features/orcamento/components/BlocoPrecificacao
 import BlocoGerar from "@/features/orcamento/components/BlocoGerar";
 import HotelSection, { EMPTY_HOTEL } from "@/features/orcamento/components/HotelSection";
 import AdicionaisSection from "@/features/orcamento/components/AdicionaisSection";
+import { mapCampaignHotelToPackage } from "@/features/campanhas/lib/mapCampaignHotel";
 
 // ─── Componente Principal ───────────────────────────────────────────
 export default function VendedorOrcamento() {
@@ -26,7 +27,37 @@ export default function VendedorOrcamento() {
   const [formData, setFormData] = useState(initialFormData);
   const [searchParams, setSearchParams] = useSearchParams();
   const fromQuoteId = searchParams.get("from");
+  const location = useLocation();
+  const navigate = useNavigate();
   const { toast: orcamentoToast } = useToast();
+
+  // Pré-preenche a partir de uma campanha (botão "Usar no orçamento"): já vem
+  // como Pacote, com o hotel/adicionais carregados. O vendedor só preenche o
+  // cliente, o aéreo e confirma os valores do hotel (que variam com as diárias).
+  useEffect(() => {
+    const fc = location.state?.fromCampaign;
+    if (!fc?.hotel) return;
+    const mapped = mapCampaignHotelToPackage({ id: fc.campaignId }, null, fc.hotel);
+    setFormData((prev) => ({
+      ...prev,
+      quote_kind: "pacote",
+      product: "aereo",
+      package: {
+        ...(prev.package || {}),
+        include_flight: true,
+        hotel: { ...EMPTY_HOTEL, ...mapped.hotel },
+        additionals: mapped.additionals,
+      },
+    }));
+    // Remove o state da navegação para não reaplicar em refresh/voltar.
+    navigate(location.pathname, { replace: true, state: null });
+    orcamentoToast({
+      title: "Hotel da campanha carregado",
+      description: `${fc.hotel.name || "Hotel"} pré-preenchido. Preencha o cliente e o aéreo; confirme o valor do hotel na precificação.`,
+    });
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- consumir o state da navegação uma única vez no mount
+  }, []);
 
   const apiKeyMissing = !import.meta.env.VITE_ANTHROPIC_API_KEY;
 
