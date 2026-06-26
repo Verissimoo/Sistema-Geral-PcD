@@ -288,6 +288,16 @@ export default function VendedorOrcamento() {
                         },
                       }))
                     }
+                    onImport={(mapped) =>
+                      setFormData((p) => ({
+                        ...p,
+                        package: {
+                          ...(p.package || {}),
+                          hotel: { ...EMPTY_HOTEL, ...mapped.hotel },
+                          additionals: mapped.additionals,
+                        },
+                      }))
+                    }
                   />
                   <AdicionaisSection
                     additionals={formData.package?.additionals || []}

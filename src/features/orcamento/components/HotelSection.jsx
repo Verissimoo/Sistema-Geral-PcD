@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Hotel, Trash2, Plus, ArrowUp, ArrowDown, AlertTriangle } from "lucide-react";
+import { Hotel, Trash2, Plus, ArrowUp, ArrowDown, AlertTriangle, Megaphone, Sparkles } from "lucide-react";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
 import { Label } from "@/shared/ui/label";
@@ -9,6 +9,11 @@ import { parseBR, sanitizeBRInput } from "@/shared/lib/parseBR";
 import { formatBRL } from "@/shared/lib/format";
 import { compressImage, imageFileFromPaste } from "@/shared/lib/imageCompress";
 import PasteDropzone from "@/shared/components/hotel/PasteDropzone";
+import ImportCampaignDialog from "@/features/campanhas/components/ImportCampaignDialog";
+
+// Fotos base64 (data URL) são pesadas e NÃO persistem; URLs http (de campanha)
+// são leves e persistem. Usado p/ os avisos e p/ o strip-on-save.
+const isData = (s) => typeof s === "string" && s.startsWith("data:");
 
 export const EMPTY_HOTEL = {
   name: "",
@@ -41,18 +46,21 @@ function nightsFromDates(checkIn, checkOut) {
   return diff > 0 ? diff : null;
 }
 
-export default function HotelSection({ hotel, onChange }) {
+export default function HotelSection({ hotel, onChange, onImport }) {
   const h = hotel || EMPTY_HOTEL;
   const photos = Array.isArray(h.photos) ? h.photos : [];
   const rooms = Array.isArray(h.rooms) ? h.rooms : [];
   const [busy, setBusy] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   const derivedNights = nightsFromDates(h.check_in, h.check_out);
+  const fromCampaign = !!h.source?.campaign_id;
 
-  // Heurística de "reaberto": tem metadados de hotel mas nenhuma foto carregada
-  // → as imagens foram removidas ao salvar e precisam ser coladas de novo.
+  // Avisos de fotos: só as base64 (coladas) são efêmeras. URLs de campanha
+  // persistem. "Reaberto" = tem metadados mas NENHUMA foto (precisa recolar).
   const hasMeta = !!h.name || rooms.length > 0;
   const noPhotos = photos.length === 0 && rooms.every((r) => !r.photo);
+  const hasBase64 = photos.some((p) => isData(p.src)) || rooms.some((r) => isData(r.photo));
   const looksReopened = hasMeta && noPhotos;
 
   const setPhotos = (next) => onChange({ photos: next });
@@ -128,18 +136,36 @@ export default function HotelSection({ hotel, onChange }) {
   return (
     <Card className="border-border/50">
       <CardContent className="p-4 space-y-4">
-        <div className="flex items-center gap-2">
-          <Hotel className="h-4 w-4 text-primary" />
-          <h3 className="text-sm font-semibold">Hotel</h3>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Hotel className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-semibold">Hotel</h3>
+          </div>
+          {onImport && (
+            <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => setImportOpen(true)}>
+              <Megaphone className="h-3.5 w-3.5" /> Importar de campanha ativa
+            </Button>
+          )}
         </div>
 
-        {/* Aviso fixo sobre fotos efêmeras */}
-        <div className={`flex items-start gap-2 rounded-lg p-3 text-xs border ${looksReopened ? "bg-warning/10 border-warning/30 text-warning" : "bg-accent/5 border-accent/30 text-text-muted"}`}>
-          <AlertTriangle className={`h-3.5 w-3.5 shrink-0 mt-0.5 ${looksReopened ? "text-warning" : "text-accent"}`} />
-          {looksReopened
-            ? "As imagens não ficam salvas no orçamento. Para gerar o PDF novamente, cole as fotos do hotel e dos quartos outra vez."
-            : "As fotos não são salvas no banco — ficam só na memória para gerar o PDF agora. Ao reabrir o orçamento, será preciso colá-las de novo."}
-        </div>
+        {/* Origem campanha: valores são SUGESTÕES e devem ser confirmados */}
+        {fromCampaign && (
+          <div className="flex items-start gap-2 rounded-lg p-3 text-xs border bg-accent/5 border-accent/30 text-text-muted">
+            <Sparkles className="h-3.5 w-3.5 shrink-0 mt-0.5 text-accent" />
+            Hotel importado de campanha. Os valores (quartos, adicionais, comissão) são <strong>sugestões</strong> — revise e confirme antes de enviar.
+          </div>
+        )}
+
+        {/* Aviso de fotos efêmeras — só relevante se há base64 colado ou se
+            faltam fotos para regerar o PDF. URLs de campanha persistem. */}
+        {(looksReopened || hasBase64) && (
+          <div className={`flex items-start gap-2 rounded-lg p-3 text-xs border ${looksReopened ? "bg-warning/10 border-warning/30 text-warning" : "bg-accent/5 border-accent/30 text-text-muted"}`}>
+            <AlertTriangle className={`h-3.5 w-3.5 shrink-0 mt-0.5 ${looksReopened ? "text-warning" : "text-accent"}`} />
+            {looksReopened
+              ? "As imagens coladas não ficam salvas no orçamento. Para gerar o PDF novamente, cole as fotos do hotel e dos quartos outra vez."
+              : "As fotos coladas (Ctrl+V) não são salvas no banco — ficam só na memória para gerar o PDF agora. As fotos vindas de campanha são mantidas."}
+          </div>
+        )}
 
         {/* Dados do hotel */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -284,6 +310,14 @@ export default function HotelSection({ hotel, onChange }) {
           ))}
         </div>
       </CardContent>
+
+      {onImport && (
+        <ImportCampaignDialog
+          open={importOpen}
+          onOpenChange={setImportOpen}
+          onSelect={(mapped) => onImport(mapped)}
+        />
+      )}
     </Card>
   );
 }

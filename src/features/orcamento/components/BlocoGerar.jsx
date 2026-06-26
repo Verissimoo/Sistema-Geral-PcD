@@ -23,8 +23,12 @@ import {
 } from "@/features/orcamento/lib/orcamentoHelpers";
 import Row from "@/features/orcamento/components/Row";
 
-// Remove as fotos efêmeras do pacote antes de gravar (não vão pro banco) e
-// normaliza os valores monetários dos quartos. Mantém os metadados.
+// URLs http (fotos de campanha no Storage) são leves e PODEM persistir; data
+// URLs base64 (coladas manualmente) são pesadas e são removidas ao salvar.
+const isHttpUrl = (s) => typeof s === "string" && /^https?:\/\//i.test(s);
+
+// Prepara o pacote para gravar: descarta as fotos base64 efêmeras mas MANTÉM as
+// URLs de campanha, e normaliza os valores monetários dos quartos/adicionais.
 function stripPackageForSave(pkg) {
   const base = pkg || { include_flight: true, hotel: null, additionals: [] };
   // Adicionais: normaliza valores BR → número (nome + valor de venda).
@@ -38,7 +42,10 @@ function stripPackageForSave(pkg) {
     additionals,
     hotel: {
       ...hotel,
-      photos: [], // fotos do hotel — efêmeras, não persistem
+      // Mantém só as fotos por URL (campanha); base64 colado é descartado.
+      photos: (Array.isArray(hotel.photos) ? hotel.photos : [])
+        .filter((p) => isHttpUrl(p?.src))
+        .map((p) => ({ id: p.id, src: p.src })),
       nights: hotel.nights === "" || hotel.nights == null ? null : Number(hotel.nights),
       // Comissão da consolidadora (interna) e quarto principal do cálculo persistem.
       hotel_commission: parseBR(hotel.hotel_commission),
@@ -48,7 +55,8 @@ function stripPackageForSave(pkg) {
             id: r.id,
             name: r.name,
             value: parseBR(r.value),
-            photo: null, // foto do quarto — efêmera, não persiste
+            // Foto do quarto: mantém URL de campanha; base64 vira null.
+            photo: isHttpUrl(r.photo) ? r.photo : null,
           }))
         : [],
     },
