@@ -36,6 +36,7 @@ const vendedorSubItems = [
   { label: "Manual do Vendedor", icon: BookOpen, path: "/vendedor/cotacao" },
   { label: "Gerador de Orçamento", icon: FileText, path: "/vendedor/orcamento" },
   { label: "Orçamentos", icon: FileStack, path: "/vendedor/orcamentos" },
+  { label: "Campanhas Ativas", icon: Megaphone, path: "/vendedor/campanhas" },
   { label: "Tabela de Milhas", icon: Star, path: "/vendedor/milhas" },
   { label: "Plano de Carreira", icon: Trophy, path: "/vendedor/carreira" },
   { label: "Informações Essenciais", icon: Info, path: "/vendedor/informacoes" },
